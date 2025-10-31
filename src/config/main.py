@@ -60,18 +60,20 @@ def validator_all(path_air,
                   sat_freq = "10.7",
                   air_freq = "10.7",
                   bio_var = "lai_lv",
+                  comparison = "air2sat"
                   ):
-
-
 
     datelist = ["2024-10-22", "2024-10-25", "2024-10-31"]
     flight_direction_list = ["WE", "EW"]
     scan_direction_list = ["1_25", "26_50"]
 
-    air_mpdi_compound = pd.DataFrame({"lat": [], "lon": [], f"MPDI": []}) # air2sat
-    sat_mpdi_compound = pd.DataFrame({"lat": [], "lon": [], f"MPDI": []}) # air2sat
-    bio_compound = pd.DataFrame({"lat": [], "lon": [], bio_var: []}) # air2bio
-    air_mpdi_compound_air2bio = pd.DataFrame({"lat": [], "lon": [],  f"MPDI": []}) # air2bio
+    if "bio" in comparison:
+        plot_var = bio_var
+    else:
+        plot_var = "MPDI"
+
+    ref_compound = pd.DataFrame({})
+    test_compound = pd.DataFrame({})
 
     for d in datelist:
         for f in flight_direction_list:
@@ -96,22 +98,36 @@ def validator_all(path_air,
                              date=d,
                              bio_var=bio_var).to_pandas()
 
-                ref_nn_air2sat, test_nn_air2sat = collocate_datasets(air_pd, sat_pd)
-                ref_nn_air2era, bio_nn_air2era = collocate_datasets(air_pd, bio_pd)
+                if comparison == "air2sat":
+                    # Airborne to Satellite
+                    ref_nn, test_nn = collocate_datasets(air_pd, sat_pd)
+                    ref_compound = pd.concat([ref_compound, ref_nn])
+                    test_compound = pd.concat([test_compound, test_nn])
 
-                air_mpdi_compound = pd.concat([air_mpdi_compound, ref_nn_air2sat])  # get filtered AMPR MPDI air2sat
-                sat_mpdi_compound = pd.concat([sat_mpdi_compound, test_nn_air2sat])  # get filtered Satellite MPDI air2sat
+                    test_compound["MPDI"] = mpdi(test_compound["bt_V"], test_compound["bt_H"])
 
-                bio_compound = pd.concat([bio_compound,bio_nn_air2era])  # get filtered Satellite MPDI air2bio
-                air_mpdi_compound_air2bio = pd.concat([air_mpdi_compound_air2bio, ref_nn_air2era])  # get filtered Satellite MPDI air2bio
+                if comparison == "air2bio":
+                    # Airborne to ERA 5
+                    ref_nn, test_nn = collocate_datasets(air_pd, bio_pd)
+                    ref_compound = pd.concat([ref_compound, ref_nn])
+                    test_compound = pd.concat([test_compound, test_nn])
+
+                if comparison == "sat2bio":
+                    # Satellite to ERA 5 variable
+                    ref_nn, test_nn = collocate_datasets(sat_pd, bio_pd)
+                    ref_compound  = pd.concat([ref_nn, ref_nn])
+                    test_compound = pd.concat([test_nn, test_nn])
+
+                    test_compound["MPDI"] = mpdi(test_compound["bt_V"], test_compound["bt_H"])
 
 
-    scatter_plot(air_mpdi_compound_air2bio["MPDI"],
-                 bio_compound[bio_var],
+
+    scatter_plot(ref_compound[plot_var],
+                 test_compound[plot_var],
                  xlabel=f"AMPR MPDI {air_freq} GHz",
-                 ylabel=f"ERA5 {bio_var}",
-                 xmin_val=0,
-                 xmax_val=0.2,
-                 ymin_val=0,
-                 ymax_val=5,
+                 ylabel=f"AMSR2 MPDI {sat_freq}",
+                 # xmin_val=0,
+                 # xmax_val=0.2,
+                 # ymin_val=0,
+                 # ymax_val=5,
                  )
