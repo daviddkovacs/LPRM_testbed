@@ -57,8 +57,8 @@ def scatter_plot(ref,
 
     plt.plot([xmin_val, xmax_val], [ymin_val, ymax_val], 'k-', lw=1, )
 
-    plt.text(0.05, 0.95, stats_text, transform=plt.gca().transAxes,
-             verticalalignment='top', horizontalalignment='left', fontsize=14)
+    # plt.text(0.05, 0.95, stats_text, transform=plt.gca().transAxes,
+    #          verticalalignment='top', horizontalalignment='left', fontsize=14)
 
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)

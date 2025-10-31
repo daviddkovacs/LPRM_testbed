@@ -28,8 +28,6 @@ if __name__ == "__main__":
     #### Common Setup ####
     date:
         '2024-10-22', '2024-10-25', '2024-10-31'
-    figpath:
-        if defined, saves figs
 
     """
     # Configure the parameters here ====================================================================================
@@ -40,23 +38,22 @@ if __name__ == "__main__":
     scan_direction = "26_50"
 
     # Satellite (AMSR2) variables
-    path_sat = r"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/passive_input/medium_resolution/AMSR2"
-    sat_freq = "10.7"
+    path_sat = r"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/passive_input/coarse_resolution/AMSR2"
+    sat_freq = '18.7'
     sat_sensor = "amsr2"
     overpass = "day"
-    target_res = "10"
+    target_res = "25"
 
     # ERA 5 variables
     path_era = "/home/ddkovacs/shares/climers/Datapool/ECMWF_reanalysis/01_raw/ERA5-Land/datasets/images"
-    bio_var = "lai_lv"
+    bio_var = "skt"
 
     # Comomn variables
-    comparison = "air2bio" # "air2sat" or  "air2bio"
+    comparison = "sat2bio" # "air2sat" or  "air2bio"
     date = "2024-10-22"
-    figpath = "/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/WHYMSIE/figures/25km"
 
-    single_validation = False
-    compound_validation = True
+    single_validation = True
+    compound_validation = False
     #  =================================================================================================================
 
     ER2_flight = AirborneData(path=path_air,
@@ -80,7 +77,8 @@ if __name__ == "__main__":
     if single_validation:
         validator(ER2_flight,
                   AMSR2_OBS,
-                  ERA_SM)
+                  ERA_SM,
+                  comparison=comparison)
 
     if compound_validation:
         validator_all(path_air,
