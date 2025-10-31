@@ -35,7 +35,7 @@ if __name__ == "__main__":
     # Configure the parameters here ====================================================================================
     # Airborne (AMPR) variables
     path_air = r"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/WHYMSIE/data_from_RichDJ"
-    air_freq = "10.7"
+    air_freq = '37.1'
     flight_direction = "WE"
     scan_direction = "26_50"
 
@@ -49,7 +49,9 @@ if __name__ == "__main__":
     # ERA 5 variables
     path_era = "/home/ddkovacs/shares/climers/Datapool/ECMWF_reanalysis/01_raw/ERA5-Land/datasets/images"
     bio_var = "lai_lv"
+
     # Comomn variables
+    comparison = "air2bio" # "air2sat" or  "air2bio"
     date = "2024-10-22"
     figpath = "/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/WHYMSIE/figures/25km"
 
@@ -90,4 +92,5 @@ if __name__ == "__main__":
                       sat_freq=sat_freq,
                       air_freq=air_freq,
                       bio_var=bio_var,
+                      comparison= comparison
                       )
