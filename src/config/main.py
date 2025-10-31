@@ -1,113 +1,117 @@
+from utilities.utils import mpdi, collocate_datasets
+from utilities.plotting import scatter_plot, longitude_plot
 from readers.Air import AirborneData
 from readers.Sat import SatelliteData
 from readers.ERA5 import ERA
-from utilities.utils import mpdi, collocate_datasets
-from utilities.plotting import scatter_plot, longitude_plot
 
-def main_validator(ref_obj, test_obj,  *args):
+import pandas as pd
+
+def validator(ref_obj, test_obj, anc_obj = None ):
 
     # We load the dataframes
     air_pd = ref_obj.to_pandas()
     sat_pd = test_obj.to_pandas()
 
-    anc_pd = args[0].to_pandas()
-    anc_var = args[0].variable
-    # holnap szepen nezd at ezt hogy kell kicsomagolni
+    # We get air & sat specific variables
+    air_freq = ref_obj.air_freq
+    sat_freq = test_obj.sat_freq
+
+    bio_obj = anc_obj
+    bio_pd = bio_obj.to_pandas()
+    bio_var = bio_obj.bio_var
 
     # Calc MPDI for satellite
     sat_pd["MPDI"] = mpdi(sat_pd["bt_V"], sat_pd["bt_H"])
 
-    ref_nn, test_nn = collocate_datasets( air_pd, sat_pd)
-    _, anc_nn = collocate_datasets( air_pd, anc_pd)
+    ref_nn_air2sat, test_nn_air2sat = collocate_datasets(air_pd, sat_pd)
+    ref_nn_air2era, bio_nn_air2era = collocate_datasets(air_pd, bio_pd)
 
-    # anc_nn = anc_nn /10
+    scatter_plot(ref_nn_air2sat["MPDI"],
+                 test_nn_air2sat["MPDI"],
+                 xlabel=f"AMPR MPDI {air_freq} GHz",
+                 ylabel=f"AMSR2 MPDI {sat_freq} GHz",)
 
-    # scatter_plot(ref_nn["MPDI"],
-    #              test_nn["MPDI"],
-    #              ref_obj,
-    #              test_obj)
+    scatter_plot(ref_nn_air2era["MPDI"],
+                 bio_nn_air2era[bio_var],
+                 xlabel=f"AMPR MPDI {air_freq} GHz",
+                 ylabel=f"ERA5 {bio_var}",
+                 xmin_val=0,
+                 xmax_val=0.2,
+                 ymin_val=0,
+                 ymax_val=5,
+                 )
 
     longitude_plot(ref_x= air_pd["lon"] ,
                    ref_y = air_pd["MPDI"],
-                   test_x = test_nn["lon"],
-                   test_y = test_nn["MPDI"],
-                   test2_x= anc_nn["lon"],
-                   test2_y = anc_nn[anc_var],
+                   test_x = test_nn_air2sat["lon"],
+                   test_y = test_nn_air2sat["MPDI"],
+                   test2_x= bio_nn_air2era["lon"],
+                   test2_y = bio_nn_air2era[bio_var],
                    air_obj = ref_obj,
-                   sat_obj = test_obj,)
+                   sat_obj = test_obj,
+                   bio_obj=anc_obj)
+
+def validator_all(path_air,
+                  path_sat,
+                  path_era,
+                  sat_sensor = "AMSR2",
+                  overpass = "night",
+                  target_res = "10",
+                  sat_freq = "10.7",
+                  air_freq = "10.7",
+                  bio_var = "lai_lv",
+                  ):
 
 
-if __name__ == "__main__":
-    """
-    #### Airborne Setup ####
-    Frequencies:
-        '10.7', '19.35', '37.1'
-    Flight Directions:
-        'EW', 'WE'
-    Scan directions:
-        '1_25', '26_50'
+
+    datelist = ["2024-10-22", "2024-10-25", "2024-10-31"]
+    flight_direction_list = ["WE", "EW"]
+    scan_direction_list = ["1_25", "26_50"]
+
+    air_mpdi_compound = pd.DataFrame({"lat": [], "lon": [], f"MPDI": []}) # air2sat
+    sat_mpdi_compound = pd.DataFrame({"lat": [], "lon": [], f"MPDI": []}) # air2sat
+    bio_compound = pd.DataFrame({"lat": [], "lon": [], bio_var: []}) # air2bio
+    air_mpdi_compound_air2bio = pd.DataFrame({"lat": [], "lon": [],  f"MPDI": []}) # air2bio
+
+    for d in datelist:
+        for f in flight_direction_list:
+            for s in scan_direction_list:
+
+                air_pd = AirborneData(path=path_air,
+                                          date=d,
+                                          scan_direction=s,
+                                          flight_direction=f,
+                                          air_freq=air_freq,
+                                          ).to_pandas()
+
+                sat_pd = SatelliteData(path=path_sat,
+                                          sat_sensor=sat_sensor,
+                                          date=d,
+                                          overpass=overpass,
+                                          target_res=target_res,
+                                          sat_freq=sat_freq,
+                                          ).to_pandas()
+
+                bio_pd = ERA(path=path_era,
+                             date=d,
+                             bio_var=bio_var).to_pandas()
+
+                ref_nn_air2sat, test_nn_air2sat = collocate_datasets(air_pd, sat_pd)
+                ref_nn_air2era, bio_nn_air2era = collocate_datasets(air_pd, bio_pd)
+
+                air_mpdi_compound = pd.concat([air_mpdi_compound, ref_nn_air2sat])  # get filtered AMPR MPDI air2sat
+                sat_mpdi_compound = pd.concat([sat_mpdi_compound, test_nn_air2sat])  # get filtered Satellite MPDI air2sat
+
+                bio_compound = pd.concat([bio_compound,bio_nn_air2era])  # get filtered Satellite MPDI air2bio
+                air_mpdi_compound_air2bio = pd.concat([air_mpdi_compound_air2bio, ref_nn_air2era])  # get filtered Satellite MPDI air2bio
 
 
-    #### Satellite Setup ####
-    Frequencies (AMSR2):
-        '6.9', '7.3', '10.7', '18.7', '23.8', '36.5', '89.0'
-    Sensor:
-        "amsr2" (more to come..)
-    Target resolution:
-        '10', '25' (kms)
-    Overpass:
-        'day', 'night'
-
-
-    #### Common Setup ####
-    date:
-        '2024-10-22', '2024-10-25', '2024-10-31'
-    figpath:
-        if defined, saves figs
-
-    """
-    # Configure the parameters here ====================================================================================
-    # Airborne (AMPR) variables
-    path_air = r"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/WHYMSIE/data_from_RichDJ"
-    air_freq = "10.7"
-    flight_direction = "EW"
-    scan_direction = "1_25"
-
-    # Satellite (AMSR2) variables
-    path_sat = r"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/passive_input/medium_resolution/AMSR2"
-    sat_freq = "10.7"
-    sat_sensor = "amsr2"
-    overpass = "day"
-    target_res = "10"
-
-    # ERA 5 variables
-    path_era = "/home/ddkovacs/shares/climers/Datapool/ECMWF_reanalysis/01_raw/ERA5-Land/datasets/images"
-    variable = "lai_lv"
-    # Comomn variables
-    date = "2024-10-22"
-    figpath = "/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/WHYMSIE/figures/25km"
-
-    #  =================================================================================================================
-
-    ER2_flight = AirborneData(path=path_air,
-                              date=date,
-                              scan_direction=scan_direction,
-                              flight_direction=flight_direction,
-                              air_freq=air_freq,
-                              )
-
-    AMSR2_OBS = SatelliteData(path=path_sat,
-                              sat_sensor=sat_sensor,
-                              date=date,
-                              overpass=overpass,
-                              target_res=target_res,
-                              sat_freq=sat_freq,
-                              )
-    ERA_SM  = ERA(path=path_era,
-                  date =date,
-                  variable=variable)
-
-
-    main_validator(ER2_flight,
-                   AMSR2_OBS,
-                   ERA_SM)
+    scatter_plot(air_mpdi_compound_air2bio["MPDI"],
+                 bio_compound[bio_var],
+                 xlabel=f"AMPR MPDI {air_freq} GHz",
+                 ylabel=f"ERA5 {bio_var}",
+                 xmin_val=0,
+                 xmax_val=0.2,
+                 ymin_val=0,
+                 ymax_val=5,
+                 )

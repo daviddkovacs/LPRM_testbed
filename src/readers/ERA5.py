@@ -12,12 +12,12 @@ class ERA:
     def __init__(self,
                  path,
                  date,
-                 variable,
+                 bio_var,
                  time="1800"):
 
         self.path = path
         self.date = date
-        self.variable = variable
+        self.bio_var = bio_var
 
         year = datetime.strptime(date, "%Y-%m-%d").strftime("%Y")
         ddd = datetime.strptime(date, "%Y-%m-%d").strftime("%j")
@@ -31,9 +31,9 @@ class ERA:
 
         dataset = self.to_xarray()
         pandas = dataset.to_dataframe()
-        pandas = pandas.dropna(subset=[self.variable]).reset_index()
+        pandas = pandas.dropna(subset=[self.bio_var]).reset_index()
         pandas["longitude"] = (pandas["longitude"] + 180) % 360 - 180
-        pandas = pandas[["longitude", "latitude", f"{self.variable}"]]
+        pandas = pandas[["longitude", "latitude", f"{self.bio_var}"]]
         pandas = pandas.rename(columns={"longitude": "lon",
                                         "latitude": "lat", })
         return pandas
