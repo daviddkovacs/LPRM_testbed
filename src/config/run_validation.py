@@ -33,7 +33,7 @@ if __name__ == "__main__":
     # Configure the parameters here ====================================================================================
     # Airborne (AMPR) variables
     path_air = r"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/WHYMSIE/data_from_RichDJ"
-    air_freq = '37.1'
+    air_freq = '10.7'
     flight_direction = "WE"
     scan_direction = "26_50"
 

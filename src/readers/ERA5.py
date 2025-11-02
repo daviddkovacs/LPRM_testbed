@@ -13,7 +13,7 @@ class ERA:
                  path,
                  date,
                  bio_var,
-                 time="1800"):
+                 time="1200"):
 
         self.path = path
         self.date = date

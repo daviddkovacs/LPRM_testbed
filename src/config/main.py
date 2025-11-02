@@ -11,8 +11,7 @@ def main_validator(ref_obj, test_obj,  *args):
     sat_pd = test_obj.to_pandas()
 
     anc_pd = args[0].to_pandas()
-    anc_var = args[0].variable
-    # holnap szepen nezd at ezt hogy kell kicsomagolni
+    bio_var = args[0].bio_var
 
     # Calc MPDI for satellite
     sat_pd["MPDI"] = mpdi(sat_pd["bt_V"], sat_pd["bt_H"])
@@ -22,19 +21,21 @@ def main_validator(ref_obj, test_obj,  *args):
 
     # anc_nn = anc_nn /10
 
-    # scatter_plot(ref_nn["MPDI"],
-    #              test_nn["MPDI"],
-    #              ref_obj,
-    #              test_obj)
+    scatter_plot(ref_nn["MPDI"],
+                 anc_nn[bio_var],
+                 xlabel= "reference MPDI",
+                 ylabel= f"ERA5 LAI",
+                 )
 
     longitude_plot(ref_x= air_pd["lon"] ,
                    ref_y = air_pd["MPDI"],
                    test_x = test_nn["lon"],
                    test_y = test_nn["MPDI"],
                    test2_x= anc_nn["lon"],
-                   test2_y = anc_nn[anc_var],
+                   test2_y = anc_nn[bio_var],
                    air_obj = ref_obj,
-                   sat_obj = test_obj,)
+                   sat_obj = test_obj,
+                   bio_obj=args[0])
 
 
 if __name__ == "__main__":
@@ -68,20 +69,20 @@ if __name__ == "__main__":
     """
     # Configure the parameters here ====================================================================================
     # Airborne (AMPR) variables
-    path_air = r"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/WHYMSIE/data_from_RichDJ"
+    path_air = r"G:\My Drive\Munka\CLIMERS\ER2_validation\AMPR\data_from_RichDJ"
     air_freq = "10.7"
     flight_direction = "EW"
     scan_direction = "1_25"
 
     # Satellite (AMSR2) variables
-    path_sat = r"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/passive_input/medium_resolution/AMSR2"
+    path_sat = r"G:\My Drive\Munka\CLIMERS\ER2_validation\AMSR2\passive_input\coarse_resolution"
     sat_freq = "10.7"
     sat_sensor = "amsr2"
     overpass = "day"
-    target_res = "10"
+    target_res = "25"
 
     # ERA 5 variables
-    path_era = "/home/ddkovacs/shares/climers/Datapool/ECMWF_reanalysis/01_raw/ERA5-Land/datasets/images"
+    path_era = "G:\My Drive\Munka\CLIMERS\ER2_validation\ERA5"
     variable = "lai_lv"
     # Comomn variables
     date = "2024-10-22"
@@ -105,7 +106,7 @@ if __name__ == "__main__":
                        )
     ERA_SM  = ERA(path=path_era,
                   date =date,
-                  variable=variable)
+                  bio_var=variable)
 
 
     main_validator(ER2_flight,

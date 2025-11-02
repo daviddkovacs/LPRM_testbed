@@ -96,7 +96,7 @@ def longitude_plot(ref_x,
     scan_direction = air_obj.scan_direction
 
     # Bio variables
-    bio_var = bio_obj.variable
+    bio_var = bio_obj.bio_var
 
     # Common variables
     date = air_obj.air_freq
