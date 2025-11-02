@@ -45,7 +45,6 @@ class BTData:
 
         dataset = self.to_xarray()
         pandas = dataset.to_dataframe()
-        pandas.columns = pandas.columns.str.upper()
         pandas = pandas.dropna(subset=['scantime']).reset_index()
         pandas = pandas[["lon","lat","scantime", f"bt_{self.sat_freq}V", f"bt_{self.sat_freq}H"]]
         pandas = pandas.rename(columns={f"bt_{self.sat_freq}V": "bt_V",
