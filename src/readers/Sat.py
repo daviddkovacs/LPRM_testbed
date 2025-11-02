@@ -1,7 +1,6 @@
 import os.path
 import matplotlib
 matplotlib.use("TkAgg")
-import matplotlib.pyplot as plt
 from datetime import datetime
 import xarray as xr
 import pandas as pd
@@ -56,9 +55,11 @@ class BTData:
                   ):
 
         dataset = xr.open_dataset(self.bt_file, decode_timedelta=False)
-        dataset = dataset.squeeze("time", drop=True)
+        if "time" in dataset.dims:
+            dataset = dataset.squeeze("time", drop=True)
 
         return dataset
+
 
 class LPRMData(BTData):
 
@@ -77,6 +78,7 @@ class LPRMData(BTData):
 
         dataset = self.to_xarray()
         pandas = dataset.to_dataframe()
-        pandas = pandas.dropna(subset=['SCANTIME']).reset_index()
+        pandas.columns = pandas.columns.str.lower()
+        pandas = pandas.dropna(subset=['scantime'])
 
         return pandas
