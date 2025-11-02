@@ -46,20 +46,22 @@ def scatter_density(ref,test):
     fig.colorbar(density, label='Number of points per pixel')
     # ax.set_xlim(0, 1.5)
     # ax.set_ylim(270, 330)
-    fig.show()
+    fig.canvas.draw_idle()
+    plt.pause(0.001)
+    return fig, ax, density
 
 
 
 list =  [
-    2.960764414506059,
-    47.49172375338833,
-    64.96753015339186,
-    51.421139003878324
+    -160.3937675108309,
+    -55.92594055290717,
+    179.48854267825544,
+    70.6033586301435
   ]
 
 
 path_sat = r"G:\My Drive\Munka\CLIMERS\ER2_validation\AMSR2\passive_input\medium_resolution"
-sat_freq = '36.5'
+sat_freq = "10.7"
 sat_sensor = "amsr2"
 overpass = "day"
 target_res = "10"
@@ -70,50 +72,49 @@ datelist = [
     # "2023-08-29",
     # "2023-08-30",
     "2024-10-24",
-    "2024-10-25",
-    "2024-10-26",
-    "2024-10-27",
-]
+            "2024-10-25",
+            "2024-10-26",
+            "2024-10-27",]
 
-# for d in datelist:
-d = "2024-10-27"
-KA = BTData(path = path_sat,
-               date = d,
-               sat_freq = "36.5",
-               overpass = overpass,
-               sat_sensor = sat_sensor,
-               target_res = target_res,
-               )
+for d in datelist:
+    KA = BTData(path = path_sat,
+                   date = d,
+                   sat_freq = sat_freq,
+                   overpass = overpass,
+                   sat_sensor = sat_sensor,
+                   target_res = target_res,
+                   )
 
-dfKA = KA.to_pandas()
-dfKA = bbox(dfKA, list)
-dfKA["TSURF"] = calc_surface_temperature(dfKA["bt_V"])
+    dfKA = KA.to_pandas()
+    dfKA = bbox(dfKA, list)
+    dfKA["TSURF"] = calc_surface_temperature(dfKA["bt_V"])
 
-BT = BTData(path = path_sat,
-               date = d,
-               sat_freq = sat_freq,
-               overpass = overpass,
-               sat_sensor = sat_sensor,
-               target_res = target_res,
-               )
+    BT = BTData(path = path_sat,
+                   date = d,
+                   sat_freq = '18.7',
+                   overpass = overpass,
+                   sat_sensor = sat_sensor,
+                   target_res = target_res,
+                   )
 
-BT = BT.to_pandas()
-BT = bbox(BT, list)
+    BT = BT.to_pandas()
+    BT = bbox(BT, list)
 
-BT["MPDI"] =  mpdi(BT["bt_V"], BT["bt_H"])
+    BT["MPDI"] =  mpdi(BT["bt_V"], BT["bt_H"])
+
+    plt.ion()
+    scatter_density(BT["MPDI"],
+                    dfKA["TSURF"],
+                    )
 
 
-LPRM = LPRMData(path = r"G:\My Drive\Munka\CLIMERS\ER2_validation\AMSR2\lprm_output\medium_resolution",
-               date = d,
-               sat_freq = sat_freq,
-               overpass = overpass,
-               sat_sensor = sat_sensor,
-               target_res = target_res,
-               )
-
-LPRM = LPRM.to_pandas()
-LPRM = bbox(LPRM, list)
-
-scatter_density(BT["MPDI"],
-                dfKA["TSURF"],
-                )
+# LPRM = LPRMData(path = r"G:\My Drive\Munka\CLIMERS\ER2_validation\AMSR2\lprm_output\medium_resolution",
+#                date = d,
+#                sat_freq = sat_freq,
+#                overpass = overpass,
+#                sat_sensor = sat_sensor,
+#                target_res = target_res,
+#                )
+#
+# LPRM = LPRM.to_pandas()
+# LPRM = bbox(LPRM, list)
