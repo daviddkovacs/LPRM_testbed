@@ -75,6 +75,36 @@ def create_scatter_plot(ref,
         plt.show()
 
 
+
+def scatter_density(ref,test,
+                    xlabel = None,
+                    ylabel = None,
+                    xlim = (None, None),
+                    ylim = (None, None)):
+
+    white_viridis = LinearSegmentedColormap.from_list('white_viridis', [
+        (0, '#ffffff'),
+        (1e-20, '#440053'),
+        (0.2, '#404388'),
+        (0.4, '#2a788e'),
+        (0.6, '#21a784'),
+        (0.8, '#78d151'),
+        (1, '#fde624'),
+    ], N=256)
+
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1, projection='scatter_density')
+    density = ax.scatter_density(ref, test,cmap=white_viridis, dpi=30)
+    fig.colorbar(density, label='Number of points per pixel')
+    ax.set_xlim(xlim[0], xlim[1])
+    ax.set_ylim(ylim[0], ylim[1])
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    fig.canvas.draw_idle()
+    plt.pause(0.001)
+    return fig, ax, density
+
+
 def create_longitude_plot(ref_x,
                    ref_y,
                    test_x,
@@ -138,31 +168,5 @@ def create_longitude_plot(ref_x,
     if show_fig:
         plt.show()
 
-def scatter_density(ref,test,
-                    xlabel = None,
-                    ylabel = None,
-                    xlim = (None, None),
-                    ylim = (None, None)):
 
-    white_viridis = LinearSegmentedColormap.from_list('white_viridis', [
-        (0, '#ffffff'),
-        (1e-20, '#440053'),
-        (0.2, '#404388'),
-        (0.4, '#2a788e'),
-        (0.6, '#21a784'),
-        (0.8, '#78d151'),
-        (1, '#fde624'),
-    ], N=256)
-
-    fig = plt.figure()
-    ax = fig.add_subplot(1, 1, 1, projection='scatter_density')
-    density = ax.scatter_density(ref, test,cmap=white_viridis, dpi=30)
-    fig.colorbar(density, label='Number of points per pixel')
-    ax.set_xlim(xlim[0], xlim[1])
-    ax.set_ylim(ylim[0], ylim[1])
-    plt.xlabel(xlabel)
-    plt.ylabel(ylabel)
-    fig.canvas.draw_idle()
-    plt.pause(0.001)
-    return fig, ax, density
 
