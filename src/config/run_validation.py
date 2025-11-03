@@ -75,25 +75,14 @@ if __name__ == "__main__":
                   date =date,
                   bio_var=bio_var)
 
+    p = Plotter(ER2_flight,
+                AMSR2_OBS,
+                ERA_SM,
+                )
 
     if single_validation:
-        p = Plotter(ER2_flight,
-                  AMSR2_OBS,
-                  ERA_SM,
-                  )
-        # p.scatterplot(comparison="air2bio")
-        # p.longitude_plot()
-        p.combined_scatter(comparison="air2bio")
+        p.scatterplot(comparison="air2bio")
+        p.longitude_plot()
 
-    # if compound_validation:
-    #     validator_all(path_air,
-    #                   path_sat,
-    #                   path_era,
-    #                   sat_sensor=sat_sensor,
-    #                   overpass=overpass,
-    #                   target_res=target_res,
-    #                   sat_freq=sat_freq,
-    #                   air_freq=air_freq,
-    #                   bio_var=bio_var,
-    #                   comparison= comparison
-    #                   )
+    if compound_validation:
+        p.combined_scatter(comparison="air2bio")
