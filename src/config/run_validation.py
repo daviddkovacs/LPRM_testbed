@@ -2,6 +2,7 @@ from readers.Air import AirborneData
 from readers.Sat import BTData
 from readers.ERA5 import ERA
 from main import validator, validator_all
+from utilities.plotting import longitude_plot
 
 if __name__ == "__main__":
     """
@@ -34,15 +35,15 @@ if __name__ == "__main__":
     # Airborne (AMPR) variables
     path_air = r"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/WHYMSIE/data_from_RichDJ"
     air_freq = '37.1'
-    flight_direction = "EW"
+    flight_direction = "WE"
     scan_direction = "26_50"
 
     # Satellite (AMSR2) variables
-    path_sat = r"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/passive_input/coarse_resolution/AMSR2"
-    sat_freq = '18.7'
+    path_sat = r"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/passive_input/medium_resolution/AMSR2"
+    sat_freq = '36.5'
     sat_sensor = "amsr2"
     overpass = "day"
-    target_res = "25"
+    target_res = "10"
 
     # ERA 5 variables
     path_era = "/home/ddkovacs/shares/climers/Datapool/ECMWF_reanalysis/01_raw/ERA5-Land/datasets/images"
@@ -80,6 +81,9 @@ if __name__ == "__main__":
                   AMSR2_OBS,
                   ERA_SM,
                   comparison=comparison)
+        longitude_plot()
+
+
 
     if compound_validation:
         validator_all(path_air,

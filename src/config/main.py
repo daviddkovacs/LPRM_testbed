@@ -23,7 +23,7 @@ def validator(ref_obj, test_obj, anc_obj ,
 
     if comparison == "air2sat":
         ref_nn, test_nn = collocate_datasets(air_pd, sat_pd)
-        sat_pd["MPDI"] = mpdi(sat_pd["bt_V"], sat_pd["bt_H"])
+        test_nn["MPDI"] = mpdi(test_nn["bt_V"], test_nn["bt_H"])
 
         plot_var = "MPDI"
         xlabel = f"AMPR MPDI {air_freq} GHz"
@@ -46,21 +46,31 @@ def validator(ref_obj, test_obj, anc_obj ,
         ylabel = f"ERA5 {bio_var}"
 
 
-    scatter_density(ref_nn["MPDI"],
-                 test_nn,
+
+    scatter_plot(ref_nn[plot_var],
+                 test_nn[plot_var],
                  xlabel=xlabel,
-                 ylabel=ylabel)
+                 ylabel=ylabel,
+                 xmax_val=0.1,
+                 xmin_val=0,
+                 ymax_val=0.1,
+                 ymin_val=0)
+    # scatter_density(ref_nn[plot_var],
+    #              test_nn[plot_var],
+    #              xlabel=xlabel,
+    #              ylabel=ylabel)
 
 
-    # longitude_plot(ref_x= air_pd["lon"] ,
-    #                ref_y = air_pd["MPDI"],
-    #                test_x = test_nn_air2sat["lon"],
-    #                test_y = test_nn_air2sat["MPDI"],
-    #                test2_x= bio_nn_air2era["lon"],
-    #                test2_y = bio_nn_air2era[bio_var],
-    #                air_obj = ref_obj,
-    #                sat_obj = test_obj,
-    #                bio_obj=anc_obj)
+    longitude_plot(ref_x= ref_nn["lon"] ,
+                   ref_y = ref_nn["MPDI"],
+                   test_x = test_nn["lon"],
+                   test_y = test_nn["MPDI"],
+                   # test2_x= bio_nn_air2era["lon"],
+                   # test2_y = bio_nn_air2era[bio_var],
+                   air_obj = ref_obj,
+                   sat_obj = test_obj,
+                   # bio_obj=anc_obj
+                   )
 
 def validator_all(path_air,
                   path_sat,

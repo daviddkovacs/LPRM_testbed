@@ -78,11 +78,11 @@ def longitude_plot(ref_x,
                    ref_y,
                    test_x,
                    test_y,
-                   test2_x,
-                   test2_y,
+                   # test2_x,
+                   # test2_y,
                    air_obj,
                    sat_obj,
-                   bio_obj,
+                   # bio_obj,
                    savedir = None,
                    show_fig = True
                    ):
@@ -98,7 +98,7 @@ def longitude_plot(ref_x,
     scan_direction = air_obj.scan_direction
 
     # Bio variables
-    bio_var = bio_obj.bio_var
+    # bio_var = bio_obj.bio_var
 
     # Common variables
     date = air_obj.air_freq
@@ -121,12 +121,12 @@ def longitude_plot(ref_x,
     ax1.grid(False)
 
     ax2 = ax1.twinx()
-    ax2.plot(test2_x, test2_y,
-             label=f"ERA5 {bio_var}",
-             color="tab:brown",
-             linestyle='--',
-             markersize=2)
-    ax2.set_ylabel(f"ERA5 {bio_var}")
+    # ax2.plot(test2_x, test2_y,
+    #          label=f"ERA5 {bio_var}",
+    #          color="tab:brown",
+    #          linestyle='--',
+    #          markersize=2)
+    # ax2.set_ylabel(f"ERA5 {bio_var}")
 
     lines1, labels1 = ax1.get_legend_handles_labels()
     lines2, labels2 = ax2.get_legend_handles_labels()
