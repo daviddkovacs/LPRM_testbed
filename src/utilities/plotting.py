@@ -81,7 +81,6 @@ def create_longitude_plot(ref_x,
                    test_y,
                    test2_x,
                    test2_y,
-                   savedir = None,
                    show_fig = True,
                           **kwargs
                    ):
@@ -132,15 +131,10 @@ def create_longitude_plot(ref_x,
     lines2, labels2 = ax2.get_legend_handles_labels()
     ax1.legend(lines1 + lines2, labels1 + labels2, loc="best")
     plt.title(f"{date} {flight_direction} {scan_direction}\n"
-              f"R: {stats_dict['r']}\n"
-              f"RMSE: {stats_dict['rmse']}\n"
-              f"Bias: {stats_dict['bias']}\n"
               )
 
     plt.grid(False)
     plt.tight_layout()
-    if savedir:
-        plt.savefig(os.path.join(savedir,rf"{date}_{flight_direction}_{scan_direction}_{air_freq}_long.png"))
     if show_fig:
         plt.show()
 

@@ -13,6 +13,7 @@ class Plotter:
         # We load the dataframes
         self.ref_obj =ref_obj
         self.test_obj = test_obj
+        self.date = ref_obj.date
 
         self.ref_pd = ref_obj.to_pandas()
         self.test_pd = test_obj.to_pandas()
@@ -75,8 +76,10 @@ class Plotter:
             "sat_sensor" : self.sat_sensor,
             "target_res" : self.target_res,
             "flight_direction" : self.flight_direction,
+            "scan_direction" : self.scan_direction,
             "air_freq" : self.air_freq,
-            "bio_var" : self.bio_var
+            "bio_var" : self.bio_var,
+            "date" : self.date
         }
         create_longitude_plot(self.ref_pd["lon"],
                               self.ref_pd["MPDI"],
