@@ -27,6 +27,7 @@ class BTData:
                  *args,
                  **kwargs):
 
+        self.path = path
         self.sat_freq = sat_freq
         self.sat_sensor = sat_sensor
         self.overpass = overpass

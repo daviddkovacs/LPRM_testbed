@@ -1,8 +1,8 @@
 from readers.Air import AirborneData
 from readers.Sat import BTData
 from readers.ERA5 import ERA
-from main import validator, validator_all
-from utilities.plotting import longitude_plot
+from main import Plotter
+from utilities.plotting import create_longitude_plot
 
 if __name__ == "__main__":
     """
@@ -34,20 +34,20 @@ if __name__ == "__main__":
     # Configure the parameters here ====================================================================================
     # Airborne (AMPR) variables
     path_air = r"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/WHYMSIE/data_from_RichDJ"
-    air_freq = '37.1'
+    air_freq = '10.7'
     flight_direction = "WE"
     scan_direction = "26_50"
 
     # Satellite (AMSR2) variables
-    path_sat = r"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/passive_input/medium_resolution/AMSR2"
-    sat_freq = '36.5'
+    path_sat = r"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/passive_input/coarse_resolution/AMSR2"
+    sat_freq = '10.7'
     sat_sensor = "amsr2"
     overpass = "day"
-    target_res = "10"
+    target_res = "25"
 
     # ERA 5 variables
     path_era = "/home/ddkovacs/shares/climers/Datapool/ECMWF_reanalysis/01_raw/ERA5-Land/datasets/images"
-    bio_var = "skt"
+    bio_var = "lai_lv"
 
     # Comomn variables
     comparison = "air2sat" # "air2sat" or  "air2bio"
@@ -73,27 +73,27 @@ if __name__ == "__main__":
                               )
     ERA_SM  = ERA(path=path_era,
                   date =date,
-                  bio_var="skt")
+                  bio_var=bio_var)
 
 
     if single_validation:
-        validator(ER2_flight,
+        p = Plotter(ER2_flight,
                   AMSR2_OBS,
                   ERA_SM,
-                  comparison=comparison)
-        longitude_plot()
+                  )
+        # p.scatterplot(comparison="air2bio")
+        # p.longitude_plot()
+        p.combined_scatter(comparison="air2bio")
 
-
-
-    if compound_validation:
-        validator_all(path_air,
-                      path_sat,
-                      path_era,
-                      sat_sensor=sat_sensor,
-                      overpass=overpass,
-                      target_res=target_res,
-                      sat_freq=sat_freq,
-                      air_freq=air_freq,
-                      bio_var=bio_var,
-                      comparison= comparison
-                      )
+    # if compound_validation:
+    #     validator_all(path_air,
+    #                   path_sat,
+    #                   path_era,
+    #                   sat_sensor=sat_sensor,
+    #                   overpass=overpass,
+    #                   target_res=target_res,
+    #                   sat_freq=sat_freq,
+    #                   air_freq=air_freq,
+    #                   bio_var=bio_var,
+    #                   comparison= comparison
+    #                   )

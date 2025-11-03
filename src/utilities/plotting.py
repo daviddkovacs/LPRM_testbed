@@ -28,7 +28,7 @@ def statistics(ref,test):
     return stats_dict
 
 
-def scatter_plot(ref,
+def create_scatter_plot(ref,
                  test,
                  xlabel = "",
                  ylabel = "",
@@ -36,15 +36,10 @@ def scatter_plot(ref,
                  xmax_val= None,
                  ymin_val = None,
                  ymax_val = None,
-                 savedir = None,
-                 showfig = True):
+                 stat_text = True,
+                 showfig = True,
+                        ):
 
-    stats_dict = statistics(ref,test)
-
-    stats_text = (f"R: {stats_dict['r']}\nRMSE: {stats_dict['rmse']}\n"
-                  f"Bias: {stats_dict['bias']}\n"
-                  f"Precision: {stats_dict['precision']}\n"
-                  f"N: {stats_dict['N']}\n")
 
     mask = np.isfinite(ref) & np.isfinite(test)
     ref = ref[mask]
@@ -59,8 +54,16 @@ def scatter_plot(ref,
 
     plt.plot([xmin_val, xmax_val], [ymin_val, ymax_val], 'k-', lw=1, )
 
-    # plt.text(0.05, 0.95, stats_text, transform=plt.gca().transAxes,
-    #          verticalalignment='top', horizontalalignment='left', fontsize=14)
+    if stat_text:
+        stats_dict = statistics(ref, test)
+
+        stats_text = (f"R: {stats_dict['r']}\nRMSE: {stats_dict['rmse']}\n"
+                      f"Bias: {stats_dict['bias']}\n"
+                      f"Precision: {stats_dict['precision']}\n"
+                      f"N: {stats_dict['N']}\n")
+
+        plt.text(0.05, 0.95, stats_text, transform=plt.gca().transAxes,
+                 verticalalignment='top', horizontalalignment='left', fontsize=14)
 
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
@@ -68,40 +71,37 @@ def scatter_plot(ref,
     plt.xlim([xmin_val, xmax_val])
     plt.ylim([ymin_val, ymax_val])
     plt.tight_layout()
-    if savedir:
-        plt.savefig(os.path.join(savedir,"scatter.png"))
     if showfig:
         plt.show()
 
 
-def longitude_plot(ref_x,
+def create_longitude_plot(ref_x,
                    ref_y,
                    test_x,
                    test_y,
-                   # test2_x,
-                   # test2_y,
-                   air_obj,
-                   sat_obj,
-                   # bio_obj,
+                   test2_x,
+                   test2_y,
                    savedir = None,
-                   show_fig = True
+                   show_fig = True,
+                          **kwargs
                    ):
 
+
     # Satellite variables
-    sat_freq = sat_obj.sat_freq
-    sat_sensor = sat_obj.sat_sensor
-    target_res = sat_obj.target_res
+    sat_freq = kwargs.get("sat_freq")
+    sat_sensor = kwargs.get("sat_sensor")
+    target_res = kwargs.get("target_res")
 
     # Airborne variables
-    flight_direction = air_obj.flight_direction
-    air_freq = air_obj.air_freq
-    scan_direction = air_obj.scan_direction
+    flight_direction = kwargs.get("flight_direction")
+    air_freq = kwargs.get("air_freq")
+    scan_direction = kwargs.get("scan_direction")
 
     # Bio variables
-    # bio_var = bio_obj.bio_var
+    bio_var = kwargs.get("bio_var")
 
     # Common variables
-    date = air_obj.air_freq
+    date = kwargs.get("date")
     stats_dict = statistics(ref_y,test_y)
 
     fig, ax1 = plt.subplots(figsize=(8, 4))
@@ -121,12 +121,12 @@ def longitude_plot(ref_x,
     ax1.grid(False)
 
     ax2 = ax1.twinx()
-    # ax2.plot(test2_x, test2_y,
-    #          label=f"ERA5 {bio_var}",
-    #          color="tab:brown",
-    #          linestyle='--',
-    #          markersize=2)
-    # ax2.set_ylabel(f"ERA5 {bio_var}")
+    ax2.plot(test2_x, test2_y,
+             label=f"ERA5 {bio_var}",
+             color="tab:brown",
+             linestyle='--',
+             markersize=2)
+    ax2.set_ylabel(f"ERA5 {bio_var}")
 
     lines1, labels1 = ax1.get_legend_handles_labels()
     lines2, labels2 = ax2.get_legend_handles_labels()

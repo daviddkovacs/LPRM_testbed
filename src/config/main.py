@@ -1,5 +1,5 @@
 from utilities.utils import mpdi, collocate_datasets
-from utilities.plotting import scatter_plot, longitude_plot
+from utilities.plotting import create_scatter_plot, create_longitude_plot
 from readers.Air import AirborneData
 from readers.Sat import BTData
 from utilities.plotting import scatter_density
@@ -7,146 +7,147 @@ from readers.ERA5 import ERA
 
 import pandas as pd
 
-def validator(ref_obj, test_obj, anc_obj ,
-              comparison = None):
+class Plotter:
+    def __init__(self,ref_obj, test_obj, bio_obj =None,):
 
-    # We load the dataframes
-    air_pd = ref_obj.to_pandas()
-    sat_pd = test_obj.to_pandas()
+        # We load the dataframes
+        self.ref_obj =ref_obj
+        self.test_obj = test_obj
 
-    # We get air & sat specific variables
-    air_freq = ref_obj.air_freq
-    sat_freq = test_obj.sat_freq
+        self.ref_pd = ref_obj.to_pandas()
+        self.test_pd = test_obj.to_pandas()
 
-    bio_pd = anc_obj.to_pandas()
-    bio_var = anc_obj.bio_var
+        # We get air & sat specific variables
+        self.air_freq = ref_obj.air_freq
+        self.flight_direction = ref_obj.flight_direction
+        self.scan_direction = ref_obj.scan_direction
 
-    if comparison == "air2sat":
-        ref_nn, test_nn = collocate_datasets(air_pd, sat_pd)
-        test_nn["MPDI"] = mpdi(test_nn["bt_V"], test_nn["bt_H"])
+        self.sat_sensor = test_obj.sat_sensor
+        self.sat_freq = test_obj.sat_freq
+        self.target_res = test_obj.target_res
+        self.target_res = test_obj.target_res
 
-        plot_var = "MPDI"
-        xlabel = f"AMPR MPDI {air_freq} GHz"
-        ylabel = f"AMSR2 MPDI {sat_freq}"
+        if bio_obj:
+            self.bio_obj = bio_obj
+            self.bio_pd = bio_obj.to_pandas()
+            self.bio_var = bio_obj.bio_var
 
-    if comparison == "air2bio":
-        ref_nn, test_nn= collocate_datasets(air_pd, bio_pd)
+    def scatterplot(self,
+                    comparison = None,
+                    ):
 
-        plot_var = "MPDI"
-        xlabel = f"AMPR MPDI {air_freq} GHz"
-        ylabel = f"AMSR2 MPDI {sat_freq}"
+        if comparison == "air2sat":
+            ref_nn, test_nn = collocate_datasets(self.ref_pd, self.test_pd)
+            test_nn["MPDI"] = mpdi(test_nn["bt_V"], test_nn["bt_H"])
 
-    if comparison == "sat2bio":
+            ref_var = "MPDI"
+            test_var = "MPDI"
+            xlabel = f"AMPR MPDI {self.air_freq} GHz"
+            ylabel = f"AMSR2 MPDI {self.sat_freq}"
+            stat_text  = True
 
-        ref_nn, test_nn= collocate_datasets(sat_pd, bio_pd)
-        ref_nn["MPDI"] = mpdi(sat_pd["bt_V"], sat_pd["bt_H"])
+        if comparison == "air2bio":
+            ref_nn, test_nn = collocate_datasets(self.ref_pd, self.bio_pd)
 
-        plot_var = bio_var
-        xlabel = f"AMSR2 MPDI {sat_freq}"
-        ylabel = f"ERA5 {bio_var}"
+            ref_var = "MPDI"
+            test_var = self.bio_var
+            xlabel = f"AMPR MPDI {self.air_freq} GHz"
+            ylabel = f"ERA5 {self.bio_var}"
+            stat_text  = False
 
+        create_scatter_plot(ref_nn[ref_var], test_nn[test_var], xlabel=xlabel, ylabel=ylabel, stat_text = stat_text)
 
-
-    scatter_plot(ref_nn[plot_var],
-                 test_nn[plot_var],
-                 xlabel=xlabel,
-                 ylabel=ylabel,
-                 xmax_val=0.1,
-                 xmin_val=0,
-                 ymax_val=0.1,
-                 ymin_val=0)
     # scatter_density(ref_nn[plot_var],
     #              test_nn[plot_var],
     #              xlabel=xlabel,
     #              ylabel=ylabel)
 
 
-    longitude_plot(ref_x= ref_nn["lon"] ,
-                   ref_y = ref_nn["MPDI"],
-                   test_x = test_nn["lon"],
-                   test_y = test_nn["MPDI"],
-                   # test2_x= bio_nn_air2era["lon"],
-                   # test2_y = bio_nn_air2era[bio_var],
-                   air_obj = ref_obj,
-                   sat_obj = test_obj,
-                   # bio_obj=anc_obj
-                   )
+    def longitude_plot(self):
 
-def validator_all(path_air,
-                  path_sat,
-                  path_era,
-                  sat_sensor = "AMSR2",
-                  overpass = "night",
-                  target_res = "10",
-                  sat_freq = "10.7",
-                  air_freq = "10.7",
-                  bio_var = "lai_lv",
-                  comparison = "air2sat"
-                  ):
+        ref_nn, test_nn = collocate_datasets(self.ref_pd, self.test_pd)
+        test_nn["MPDI"] = mpdi(test_nn["bt_V"], test_nn["bt_H"])
 
-    datelist = ["2024-10-22", "2024-10-25", "2024-10-31"]
-    flight_direction_list = ["WE", "EW"]
-    scan_direction_list = ["1_25", "26_50"]
+        ref_nn2bio, test_nnbio = collocate_datasets(self.ref_pd, self.bio_pd)
 
-    ref_compound = pd.DataFrame({})
-    test_compound = pd.DataFrame({})
-
-    for d in datelist:
-        for f in flight_direction_list:
-            for s in scan_direction_list:
-
-                air_pd = AirborneData(path=path_air,
-                                          date=d,
-                                          scan_direction=s,
-                                          flight_direction=f,
-                                          air_freq=air_freq,
-                                          ).to_pandas()
-
-                sat_pd = BTData(path=path_sat,
-                                          sat_sensor=sat_sensor,
-                                          date=d,
-                                          overpass=overpass,
-                                          target_res=target_res,
-                                          sat_freq=sat_freq,
-                                          ).to_pandas()
-
-                bio_pd = ERA(path=path_era,
-                             date=d,
-                             bio_var=bio_var).to_pandas()
-
-                if comparison == "air2sat":
-                    # Airborne to Satellite
-                    ref_nn, test_nn = collocate_datasets(air_pd, sat_pd)
-                    ref_compound = pd.concat([ref_compound, ref_nn])
-                    test_compound = pd.concat([test_compound, test_nn])
-                    test_compound["MPDI"] = mpdi(test_compound["bt_V"], test_compound["bt_H"])
-
-                    plot_var = "MPDI"
-                    ylabel = f"AMSR2 MPDI {sat_freq}"
-
-                if comparison == "air2bio":
-                    # Airborne to ERA 5
-                    ref_nn, test_nn = collocate_datasets(air_pd, bio_pd)
-                    ref_compound = pd.concat([ref_compound, ref_nn])
-                    test_compound = pd.concat([test_compound, test_nn])
-
-                    plot_var = bio_var
-                    ylabel = f"ERA5 {bio_var}"
-
-                if comparison == "sat2bio":
-                    # Satellite to ERA 5 variable
-                    ref_nn, test_nn = collocate_datasets(sat_pd, bio_pd)
-                    ref_compound  = pd.concat([ref_nn, ref_nn])
-                    test_compound = pd.concat([test_nn, test_nn])
-
-                    test_compound["MPDI"] = mpdi(test_compound["bt_V"], test_compound["bt_H"])
-
-                    plot_var = bio_var
-                    ylabel = f"ERA5 {bio_var}"
+        kwargs_dict= {
+            "sat_freq" : self.sat_freq,
+            "sat_sensor" : self.sat_sensor,
+            "target_res" : self.target_res,
+            "flight_direction" : self.flight_direction,
+            "air_freq" : self.air_freq,
+            "bio_var" : self.bio_var
+        }
+        create_longitude_plot(self.ref_pd["lon"],
+                              self.ref_pd["MPDI"],
+                              test_nn["lon"],
+                              test_nn["MPDI"],
+                              test_nnbio["lon"],
+                              test_nnbio[self.bio_var],
+                              **kwargs_dict
+                              )
 
 
-    scatter_plot(ref_compound["MPDI"],
-                 test_compound[plot_var],
-                 xlabel=f"AMPR MPDI {air_freq} GHz",
-                 ylabel = ylabel,
-                 )
+    def combined_scatter(self,comparison = None):
+
+        path_air = self.ref_obj.path
+        path_sat = self.test_obj.path
+
+        datelist = ["2024-10-22", "2024-10-25", "2024-10-31"]
+        flight_direction_list = ["WE", "EW"]
+        scan_direction_list = ["1_25", "26_50"]
+
+        ref_compound = pd.DataFrame({})
+        test_compound = pd.DataFrame({})
+
+        for d in datelist:
+            for f in flight_direction_list:
+                for s in scan_direction_list:
+
+                    air_pd = AirborneData(path=path_air,
+                                              date=d,
+                                              scan_direction=s,
+                                              flight_direction=f,
+                                              air_freq=self.ref_obj.air_freq,
+                                              ).to_pandas()
+
+                    sat_pd = BTData(path=path_sat,
+                                              sat_sensor=self.test_obj.sat_sensor,
+                                              date=d,
+                                              overpass= self.test_obj.overpass,
+                                              target_res=self.test_obj.target_res,
+                                              sat_freq=self.test_obj.sat_freq,
+                                              ).to_pandas()
+
+                    bio_pd = ERA(path=self.bio_obj.path,
+                                 date=d,
+                                 bio_var=self.bio_obj.bio_var).to_pandas()
+
+                    if comparison == "air2sat":
+                        # Airborne to Satellite
+                        ref_nn, test_nn = collocate_datasets(air_pd, sat_pd)
+                        ref_compound = pd.concat([ref_compound, ref_nn])
+                        test_compound = pd.concat([test_compound, test_nn])
+                        test_compound["MPDI"] = mpdi(test_compound["bt_V"], test_compound["bt_H"])
+
+                        ref_var = "MPDI"
+                        test_var = "MPDI"
+                        xlabel = f"AMPR MPDI {self.air_freq} GHz"
+                        ylabel = f"AMSR2 MPDI {self.sat_freq}"
+                        stat_text = True
+
+                    if comparison == "air2bio":
+                        # Airborne to ERA 5
+                        ref_nn, test_nn = collocate_datasets(air_pd, bio_pd)
+                        ref_compound = pd.concat([ref_compound, ref_nn])
+                        test_compound = pd.concat([test_compound, test_nn])
+
+                        ref_var = "MPDI"
+                        test_var = self.bio_var
+                        xlabel = f"AMPR MPDI {self.air_freq} GHz"
+                        ylabel = f"ERA5 {self.bio_var}"
+                        stat_text = False
+
+
+        create_scatter_plot(ref_compound[ref_var], test_compound[test_var], xlabel=xlabel,
+                            ylabel=ylabel, stat_text = stat_text)
