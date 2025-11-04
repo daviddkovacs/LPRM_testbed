@@ -81,10 +81,10 @@ def scatter_density(ref,
                     xlabel = None,
                     ylabel = None,
                     cbar_label= "Density",
+                    cbar_type= None,
                     xlim = (None, None),
                     ylim = (None, None),
-                    colormin=None,
-                    colormax=None,
+                    cbar_scale=(None, None),
                     ):
 
     white_viridis = LinearSegmentedColormap.from_list('white_viridis', [
@@ -97,15 +97,18 @@ def scatter_density(ref,
         (1, '#fde624'),
     ], N=256)
 
+    if cbar_type is None:
+        cbar_type = white_viridis
+
     fig = plt.figure()
     ax = fig.add_subplot(1, 1, 1, projection='scatter_density')
     density = ax.scatter_density(ref,
                                  test,
                                  c=test_colour,
-                                 cmap="jet",
+                                 cmap= cbar_type,
                                  dpi= 50,
-                                 vmin=colormin,
-                                 vmax=colormax,
+                                 vmin=cbar_scale[0],
+                                 vmax=cbar_scale[1],
                                  )
 
     fig.colorbar(density, label= cbar_label)
