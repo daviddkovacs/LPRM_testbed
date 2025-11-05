@@ -176,6 +176,6 @@ def normalize(array):
     minimum = array.min()
     maximum = array.max()
 
-    scaled_array = (array - minimum) / (minimum - maximum)
+    scaled_array = (array - minimum) / (maximum -minimum )
     scaled_array = np.positive(scaled_array)
     return scaled_array

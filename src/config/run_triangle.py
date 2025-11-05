@@ -15,10 +15,10 @@ import mpl_scatter_density # adds projection='scatter_density'
 from utilities.plotting import scatter_density
 
 list = [
-    -136.6834706998432,
-    -47.68639167823793,
-    155.5604454802504,
-    68.1005883629972
+    14.284295810477516,
+    61.27841143689383,
+    16.202652562513663,
+    62.30595374553576
   ]
 
 # Frequencies(AMSR2):
@@ -29,8 +29,10 @@ sat_sensor = "amsr2"
 overpass = "day"
 target_res = "10"
 
+composite_start = "2024-05-01"
+composite_end = "2024-07-01"
 
-datelist = pd.date_range(start='6/1/2024', end='6/3/2024')
+datelist = pd.date_range(start=composite_start, end=composite_end)
 datelist = [s.strftime("%Y-%m-%d") for s in datelist]
 
 ref_compound = pd.DataFrame({})
@@ -82,18 +84,18 @@ for d in datelist:
 plt.ion()
 common_data = find_common_coords(ref_compound,test_compound)
 
-common_data["TSURF_s"] = normalize(common_data["TSURF"])
 common_data["VOD_C1_s"] = normalize(common_data["VOD_C1"])
+common_data["TSURF_s"] = normalize(common_data["TSURF"])
 
 scatter_density(
-    ref=common_data["TSURF_s"],
-    test=common_data["VOD_C1_s"],
+    ref=common_data["VOD_C1"],
+    test=common_data["TSURF"],
     test_colour=common_data["SM_C1"],
-    xlabel= "TSURF",
-    ylabel="VOD_C1",
+    xlabel= "VOD_C1",
+    ylabel="TSURF",
     cbar_label= "SM_C1",
     cbar_type = "jet",
-    # ylim = (0,1.4),
-    # xlim = (270,340),
+    xlim = (0,1.4),
+    ylim = (270,340),
     cbar_scale = (0,0.5),
     )
