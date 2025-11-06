@@ -2,6 +2,7 @@ from readers.Air import AirborneData
 from readers.Sat import BTData
 from readers.Bio import Bio, CLMS
 from main import Plotter
+import geopandas as gpd
 
 if __name__ == "__main__":
     """
@@ -33,8 +34,8 @@ if __name__ == "__main__":
     # Configure the parameters here ====================================================================================
     # Airborne (AMPR) variables
     path_air = r"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/WHYMSIE/data_from_RichDJ"
-    air_freq =  '19.35'
-    flight_direction = "WE"
+    air_freq =  '10.7'
+    flight_direction = "EW"
     scan_direction = "26_50"
 
     # Satellite (AMSR2) variables
@@ -44,20 +45,20 @@ if __name__ == "__main__":
     overpass = "day"
     target_res = "10"
 
-    # ERA 5 variables
+    # ERA 5 variables (https://confluence.ecmwf.int/display/CKB/ERA5-Land%3A+data+documentation)
     path_era = "/home/ddkovacs/shares/climers/Datapool/ECMWF_reanalysis/01_raw/ERA5-Land/datasets/images"
-    bio_var = "skt"
+    bio_var = "stl1"
 
     #CLMS variables
     path_clms =  "/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/WHYMSIE/ancillary_data/CLMS"
-    clms_var = "FCOVER"
+    clms_var = "LAI"
 
     # Comomn variables
     comparison = "air2sat" # "air2sat" or  "air2bio"
     date = "2024-10-22"
 
-    single_validation = True
-    compound_validation = False
+    single_validation = False
+    compound_validation = True
     #  =================================================================================================================
 
     ER2_flight = AirborneData(path=path_air,
@@ -82,8 +83,8 @@ if __name__ == "__main__":
                     bio_var=clms_var,
                     date=date)
 
-    era_pd = ERA_SM.to_pandas()
-    clms_pd = CLMS_VEG.to_pandas()
+    # era_pd = ERA_SM.to_pandas()
+    # clms_pd = CLMS_VEG.to_pandas()
 
 
     p = Plotter(ER2_flight,
@@ -91,7 +92,7 @@ if __name__ == "__main__":
                 CLMS_VEG,
                 )
 
-    combined_data = p.get_data()
+    # combined_data = p.get_data()
 
     if single_validation:
         p.scatterplot(comparison="air2bio")
