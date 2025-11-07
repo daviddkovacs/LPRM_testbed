@@ -29,15 +29,15 @@ def statistics(ref,test):
 
 
 def create_scatter_plot(ref,
-                 test,
+                        test,
                         test_colour=None,
-                 xlabel = None,
-                 ylabel = None,
+                        xlabel = None,
+                        ylabel = None,
                         cbar_label="Density",
                         xlim=(None, None),
-                ylim=(None, None),
-                 stat_text = True,
-                 showfig = True,
+                        ylim=(None, None),
+                        cbar_scale=(None, None),
+                        stat_text = True,
                         ):
 
 
@@ -47,21 +47,20 @@ def create_scatter_plot(ref,
 
     ref = ref[mask]
     test = test[mask]
-    test2 = test_colour[mask] if test_colour is not None else None
+    test_colour = test_colour[mask] if test_colour is not None else None
 
-    if test2 is None:
+    if test_colour is None:
         xy = np.vstack([ref, test])
         z = gaussian_kde(xy)(xy)
     else:
-        z = test2
+        z = test_colour
 
     plt.figure(figsize=(6, 6))
-    sc = plt.scatter(ref, test, c=z, s=20, cmap='viridis')
-
-    # 1:1 line
-    plt.plot([xlim[0], xlim[1]], [ylim[0], ylim[1]], 'k-', lw=1)
+    sc = plt.scatter(ref, test, c=z, s=20, cmap='turbo', vmin= cbar_scale[0], vmax = cbar_scale[1])
 
     if stat_text:
+        plt.plot([xlim[0], xlim[1]], [ylim[0], ylim[1]], 'k-', lw=1)
+
         stats_dict = statistics(ref, test)
         stats_text = (f"R: {stats_dict['r']}\nRMSE: {stats_dict['rmse']}\n"
                       f"Bias: {stats_dict['bias']}\n"
@@ -77,9 +76,7 @@ def create_scatter_plot(ref,
     plt.ylim([ylim[0], ylim[1]])
     plt.colorbar(sc, label=cbar_label)
     plt.tight_layout()
-
-    if showfig:
-        plt.show()
+    plt.show()
 
 
 def scatter_density(ref,

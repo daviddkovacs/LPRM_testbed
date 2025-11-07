@@ -75,35 +75,36 @@ for d in datelist:
 
 plt.ion()
 common_data = find_common_coords(ref_compound,test_compound)
-# common_data["VOD_C1_s"] = normalize(common_data["VOD_C1"])
-# common_data["TSURF_s"] = normalize(common_data["TSURF"])
 
 common_data = common_data.loc[common_data["VOD_KU"] > 0.5]
 common_data = common_data.loc[common_data["VOD_KU"] < 0.55]
 
-scatter_density(
-    ref=common_data["VOD_KU"],
-    test=common_data["TSURF"],
-    test_colour=common_data["SM_C1"],
-    xlabel= "VOD_KU",
-    ylabel="TSURF",
-    cbar_label= "SM_C1",
-    # cbar_type = "jet",
+# common_data = common_data.loc[common_data["TSURF"] < 300]
+# common_data = common_data.loc[common_data["TSURF"] > 290]
+
+# scatter_density(
+#     ref=common_data["VOD_KU"],
+#     test=common_data["TSURF"],
+#     test_colour=common_data["SM_C1"],
+#     xlabel= "VOD_KU",
+#     ylabel="TSURF",
+#     cbar_label= "SM_C1",
+#     # cbar_type = "jet",
+#     # xlim = (0,1.4),
+#     # ylim = (270,320),
+#     # cbar_scale = (0,0.5),
+#     dpi =5
+#     )
+
+create_scatter_plot(
+    ref=common_data["BT_H"],
+    test=common_data["SM_C1"],
+    # test_colour=common_data["BT_H"],
+    xlabel= "BT_H",
+    ylabel="SM_C1",
+    # cbar_label= "BT_H",
     # xlim = (0,1.4),
     # ylim = (270,320),
     # cbar_scale = (0,0.5),
-    dpi =5
-    )
-
-create_scatter_plot(
-    ref=common_data["VOD_KU"],
-    test=common_data["TSURF"],
-    test_colour=common_data["SM_C1"],
-    xlabel= "VOD_KU",
-    ylabel="TSURF",
-    cbar_label= "SM_C1",
-    xlim = (0,1.4),
-    ylim = (270,320),
-    cbar_scale = (0,0.5),
-    dpi =50
+    stat_text=False
     )
