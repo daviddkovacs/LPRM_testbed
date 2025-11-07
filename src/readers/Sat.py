@@ -6,6 +6,16 @@ import xarray as xr
 import pandas as pd
 import os
 
+
+def resolution_path(target_res):
+
+    if target_res == "10":
+        res_path = "medium_resolution"
+    elif target_res == "25":
+        res_path = "coarse_resolution"
+
+    return res_path
+
 class BTData:
     """
     Class to read in Satellite data from (currently from AMSR2)
@@ -17,6 +27,7 @@ class BTData:
     target_res: pixel resolution 10 or 25 (km)
     frequency: 6.9, 7.3, 10.7, 18.7, 23.8, 36.5, 89.0
     """
+
     def __init__(self,
                  path,
                  sat_sensor,
@@ -33,12 +44,14 @@ class BTData:
         self.overpass = overpass
         self.target_res = target_res
 
+        res_path = resolution_path(target_res)
+
         year_month = datetime.strptime(date, "%Y-%m-%d").strftime("%Y%m")
         date_fmt = datetime.strptime(date, "%Y-%m-%d").strftime("%Y%m%d")
 
         pattern = f"{sat_sensor}_l1bt_{overpass}_{date_fmt}_{target_res}km.nc"
 
-        self.bt_file = os.path.join(path,overpass,year_month,pattern)
+        self.bt_file = os.path.join(path,res_path,overpass,year_month,pattern)
 
 
     def to_pandas(self):
@@ -50,7 +63,7 @@ class BTData:
         pandas = pandas[["lon","lat","scantime", f"bt_{self.sat_freq}V", f"bt_{self.sat_freq}H"]]
         pandas = pandas.rename(columns={f"bt_{self.sat_freq}V": "bt_V",
                                         f"bt_{self.sat_freq}H": "bt_H",})
-        # pandas.columns = pandas.columns.str.upper()
+        pandas.columns = pandas.columns.str.upper()
         return pandas
 
 
@@ -71,7 +84,9 @@ class LPRMData(BTData):
         year_month = datetime.strptime(date, "%Y-%m-%d").strftime("%Y%m")
         date_fmt = datetime.strptime(date, "%Y-%m-%d").strftime("%Y%m%d")
         pattern = f"{sat_sensor.upper()}_LPRM_VEGC_{overpass}{date_fmt}_{target_res}km_v061.nc"
-        bt_file = os.path.join(path, overpass, year_month, pattern)
+        res_path = resolution_path(target_res)
+
+        bt_file = os.path.join(path, res_path,overpass, year_month, pattern)
 
         super().__init__(path, sat_sensor, date, overpass, target_res, sat_freq)
         self.bt_file = bt_file

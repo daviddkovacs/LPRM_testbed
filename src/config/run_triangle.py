@@ -12,7 +12,7 @@ from utilities.utils import (bbox,
                              mpdi,
                              find_common_coords,
                              normalize)
-import mpl_scatter_density # adds projection='scatter_density'
+import mpl_scatter_density
 from utilities.plotting import scatter_density
 from config.paths import path_lprm, path_bt
 
@@ -32,8 +32,8 @@ sat_sensor = "amsr2"
 overpass = "day"
 target_res = "10"
 
-composite_start = "2024-01-01"
-composite_end = "2024-12-10"
+composite_start = "2024-10-01"
+composite_end = "2024-10-04"
 
 datelist = pd.date_range(start=composite_start, end=composite_end)
 datelist = [s.strftime("%Y-%m-%d") for s in datelist]
