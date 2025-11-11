@@ -156,8 +156,8 @@ def find_common_coords(lprm, bt):
     :param test:  dataframe test
     :return: common dataframe
     """
-    bt = bt.drop(columns = ["SCANTIME"])
-    lprm = lprm.drop(columns = ["SCANTIME","FLAGS"])
+    # bt = bt.drop(columns = ["SCANTIME"])
+    lprm = lprm.drop(columns = ["FLAGS"])
     bt["LAT"] = bt["LAT"] + 0.05
     bt["LON"] = bt["LON"] + 0.05
 
@@ -166,7 +166,7 @@ def find_common_coords(lprm, bt):
     bt['LAT'] = bt['LAT'].round(4)
     bt['LON'] = bt['LON'].round(4)
 
-    common_df = pd.merge(lprm,bt,how='inner', on = ["LON","LAT"])
+    common_df = pd.merge(lprm,bt,how='inner', on = ["LON","LAT"], suffixes=('_LPRM', '_BT'))
     common_df =  common_df.dropna(subset=['BT_V',"TSURF"])
 
     return common_df
