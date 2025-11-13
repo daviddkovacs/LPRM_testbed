@@ -16,7 +16,10 @@ from utilities.plotting import scatter_density,create_scatter_plot
 from config.paths import path_lprm, path_bt
 
 list =  [
--180,-90,180,90
+    5.444321616516959,
+    48.80171669608512,
+    56.4549472951021,
+    51.77115754395507
   ]
 
 # Frequencies(AMSR2):
@@ -37,17 +40,25 @@ datelist = [s.strftime("%Y-%m-%d") for s in datelist]
 ref_compound = pd.DataFrame({})
 test_compound = pd.DataFrame({})
 
-def checkIntersection2(polyX, polyY, gradient, intercept):
+def checkIntersection2(polyX, polyY, x_vals, gradient, intercept):
 
-    _linePtX = np.linspace(0, 5, 1000)
-    # linePtX = np.broadcast_to(_linePtX, (len(gradient), _linePtX.shape[0]))
-    linePtY = gradient * _linePtX + intercept
+    linePtY = gradient * x_vals  + intercept
 
     poly = LineString([(x, y) for x, y in zip(polyX, polyY)])
-    line = LineString([(x, y) for x, y in zip(linePtX, linePtY)])
-    intPoints = poly.intersection(line)
 
-    _points = [p for p in intPoints.geoms]
+    lines = [
+    LineString([(x, y) for x, y in zip(x_vals[i], linePtY[i])])
+    for i in range(linePtY.shape[0])
+    ]
+
+    intPoints = [poly.intersection(line) for line in lines]
+
+    _points = [
+        g
+        for geom in intPoints
+        if not geom.is_empty
+        for g in (geom.geoms if geom.geom_type.startswith('Multi') else [geom])
+    ]
     return _points
 
 for d in datelist:
@@ -144,40 +155,23 @@ for d in datelist:
                                                 intercept_warm_edge,
                                                 full_veg_cover
                                                 )
+
     point_cloud["T_SOIL"] = temperatures_data["T_soil_extreme"]
     point_cloud["T_CANOPY"] = temperatures_data["T_canopy_extreme"]
 
-    gradient_of_point = temperatures_data["gradient_of_point"]
-    intercept_of_point = temperatures_data["intercept_of_point"]
+    gradient_of_point = temperatures_data["gradient_of_point"].values
+    intercept_of_point = temperatures_data["intercept_of_point"].values
 
-    intersection_hull =  checkIntersection2(points[hull.vertices, 0],points[hull.vertices, 1],
-                                 gradient_of_point,intercept_of_point)
+    gradient = gradient_of_point.reshape(gradient_of_point.shape[0], 1)
+    intercept = intercept_of_point.reshape(intercept_of_point.shape[0], 1)
+    _x_vals =  np.linspace(0, 5, 2)
+    x_vals = np.broadcast_to(_x_vals, (gradient.shape[0], 2))
 
-    arb = [0.6, 300]
-    arb_temps = soil_canopy_temperatures(arb[0],
-                                                arb[1],
-                                                cold_edge,
-                                                grad_warm_edge,
-                                                intercept_warm_edge,
-                                                full_veg_cover
-                                                )
-
-    arb_grad = arb_temps["gradient_of_point"]
-    arb_intercept = arb_temps["intercept_of_point"]
-
-    arb_intersection_hull =  checkIntersection2(
-        points[hull.vertices, 0],
-        points[hull.vertices, 1],
-        arb_grad,
-        arb_intercept)
-
-    arb_ts =  (arb_intersection_hull[0].x, arb_intersection_hull[0].y)
-    arb_tc =  (arb_intersection_hull[1].x, arb_intersection_hull[1].y)
-
-    print(arb_ts,arb_tc)
-    plt.plot(arb[0], arb[1], marker = "D", color  ="r")
-    plt.plot(arb_ts[0], arb_ts[1], marker="D", color="r")
-    plt.plot(arb_tc[0], arb_tc[1], marker="D", color="r")
+    intersection_hull =  checkIntersection2(points[hull.vertices, 0],
+                                            points[hull.vertices, 1],
+                                            x_vals,
+                                            gradient,
+                                            intercept)
 
 
     cordinates = [point_cloud["LAT"].values , point_cloud["LON"].values]
