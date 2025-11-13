@@ -1,3 +1,5 @@
+from fontTools.subset import intersect_class
+
 from readers.Sat import BTData, LPRMData
 import matplotlib
 import numpy as np
@@ -17,7 +19,7 @@ from utilities.utils import (bbox,
 from utilities.plotting import scatter_density,create_scatter_plot
 from config.paths import path_lprm, path_bt
 
-list =  [
+list_bbox=  [
     5.444321616516959,
     48.80171669608512,
     56.4549472951021,
@@ -33,22 +35,32 @@ sat_sensor = "amsr2"
 overpass = "day"
 target_res = "10"
 
-composite_start = "2024-06-01"
-composite_end = "2024-07-01"
+composite_start = "2024-10-01"
+composite_end = "2024-10-02"
 
-datelist = pd.date_range(start=composite_start, end=composite_end, freq="ME")
+datelist = pd.date_range(start=composite_start, end=composite_end, freq="D")
 datelist = [s.strftime("%Y-%m-%d") for s in datelist]
 
 ref_compound = pd.DataFrame({})
 test_compound = pd.DataFrame({})
 
-def checkIntersection2(polyX, polyY, x_vals, gradient, intercept):
+def dummy_line(gradient, intercept):
 
-    x_vals = np.asarray(x_vals)
-    linePtY = gradient * x_vals + intercept
+    # We need to get two arbitrary points of the line
+    # To find the intersection with the hull
+    # y_0 = intercept
+    p_5 = (gradient * 5) + intercept
+    p_0 = intercept
 
-    poly = LineString((x,y) for x,y in zip(polyX, polyY))
-    line = LineString((x,y) for x,y in zip(x_vals, linePtY))
+    return p_0, p_5
+
+
+def interceptor(polyX, polyY, p_0, p_5,):
+    x_o = 0
+    x_5 = 5
+
+    poly = Polygon((x,y) for x,y in zip(polyX, polyY))
+    line = LineString([(0,p_0) ,(5, p_5)])
 
     intersection = poly.intersection(line)
 
@@ -66,7 +78,7 @@ for d in datelist:
                    )
 
     BT = BT.to_pandas()
-    BT = bbox(BT, list)
+    BT = bbox(BT, list_bbox)
 
     BT["MPDI"] =  mpdi(BT["BT_V"], BT["BT_H"])
 
@@ -79,12 +91,12 @@ for d in datelist:
                    target_res = target_res,
                    )
 
-    ds_LPRM = LPRM.to_xarray(bbox=list)
+    ds_LPRM = LPRM.to_xarray(bbox=list_bbox)
     ds_LPRM = ds_LPRM.assign_coords({"lon": ds_LPRM["LON"],
                                      "lat": ds_LPRM["LAT"]})
 
     LPRM = LPRM.to_pandas()
-    LPRM = bbox(LPRM, list)
+    LPRM = bbox(LPRM, list_bbox)
 
     # ref_compound = pd.concat([ref_compound,LPRM])
     # test_compound = pd.concat([test_compound,BT])
@@ -153,15 +165,25 @@ for d in datelist:
     point_cloud["T_SOIL"] = temperatures_data["T_soil_extreme"]
     point_cloud["T_CANOPY"] = temperatures_data["T_canopy_extreme"]
 
-    gradient_of_point = temperatures_data["gradient_of_point"].values
-    intercept_of_point = temperatures_data["intercept_of_point"].values
-    x_vals =  np.linspace(0, 5, 2)
+    point_cloud["gradient"] = temperatures_data["gradient_of_point"].values
+    point_cloud["intercept"] = temperatures_data["intercept_of_point"].values
 
-    intersection_hull =  checkIntersection2(points[hull.vertices, 0],
-                                            points[hull.vertices, 1],
-                                            x_vals,
-                                            gradient,
-                                            intercept)
+    point_cloud["p_o"], point_cloud["p_5"] = dummy_line(
+        point_cloud["gradient"],point_cloud["intercept"])
+
+    hull_x = points[hull.vertices, 0]
+    hull_y = points[hull.vertices, 1]
+
+    point_cloud["intersection_hull"] = list(map(lambda p: interceptor(hull_x, hull_y, p[0], p[1]),
+                                                     zip(point_cloud["p_o"], point_cloud["p_5"])))
+
+
+
+    print(gagagag)
+    # intersection_hull =  interceptor(points[hull.vertices, 0],
+    #                                         points[hull.vertices, 1],
+    #                                         point_cloud["p_o"],
+    #                                         point_cloud["p_5"])
 
 
     cordinates = [point_cloud["LAT"].values , point_cloud["LON"].values]
