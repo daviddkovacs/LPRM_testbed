@@ -5,6 +5,8 @@ matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 from scipy.spatial import ConvexHull, convex_hull_plot_2d
 from shapely import LineString, wkt
+from shapely.geometry import LineString, Polygon
+
 import pandas as pd
 from utilities.utils import (bbox,
                              soil_canopy_temperatures,
@@ -42,24 +44,16 @@ test_compound = pd.DataFrame({})
 
 def checkIntersection2(polyX, polyY, x_vals, gradient, intercept):
 
-    linePtY = gradient * x_vals  + intercept
+    x_vals = np.asarray(x_vals)
+    linePtY = gradient * x_vals + intercept
 
-    poly = LineString([(x, y) for x, y in zip(polyX, polyY)])
+    poly = LineString((x,y) for x,y in zip(polyX, polyY))
+    line = LineString((x,y) for x,y in zip(x_vals, linePtY))
 
-    lines = [
-    LineString([(x, y) for x, y in zip(x_vals[i], linePtY[i])])
-    for i in range(linePtY.shape[0])
-    ]
+    intersection = poly.intersection(line)
 
-    intPoints = [poly.intersection(line) for line in lines]
+    return intersection
 
-    _points = [
-        g
-        for geom in intPoints
-        if not geom.is_empty
-        for g in (geom.geoms if geom.geom_type.startswith('Multi') else [geom])
-    ]
-    return _points
 
 for d in datelist:
 
@@ -161,11 +155,8 @@ for d in datelist:
 
     gradient_of_point = temperatures_data["gradient_of_point"].values
     intercept_of_point = temperatures_data["intercept_of_point"].values
+    x_vals =  np.linspace(0, 5, 2)
 
-    gradient = gradient_of_point.reshape(gradient_of_point.shape[0], 1)
-    intercept = intercept_of_point.reshape(intercept_of_point.shape[0], 1)
-    _x_vals =  np.linspace(0, 5, 2)
-    x_vals = np.broadcast_to(_x_vals, (gradient.shape[0], 2))
 
     intersection_hull =  checkIntersection2(points[hull.vertices, 0],
                                             points[hull.vertices, 1],
