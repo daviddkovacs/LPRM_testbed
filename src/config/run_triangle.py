@@ -1,13 +1,10 @@
-from fontTools.subset import intersect_class
-
 from readers.Sat import BTData, LPRMData
 import matplotlib
 import numpy as np
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
-from scipy.spatial import ConvexHull, convex_hull_plot_2d
-from shapely import LineString, wkt
-from shapely.geometry import LineString, Polygon, Point
+from scipy.spatial import ConvexHull
+from shapely.geometry import Polygon
 
 import pandas as pd
 from utilities.utils import (bbox,
@@ -15,8 +12,10 @@ from utilities.utils import (bbox,
                              mpdi,
                              extreme_hull_vals,
                              find_common_coords,
-                             normalize)
-from utilities.plotting import scatter_density,create_scatter_plot
+                             interceptor,
+                             dummy_line)
+
+from utilities.plotting import scatter_density,plot_maps
 from config.paths import path_lprm, path_bt
 
 list_bbox= [
@@ -36,38 +35,10 @@ overpass = "day"
 target_res = "10"
 
 composite_start = "2024-10-01"
-composite_end = "2024-10-02"
+composite_end = "2024-10-01"
 
 datelist = pd.date_range(start=composite_start, end=composite_end, freq="D")
 datelist = [s.strftime("%Y-%m-%d") for s in datelist]
-
-ref_compound = pd.DataFrame({})
-test_compound = pd.DataFrame({})
-
-def dummy_line(gradient, intercept):
-
-    # We need to get two arbitrary points of the line
-    # To find the intersection with the hull
-    # y_0 = intercept
-    p_5 = (gradient * 5) + intercept
-    p_0 = intercept
-
-    return p_0, p_5
-
-
-def interceptor(poly, p_0, p_5, TSURF):
-
-    line = LineString([(0,p_0) ,(5, p_5)])
-
-    intersection = poly.intersection(line)
-    if isinstance(intersection, LineString) and not intersection.is_empty:
-        t_soil, t_canopy = [list(intersection.coords)[i][1] for i in range(0,2)]
-    if isinstance(intersection, Point):
-        t_soil = t_canopy = list(intersection.coords)[0][1]
-    if intersection.is_empty:
-        t_soil = t_canopy= TSURF
-
-    return t_soil, t_canopy
 
 
 for d in datelist:
@@ -131,7 +102,7 @@ for d in datelist:
     _y = point_cloud[y_var]
 
     points = np.array([_x,_y]).T
-    hull = ConvexHull(points, )
+    hull = ConvexHull(points)
 
     vertices = extreme_hull_vals(points[hull.vertices, 0],
                                  points[hull.vertices, 1],
@@ -140,6 +111,7 @@ for d in datelist:
     plt.plot(points[hull.vertices, 0], points[hull.vertices, 1], 'r--', lw=2)
 
     # Gradient of warm edge (y2-y1) / (x2-x1)
+    # 0th is x and 1st index is y coord
     grad_warm_edge = ((vertices[f"max_{y_var}"][1] - vertices[f"max_{x_var}"][1]) /
                  (vertices[f"max_{y_var}"][0] - vertices[f"max_{x_var}"][0]))
 
@@ -166,6 +138,7 @@ for d in datelist:
     point_cloud["T_SOIL"] = temperatures_data["T_soil_extreme"]
     point_cloud["T_CANOPY"] = temperatures_data["T_canopy_extreme"]
 
+    # Grad and intercept for ALL points!
     point_cloud["gradient"] = temperatures_data["gradient_of_point"].values
     point_cloud["intercept"] = temperatures_data["intercept_of_point"].values
 
@@ -181,25 +154,10 @@ for d in datelist:
 
     point_cloud["T_soil_hull"], point_cloud["T_canopy_hull"] = zip(*results)
 
-
-    cordinates = [point_cloud["LAT"].values , point_cloud["LON"].values]
-    mi_array = zip(*cordinates)
-    point_cloud.index = pd.MultiIndex.from_tuples(mi_array, names=["LAT", "LON"])
-
-    variables = ["T_SOIL", "T_soil_hull", "TSURF","T_canopy_hull"]
     cbar_lut = {"T_SOIL": (270, 330),
-                 "T_soil_hull" : (270, 330),
-                 "TSURF" : (270, 330),
-                 "T_canopy_hull" : (270, 330),
-                 }
+                "T_soil_hull": (270, 330),
+                "TSURF": (270, 330),
+                "T_canopy_hull": (270, 330),
+                }
 
-    fig, axes = plt.subplots(2, 2, figsize=(8, 8))
-    axes = axes.flatten()
-    for ax, var in zip(axes, variables):
-        data = point_cloud.to_xarray()[var]
-        im = ax.imshow(np.flipud(data), vmin=cbar_lut[var][0], vmax=cbar_lut[var][1])
-        ax.set_title(var)
-        ax.axis('off')
-
-    plt.tight_layout()
-    plt.show()
+    plot_maps(point_cloud, cbar_lut)

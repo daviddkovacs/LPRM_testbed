@@ -193,4 +193,21 @@ def create_longitude_plot(ref_x,
         plt.show()
 
 
+def plot_maps(df, cbar_lut):
+
+    cordinates = [df["LAT"].values, df["LON"].values]
+    mi_array = zip(*cordinates)
+    df.index = pd.MultiIndex.from_tuples(mi_array, names=["LAT", "LON"])
+
+    fig, axes = plt.subplots(2, 2, figsize=(8, 8))
+    axes = axes.flatten()
+    for ax, var in zip(axes, cbar_lut.keys()):
+        data = df.to_xarray()[var]
+        im = ax.imshow(np.flipud(data), vmin=cbar_lut[var][0], vmax=cbar_lut[var][1])
+        ax.set_title(var)
+        ax.axis('off')
+
+    plt.tight_layout()
+    plt.show()
+
 
