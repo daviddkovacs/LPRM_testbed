@@ -20,10 +20,10 @@ from utilities.plotting import scatter_density,create_scatter_plot
 from config.paths import path_lprm, path_bt
 
 list_bbox= [
-    -125.01256480010211,
-    49.06769085125356,
-    -100.70177607125227,
-    52.87377592509242
+    -122.5836129812065,
+    42.225601574757036,
+    -88.31189937769449,
+    46.976817244415855
   ]
 
 # Frequencies(AMSR2):
@@ -60,17 +60,12 @@ def interceptor(poly, p_0, p_5, TSURF):
     line = LineString([(0,p_0) ,(5, p_5)])
 
     intersection = poly.intersection(line)
-    # if not isinstance(intersection, LineString):
-    #     x =1
     if isinstance(intersection, LineString) and not intersection.is_empty:
         t_soil, t_canopy = [list(intersection.coords)[i][1] for i in range(0,2)]
     if isinstance(intersection, Point):
         t_soil = t_canopy = list(intersection.coords)[0][1]
     if intersection.is_empty:
-        print(intersection)
-
         t_soil = t_canopy= TSURF
-
 
     return t_soil, t_canopy
 
@@ -191,11 +186,11 @@ for d in datelist:
     mi_array = zip(*cordinates)
     point_cloud.index = pd.MultiIndex.from_tuples(mi_array, names=["LAT", "LON"])
 
-    variables = ["T_SOIL", "T_soil_hull", "TSURF","SM_C1"]
+    variables = ["T_SOIL", "T_soil_hull", "TSURF","T_canopy_hull"]
     cbar_lut = {"T_SOIL": (270, 330),
                  "T_soil_hull" : (270, 330),
                  "TSURF" : (270, 330),
-                 "SM_C1" : (0, 0.5),
+                 "T_canopy_hull" : (270, 330),
                  }
 
     fig, axes = plt.subplots(2, 2, figsize=(8, 8))
