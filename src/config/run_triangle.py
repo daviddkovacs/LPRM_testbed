@@ -55,6 +55,7 @@ for d in datelist:
 
     BT = BT_object.to_pandas()
     BT = bbox(BT, list_bbox)
+
     BT["MPDI"] =  mpdi(BT["BT_V"], BT["BT_H"])
 
 
@@ -79,7 +80,6 @@ for d in datelist:
 
     # night_LPRM = night_LPRM_object.to_pandas()
     night_LPRM = night_LPRM_object.to_xarray(list_bbox)
-    # night_LPRM = bbox(night_LPRM, list_bbox)
 
     print(f"{d} read")
 
@@ -182,4 +182,12 @@ for d in datelist:
     }
 
     plot_maps(merged_geo, cbar_lut,d)
-    night_LPRM["SM_C1"].plot()
+
+    plt.figure()
+    night_LPRM["SM_C1"].plot.pcolormesh(
+        x="LON",
+        y="LAT",
+        cmap="viridis"
+    )
+    plt.show()
+

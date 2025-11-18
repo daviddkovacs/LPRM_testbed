@@ -198,7 +198,7 @@ def plot_maps(ds,
               date,
              ):
 
-    fig, axes = plt.subplots(3, 3, figsize=(10, 10))
+    fig, axes = plt.subplots(2,2, figsize=(10, 10))
     fig.suptitle(date)
 
     axes = axes.flatten()

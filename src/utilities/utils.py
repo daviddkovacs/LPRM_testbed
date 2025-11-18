@@ -125,11 +125,17 @@ def mpdi(v_freq,
 def bbox(df,
          lista):
 
-    df = df.loc[df["LAT"] > lista[1]]
-    df = df.loc[df["LAT"] < lista[3]]
+    # df = df.loc[df["LAT"] > lista[1]]
+    # df = df.loc[df["LAT"] < lista[3]]
+    #
+    # df = df.loc[df["LON"] > lista[0]]
+    # df = df.loc[df["LON"] < lista[2]]
 
-    df = df.loc[df["LON"] > lista[0]]
-    df = df.loc[df["LON"] < lista[2]]
+    df = df.loc[df.index.get_level_values("LAT") > lista[1]]
+    df = df.loc[df.index.get_level_values("LAT") < lista[3]]
+
+    df = df.loc[df.index.get_level_values("LON") > lista[0]]
+    df = df.loc[df.index.get_level_values("LON") < lista[2]]
 
     return df
 
@@ -169,6 +175,8 @@ def find_common_coords(df1,
 
     # bt = bt.drop(columns = ["SCANTIME"])
     # lprm = lprm.drop(columns = ["FLAGS"])
+    df1 = df1.reset_index()
+    df2 = df2.reset_index()
     df2["LAT"] = df2["LAT"] + offset_lut[target_res]
     df2["LON"] = df2["LON"] + offset_lut[target_res]
 

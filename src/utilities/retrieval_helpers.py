@@ -98,9 +98,9 @@ def tiff_df(path,lista,target_res):
                          how='inner', on = ["LON","LAT"],)
     common_df = pd.merge(_common_df,CLY,
                          how='inner', on = ["LON","LAT"],)
-
+    common_df = common_df.set_index(["LAT","LON"])
     subset_panda = bbox(common_df,lista)
-    subset_panda = subset_panda.set_index(['LAT','LON'])
+
     return subset_panda
 
 

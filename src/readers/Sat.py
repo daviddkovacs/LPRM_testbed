@@ -60,11 +60,13 @@ class BTData:
         dataset = self.to_xarray()
         pandas = dataset.to_dataframe()
         # pandas = pandas.dropna(subset=['scantime']).reset_index()
-        pandas = pandas.reset_index()
-        pandas = pandas[["lon","lat","scantime", f"bt_{self.sat_freq}V", f"bt_{self.sat_freq}H"]]
-        pandas = pandas.rename(columns={f"bt_{self.sat_freq}V": "bt_V",
-                                        f"bt_{self.sat_freq}H": "bt_H",})
+        # pandas = pandas.reset_index()
+        pandas = pandas[["SCANTIME", f"BT_{self.sat_freq}V", f"BT_{self.sat_freq}H"]]
+        pandas = pandas.rename(columns={f"BT_{self.sat_freq}V": "BT_V",
+                                        f"BT_{self.sat_freq}H": "BT_H",})
         pandas.columns = pandas.columns.str.upper()
+        pandas = pandas.droplevel("TIME")
+
         return pandas
 
 
@@ -72,12 +74,18 @@ class BTData:
                   bbox= None):
 
         dataset = xr.open_dataset(self.bt_file, decode_timedelta=False)
+        dataset = dataset.rename({v: v.upper() for v in dataset.variables})
+
         if "time" in dataset.dims:
             dataset = dataset.squeeze("time", drop=True)
         if bbox:
             lat_mask = (dataset["LAT"] >= bbox[1]) & (dataset["LAT"] <= bbox[3])
             lon_mask = (dataset["LON"] >= bbox[0]) & (dataset["LON"] <= bbox[2])
             dataset = dataset.where(lat_mask & lon_mask, drop=True)
+
+        dataset = dataset.assign_coords(
+            {"LAT" : dataset["LAT"],
+             "LON" : dataset["LON"]})
 
         return dataset
 
@@ -101,7 +109,6 @@ class LPRMData(BTData):
 
         dataset = self.to_xarray()
         pandas = dataset.to_dataframe()
-        # pandas = pandas.reset_index(drop=True)
-        # pandas = pandas.dropna(subset=['VOD_C2'])
+        pandas = pandas.set_index(["LAT", "LON"])
 
         return pandas
