@@ -69,6 +69,18 @@ for d in datelist:
     LPRM = LPRM_object.to_pandas()
     LPRM = bbox(LPRM, list_bbox)
 
+    night_LPRM_object = LPRMData(path =path_lprm,
+                   date = d,
+                   sat_freq = sat_band,
+                   overpass = "night",
+                   sat_sensor = sat_sensor,
+                   target_res = target_res,
+                   )
+
+    # night_LPRM = night_LPRM_object.to_pandas()
+    night_LPRM = night_LPRM_object.to_xarray(list_bbox)
+    # night_LPRM = bbox(night_LPRM, list_bbox)
+
     print(f"{d} read")
 
     plt.ion()
@@ -165,6 +177,9 @@ for d in datelist:
         f"SM_{sat_band}": (0, 0.5),
         f"SM_ADJ": (0, 0.5),
         f"DIF_SM{sat_band}-ADJ": (-0.25, 0.25),
+        f"SM_C1": (0, 0.5),
+
     }
 
     plot_maps(merged_geo, cbar_lut,d)
+    night_LPRM["SM_C1"].plot()

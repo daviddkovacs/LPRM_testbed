@@ -193,9 +193,12 @@ def create_longitude_plot(ref_x,
         plt.show()
 
 
-def plot_maps(ds, cbar_lut,date):
+def plot_maps(ds,
+              cbar_lut,
+              date,
+             ):
 
-    fig, axes = plt.subplots(2, 3, figsize=(10, 10))
+    fig, axes = plt.subplots(3, 3, figsize=(10, 10))
     fig.suptitle(date)
 
     axes = axes.flatten()
@@ -212,7 +215,6 @@ def plot_maps(ds, cbar_lut,date):
             yi = int(np.clip(np.round(y), 0, da.sizes['LAT']-1))
             value = da.values[yi, xi]
             return f"x={x:.2f}, y={y:.2f}, {var}={value:.3f}"
-
         ax.format_coord = format_coord
     plt.tight_layout()
     plt.show()
