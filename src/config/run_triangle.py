@@ -5,7 +5,6 @@ import numpy as np
 matplotlib.use("TkAgg")
 
 import matplotlib.pyplot as plt
-from scipy.spatial import ConvexHull
 from shapely.geometry import Polygon
 import pandas as pd
 from utilities.utils import (
@@ -13,7 +12,8 @@ from utilities.utils import (
     mpdi,
     extreme_hull_vals,
     find_common_coords,
-    get_dates
+    get_dates,
+    convex_hull
 )
 from utilities.retrieval_helpers import (
     soil_canopy_temperatures,
@@ -24,12 +24,13 @@ from utilities.plotting import scatter_density,plot_maps
 from config.paths import path_lprm, path_bt, path_aux
 
 
-list_bbox=  [
-    -11.317200779651927,
-    35.31966239974636,
-    7.851459924056741,
-    51.778462344348355
+list_bbox= [
+    68.1443893402043,
+    45.02777348413622,
+    123.6537542476122,
+    63.725397909056994
   ]
+
 # Frequencies(AMSR2):
 AMSR2_bands = ['6.9', '7.3', '10.7', '18.7', '23.8', '36.5', '89.0']
 sat_band = 'C1'
@@ -38,7 +39,7 @@ overpass = "day"
 target_res = "25"
 
 composite_start = "2024-06-01"
-composite_end = "2024-08-01"
+composite_end = "2024-07-01"
 
 datelist = get_dates(composite_start,composite_end)
 
@@ -95,29 +96,31 @@ for d in datelist:
         )
 
     points = np.array([x,y]).T
-    hull = ConvexHull(points)
 
-    vertices = extreme_hull_vals(points[hull.vertices, 0],
-                                 points[hull.vertices, 1],
-                                 x_variable= x_var,
-                                 y_variable= y_var, )
-    plt.plot(points[hull.vertices, 0], points[hull.vertices, 1], 'r--', lw=2)
+    hull_x, hull_y = convex_hull(points)
+
+    vertex = extreme_hull_vals(hull_x,
+                               hull_y,
+                               x_variable= x_var,
+                               y_variable= y_var, )
+
+    plt.plot(hull_x, hull_y, 'b--', lw=2)
 
     # Gradient of warm edge (y2-y1) / (x2-x1)
     # 0th is x and 1st index is y coord
-    grad_warm_edge = ((vertices[f"max_{y_var}"][1] - vertices[f"max_{x_var}"][1]) /
-                 (vertices[f"max_{y_var}"][0] - vertices[f"max_{x_var}"][0]))
+    grad_warm_edge = ((vertex[f"max_{y_var}"][1] - vertex[f"max_{x_var}"][1]) /
+                 (vertex[f"max_{y_var}"][0] - vertex[f"max_{x_var}"][0]))
 
     # Intercept of warm edge on y-axis
-    intercept_warm_edge = ((grad_warm_edge * vertices[f"max_{x_var}"][0]) * -1) + vertices[f"max_{x_var}"][1]
+    intercept_warm_edge = ((grad_warm_edge * vertex[f"max_{x_var}"][0]) * -1) + vertex[f"max_{x_var}"][1]
     plt.plot(x, grad_warm_edge * x + intercept_warm_edge, label = "Warm edge")
 
     # Cold edge
-    cold_edge = vertices[f"min_{y_var}"][1]
+    cold_edge = vertex[f"min_{y_var}"][1]
     plt.axhline(cold_edge)
 
     # full vegetation cover edge
-    full_veg_cover = vertices[f"max_{x_var}"][0]
+    full_veg_cover = vertex[f"max_{x_var}"][0]
     plt.axvline(full_veg_cover)
 
     temperatures_data = soil_canopy_temperatures(x,
@@ -138,8 +141,7 @@ for d in datelist:
     common_data["p_o"], common_data["p_5"] = dummy_line(
         common_data["gradient"],common_data["intercept"])
 
-    hull_x = points[hull.vertices, 0]
-    hull_y = points[hull.vertices, 1]
+
     poly = Polygon((x, y) for x, y in zip(hull_x, hull_y))
 
     results = list(map(lambda p: interceptor(poly=poly, p_0 = p[0], p_5 = p[1], TSURF =p[2]),

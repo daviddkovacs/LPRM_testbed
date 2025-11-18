@@ -1,6 +1,8 @@
 import numpy as np
 from sklearn.neighbors import BallTree
 import pandas as pd
+from scipy.spatial import ConvexHull
+
 pd.options.mode.chained_assignment = None
 
 
@@ -224,10 +226,25 @@ def extreme_hull_vals(x_values,
     return vertex_dict
 
 
-def get_dates(composite_start,composite_end):
+def get_dates(composite_start,composite_end, freq = "ME"):
 
-    _datelist = pd.date_range(start=composite_start, end=composite_end, freq="ME")
+    _datelist = pd.date_range(start=composite_start, end=composite_end, freq=freq)
     datelist = [s.strftime("%Y-%m-%d") for s in _datelist]
 
     return datelist
 
+def convex_hull(points):
+
+    hull = ConvexHull(points)
+
+    hull_x = points[hull.vertices, 0]
+    hull_y = points[hull.vertices, 1]
+
+    # We add the "close to last" coord, so that the hull definetely closes!!
+    last_x , last_y = (points[hull.vertices, 0][0],
+                       points[hull.vertices, 1][0])
+
+    hull_x = np.append(hull_x,last_x)
+    hull_y = np.append(hull_y,last_y)
+
+    return hull_x, hull_y

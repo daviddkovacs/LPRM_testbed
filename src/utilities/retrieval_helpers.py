@@ -7,6 +7,8 @@ from lprm.retrieval.lprm_v6_1.run_lprmv6 import load_band_from_ds
 import numpy as np
 import rioxarray
 import pandas as pd
+from shapely.geometry.multilinestring import MultiLineString
+
 from utilities.utils import bbox
 
 def soil_canopy_temperatures(point_x,
@@ -57,12 +59,12 @@ def interceptor(poly, p_0, p_5, TSURF):
     line = LineString([(0,p_0) ,(5, p_5)])
 
     intersection = poly.intersection(line)
-    if isinstance(intersection, LineString) and not intersection.is_empty:
+    if isinstance(intersection, LineString) or isinstance(intersection, MultiLineString) and not intersection.is_empty:
         t_soil, t_canopy = [list(intersection.coords)[i][1] for i in range(0,2)]
     if isinstance(intersection, Point):
         t_soil = t_canopy = list(intersection.coords)[0][1]
     if intersection.is_empty:
-        t_soil = t_canopy= TSURF
+        t_soil = t_canopy = TSURF
 
     return t_soil, t_canopy
 
@@ -139,7 +141,7 @@ def retrieve_LPRM(common_data,
         False,
         None,
         T_soil = merged_geo["T_soil_hull"].values.astype('double'),
-        T_canopy = merged_geo["T_canopy_hull"].values.astype('double')
+        T_canopy = merged_geo["T_canopy_hull"].values.astype('double'),
     )
 
     merged_geo[f"SM_ADJ"] = (("LAT", "LON"), sm)

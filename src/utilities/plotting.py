@@ -206,7 +206,14 @@ def plot_maps(ds, cbar_lut,date):
         da.plot(ax=ax, vmin=cbar_lut[var][0], vmax=cbar_lut[var][1], cmap=color, add_colorbar=True)
         ax.set_title(var)
         ax.axis('off')
+        def format_coord(x, y, da=da):
+            # find nearest index
+            xi = int(np.clip(np.round(x), 0, da.sizes['LON']-1))
+            yi = int(np.clip(np.round(y), 0, da.sizes['LAT']-1))
+            value = da.values[yi, xi]
+            return f"x={x:.2f}, y={y:.2f}, {var}={value:.3f}"
 
+        ax.format_coord = format_coord
     plt.tight_layout()
     plt.show()
 
