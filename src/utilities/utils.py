@@ -202,6 +202,7 @@ def extreme_hull_vals(x_values,
                       x_variable = "VOD_KU",
                       y_variable = "TSURF"):
 
+
     hull_df = pd.DataFrame({
         x_variable: x_values,
         y_variable: y_values
@@ -221,4 +222,12 @@ def extreme_hull_vals(x_values,
                   }
 
     return vertex_dict
+
+
+def get_dates(composite_start,composite_end):
+
+    _datelist = pd.date_range(start=composite_start, end=composite_end, freq="ME")
+    datelist = [s.strftime("%Y-%m-%d") for s in _datelist]
+
+    return datelist
 

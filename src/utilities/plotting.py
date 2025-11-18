@@ -193,18 +193,17 @@ def create_longitude_plot(ref_x,
         plt.show()
 
 
-def plot_maps(df, cbar_lut):
+def plot_maps(ds, cbar_lut,date):
 
+    fig, axes = plt.subplots(2, 3, figsize=(10, 10))
+    fig.suptitle(date)
 
-
-    fig, axes = plt.subplots(2, 2, figsize=(8, 8))
     axes = axes.flatten()
+
     for ax, var in zip(axes, cbar_lut.keys()):
-        if isinstance(df,pd.DataFrame):
-            data = df.to_xarray()[var]
-        else:
-            data = df[var]
-        im = ax.imshow(np.flipud(data), vmin=cbar_lut[var][0], vmax=cbar_lut[var][1])
+        color = "RdYlBu" if "DIF" in var else "viridis"
+        da = ds[var]
+        da.plot(ax=ax, vmin=cbar_lut[var][0], vmax=cbar_lut[var][1], cmap=color, add_colorbar=True)
         ax.set_title(var)
         ax.axis('off')
 

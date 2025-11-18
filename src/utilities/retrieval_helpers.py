@@ -1,8 +1,10 @@
 import os.path
-
-from cartopy.mpl.clip_path import bbox_to_path
+from lprm.retrieval.lprm_v6_1.parameters import get_lprm_parameters_for_frequency
+from lprm.satellite_specs import get_specs
+import lprm.retrieval.lprm_v6_1.par100m_v6_1 as par100
 from shapely.geometry import LineString,  Point
 from lprm.retrieval.lprm_v6_1.run_lprmv6 import load_band_from_ds
+import numpy as np
 import rioxarray
 import pandas as pd
 from utilities.utils import bbox
@@ -100,13 +102,54 @@ def tiff_df(path,lista,target_res):
     return subset_panda
 
 
-x = tiff_df("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/aux_data/coarse_resolution/lprm_v6/soil_content/",
-             [
-                 -123.68616150473056,
-                 42.853690174978794,
-                 -95.746707235368,
-                 48.80496307433518
-             ],
-             "25"
-             )
+def retrieve_LPRM(common_data,
+                  bbox,
+                  target_res,
+                  path_aux,
+                  sat_sensor,
+                  sat_band):
+
+    # Retrieve LPRM here
+    aux_df = tiff_df(path_aux, bbox, target_res)
+
+    merged = common_data.join(aux_df, how="inner")
+
+    specs = get_specs(sat_sensor.upper())
+    params = get_lprm_parameters_for_frequency(sat_band, specs.incidence_angle)
+    freq = get_specs(sat_sensor.upper()).frequencies[sat_band.upper()]
+    merged_geo = merged.reset_index(drop =True).set_index(["LAT","LON"]).to_xarray()
+
+    sm, vod = par100.run_band(
+        merged_geo["BT_V"].values.astype('double'),
+        merged_geo["BT_H"].values.astype('double'),
+        merged_geo["TSURF"].values.astype('double'),
+        merged_geo["SND"].values.astype('double'),
+        merged_geo["CLY"].values.astype('double'),
+        merged_geo["BLD"].values.astype('double'),
+        params.Q,
+        params.w,
+        params.opt_atm,
+        specs.incidence_angle[0],
+        params.h1,
+        params.h2,
+        params.vod_Av,
+        params.vod_Bv,
+        float(freq),
+        params.temp_freeze,
+        False,
+        None,
+        T_soil = merged_geo["T_soil_hull"].values.astype('double'),
+        T_canopy = merged_geo["T_canopy_hull"].values.astype('double')
+    )
+
+    merged_geo[f"SM_ADJ"] = (("LAT", "LON"), sm)
+    merged_geo[f"SM_ADJ"] = merged_geo[f"SM_ADJ"].where(merged_geo[f"SM_ADJ"] != -2, np.nan)
+
+    merged_geo[f"VOD_ADJ"] = (("LAT", "LON"), vod)
+    merged_geo[f"VOD_ADJ"] = merged_geo[f"VOD_ADJ"].where(merged_geo[f"VOD_ADJ"] != -2, np.nan)
+
+    merged_geo[f"DIF_SM{sat_band}-ADJ"] = merged_geo[f"SM_{sat_band}"] - merged_geo[f"SM_ADJ"]
+
+    return  merged_geo
+
 

@@ -3,60 +3,50 @@ from readers.Sat import BTData, LPRMData
 import matplotlib
 import numpy as np
 matplotlib.use("TkAgg")
+
 import matplotlib.pyplot as plt
 from scipy.spatial import ConvexHull
 from shapely.geometry import Polygon
 import pandas as pd
-
 from utilities.utils import (
     bbox,
     mpdi,
     extreme_hull_vals,
     find_common_coords,
+    get_dates
 )
-
 from utilities.retrieval_helpers import (
     soil_canopy_temperatures,
     interceptor,
-    dummy_line, tiff_df,
+    dummy_line, retrieve_LPRM,
 )
-
 from utilities.plotting import scatter_density,plot_maps
 from config.paths import path_lprm, path_bt, path_aux
 
-from lprm.retrieval.lprm_v6_1.run_lprmv6 import calc_lprm
-from lprm.retrieval.lprm_v6_1.parameters import get_lprm_parameters_for_frequency
-from lprm.satellite_specs import get_specs
-import lprm.retrieval.lprm_v6_1.par100m_v6_1 as par100
 
-list_bbox= [
-    -123.68616150473056,
-    42.853690174978794,
-    -95.746707235368,
-    48.80496307433518
+list_bbox=  [
+    -11.317200779651927,
+    35.31966239974636,
+    7.851459924056741,
+    51.778462344348355
   ]
-
 # Frequencies(AMSR2):
 AMSR2_bands = ['6.9', '7.3', '10.7', '18.7', '23.8', '36.5', '89.0']
-_path_bt = path_bt
-_path_lprm = path_lprm
-sat_freq = 'KU'
+sat_band = 'C1'
 sat_sensor = "amsr2"
 overpass = "day"
 target_res = "25"
 
-composite_start = "2024-01-01"
-composite_end = "2024-02-01"
+composite_start = "2024-06-01"
+composite_end = "2024-08-01"
 
-datelist = pd.date_range(start=composite_start, end=composite_end, freq="ME")
-datelist = [s.strftime("%Y-%m-%d") for s in datelist]
-
+datelist = get_dates(composite_start,composite_end)
 
 for d in datelist:
 
-    BT_object = BTData(path = _path_bt,
+    BT_object = BTData(path = path_bt,
                    date = d,
-                   sat_freq = sat_freq,
+                   sat_freq = sat_band,
                    overpass = overpass,
                    sat_sensor = sat_sensor,
                    target_res = target_res,
@@ -67,9 +57,9 @@ for d in datelist:
     BT["MPDI"] =  mpdi(BT["BT_V"], BT["BT_H"])
 
 
-    LPRM_object = LPRMData(path =_path_lprm,
+    LPRM_object = LPRMData(path =path_lprm,
                    date = d,
-                   sat_freq = sat_freq,
+                   sat_freq = sat_band,
                    overpass = overpass,
                    sat_sensor = sat_sensor,
                    target_res = target_res,
@@ -158,45 +148,21 @@ for d in datelist:
     common_data["T_soil_hull"], common_data["T_canopy_hull"] = zip(*results)
 
 
-    # Retrieve LPRM here
-    aux_df  = tiff_df(path_aux,list_bbox, target_res)
+    merged_geo = retrieve_LPRM(common_data,
+                  list_bbox,
+                  target_res,
+                  path_aux,
+                  sat_sensor,
+                  sat_band
+                  )
 
-    merged = common_data.join(aux_df, how="inner")
+    cbar_lut = {
+        "TSURF": (270, 330),
+        "T_soil_hull": (270, 330),
+        "T_canopy_hull": (270, 330),
+        f"SM_{sat_band}": (0, 0.5),
+        f"SM_ADJ": (0, 0.5),
+        f"DIF_SM{sat_band}-ADJ": (-0.25, 0.25),
+    }
 
-    specs = get_specs(sat_sensor.upper())
-    params = get_lprm_parameters_for_frequency(sat_freq, specs.incidence_angle)
-
-    merged_geo = merged.to_xarray()
-
-    sm, vod = par100.run_band(
-        merged_geo["BT_V"].values.astype('double'),
-        merged_geo["BT_H"].values.astype('double'),
-        merged_geo["TSURF"].values.astype('double'),
-        merged_geo["SND"].values.astype('double'),
-        merged_geo["CLY"].values.astype('double'),
-        merged_geo["BLD"].values.astype('double'),
-        params.Q,
-        params.w,
-        params.opt_atm,
-        specs.incidence_angle[0],
-        params.h1,
-        params.h2,
-        params.vod_Av,
-        params.vod_Bv,
-        float(LPRM_object.sat_freq),
-        params.temp_freeze,
-        False,    # apply VOD correction if mean is passed
-        None,                # pass mean VOD of backwards window
-    )
-
-    merged_geo[f"SM_ADJ"] = (merged_geo.dims, sm)
-    merged_geo[f"VOD_ADJ"]= (merged_geo.dims, vod)
-
-    cbar_lut = {"T_soil_hull": (270, 330),
-                "T_canopy_hull": (270, 330),
-                "SM_ADJ": (0, 0.5),
-                "SM_KU": (0, 0.5)
-                }
-
-    plot_maps(merged_geo, cbar_lut)
-
+    plot_maps(merged_geo, cbar_lut,d)
