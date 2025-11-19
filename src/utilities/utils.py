@@ -1,8 +1,11 @@
 import numpy as np
 from sklearn.neighbors import BallTree
 import pandas as pd
+from scipy.spatial import ConvexHull
+
 pd.options.mode.chained_assignment = None
-from shapely.geometry import LineString,  Point
+
+
 
 def to_radians(df,
                lat = "lat",
@@ -120,13 +123,19 @@ def mpdi(v_freq,
     return mpdi
 
 def bbox(df,
-         list):
+         lista):
 
-    df = df.loc[df["LAT"] > list[1]]
-    df = df.loc[df["LAT"] < list[3]]
+    # df = df.loc[df["LAT"] > lista[1]]
+    # df = df.loc[df["LAT"] < lista[3]]
+    #
+    # df = df.loc[df["LON"] > lista[0]]
+    # df = df.loc[df["LON"] < lista[2]]
 
-    df = df.loc[df["LON"] > list[0]]
-    df = df.loc[df["LON"] < list[2]]
+    df = df.loc[df.index.get_level_values("LAT") > lista[1]]
+    df = df.loc[df.index.get_level_values("LAT") < lista[3]]
+
+    df = df.loc[df.index.get_level_values("LON") > lista[0]]
+    df = df.loc[df.index.get_level_values("LON") < lista[2]]
 
     return df
 
@@ -149,26 +158,39 @@ def calc_surface_temperature(bt_Ka_input: np.ndarray) -> np.ndarray:
     return temperature
 
 
-def find_common_coords(lprm, bt):
+def find_common_coords(df1,
+                       df2,
+                       target_res,
+                       dropna_subset= ['BT_V',"TSURF"],
+                       suffixes = ('_LPRM', '_BT')):
     """
     Finding common locs between two datasets. Needed to avoid dimension mismatch when plotting.
 
-    :param ref: dataframe reference
-    :param test:  dataframe test
+    :df1 ref: dataframe reference
+    :df2 test:  dataframe test (must add offset to match ref coords)
     :return: common dataframe
     """
+    offset_lut = {"10" : 0.05,
+                  "25" : 0.125}
+
     # bt = bt.drop(columns = ["SCANTIME"])
-    lprm = lprm.drop(columns = ["FLAGS"])
-    bt["LAT"] = bt["LAT"] + 0.05
-    bt["LON"] = bt["LON"] + 0.05
+    # lprm = lprm.drop(columns = ["FLAGS"])
+    df1 = df1.reset_index()
+    df2 = df2.reset_index()
+    df2["LAT"] = df2["LAT"] + offset_lut[target_res]
+    df2["LON"] = df2["LON"] + offset_lut[target_res]
 
-    lprm['LAT'] = lprm['LAT'].round(4)
-    lprm['LON'] = lprm['LON'].round(4)
-    bt['LAT'] = bt['LAT'].round(4)
-    bt['LON'] = bt['LON'].round(4)
+    df1['LAT'] = df1['LAT'].round(4)
+    df1['LON'] = df1['LON'].round(4)
+    df2['LAT'] = df2['LAT'].round(4)
+    df2['LON'] = df2['LON'].round(4)
 
-    common_df = pd.merge(lprm,bt,how='inner', on = ["LON","LAT"], suffixes=('_LPRM', '_BT'))
-    common_df =  common_df.dropna(subset=['BT_V',"TSURF"])
+    common_df = pd.merge(df1, df2 ,how='inner', on = ["LON","LAT"], suffixes=suffixes)
+    common_df =  common_df.dropna(subset=dropna_subset)
+
+    cordinates = [common_df["LAT"].values, common_df["LON"].values]
+    mi_array = zip(*cordinates)
+    common_df.index = pd.MultiIndex.from_tuples(mi_array, names=["LAT", "LON"])
 
     return common_df
 
@@ -190,6 +212,7 @@ def extreme_hull_vals(x_values,
                       x_variable = "VOD_KU",
                       y_variable = "TSURF"):
 
+
     hull_df = pd.DataFrame({
         x_variable: x_values,
         y_variable: y_values
@@ -210,59 +233,26 @@ def extreme_hull_vals(x_values,
 
     return vertex_dict
 
-def soil_canopy_temperatures(point_x,
-                             point_y,
-                             cold_edge,
-                             grad_warm_edge,
-                             intercept_warm_edge,
-                             full_veg_cover
-                             ):
-    # equation of line: Tsoil = grad_warm_edge * point_x + intercept_warm_edge
-    a = point_y - cold_edge
-    b = (grad_warm_edge * point_x + intercept_warm_edge) - point_y
 
-    A = cold_edge
-    D = intercept_warm_edge
-    T_soil_extreme = ((a / (a+b)) * (D - A) + A)
+def get_dates(composite_start,composite_end, freq = "ME"):
 
-    B = cold_edge
-    C = (grad_warm_edge * full_veg_cover + intercept_warm_edge)
-    T_canopy_extreme = ((a / (a + b)) * (C -B ) + B)
+    _datelist = pd.date_range(start=composite_start, end=composite_end, freq=freq)
+    datelist = [s.strftime("%Y-%m-%d") for s in _datelist]
 
-    # these gradients and intercepts are needed to find the intersection for every line for every point with the hull
-    # yes, I know I define multiple variables to be the same, but (for now) it is better to understand..
-    gradient_of_point =  (( T_soil_extreme - T_canopy_extreme) / (0 - full_veg_cover))
-    intercept_of_point = T_soil_extreme
+    return datelist
 
-    t_dict = {"T_soil_extreme" : T_soil_extreme,
-              "T_canopy_extreme": T_canopy_extreme,
-              "gradient_of_point" : gradient_of_point,
-              "intercept_of_point" : intercept_of_point}
+def convex_hull(points):
 
-    return t_dict
+    hull = ConvexHull(points)
 
+    hull_x = points[hull.vertices, 0]
+    hull_y = points[hull.vertices, 1]
 
-def dummy_line(gradient, intercept):
+    # We add the "close to last" coord, so that the hull definetely closes!!
+    last_x , last_y = (points[hull.vertices, 0][0],
+                       points[hull.vertices, 1][0])
 
-    # We need to get two arbitrary points of the line
-    # To find the intersection with the hull
-    # y_0 = intercept
-    p_5 = (gradient * 5) + intercept
-    p_0 = intercept
+    hull_x = np.append(hull_x,last_x)
+    hull_y = np.append(hull_y,last_y)
 
-    return p_0, p_5
-
-
-def interceptor(poly, p_0, p_5, TSURF):
-
-    line = LineString([(0,p_0) ,(5, p_5)])
-
-    intersection = poly.intersection(line)
-    if isinstance(intersection, LineString) and not intersection.is_empty:
-        t_soil, t_canopy = [list(intersection.coords)[i][1] for i in range(0,2)]
-    if isinstance(intersection, Point):
-        t_soil = t_canopy = list(intersection.coords)[0][1]
-    if intersection.is_empty:
-        t_soil = t_canopy= TSURF
-
-    return t_soil, t_canopy
+    return hull_x, hull_y

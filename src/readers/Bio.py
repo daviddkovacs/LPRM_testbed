@@ -73,7 +73,7 @@ class Bio:
 
         dataset = self.to_xarray(bbox)
         pandas = dataset.to_dataframe()
-        pandas = pandas.dropna(subset=[self.bio_var]).reset_index()
+        pandas = pandas.dropna(subset=[self.bio_var])
 
         pandas = pandas[["lon", "lat", f"{self.bio_var}"]]
 

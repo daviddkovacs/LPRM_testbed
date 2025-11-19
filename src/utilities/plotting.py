@@ -5,6 +5,7 @@ from scipy.stats import gaussian_kde
 import pandas as pd
 import numpy as np
 import os
+import xarray as xr
 import mpl_scatter_density
 from matplotlib.colors import LinearSegmentedColormap
 
@@ -193,21 +194,89 @@ def create_longitude_plot(ref_x,
         plt.show()
 
 
-def plot_maps(df, cbar_lut):
+def plot_maps_LPRM(ds,
+              cbar_lut,
+              date,
+             ):
 
-    cordinates = [df["LAT"].values, df["LON"].values]
-    mi_array = zip(*cordinates)
-    df.index = pd.MultiIndex.from_tuples(mi_array, names=["LAT", "LON"])
+    fig, axes = plt.subplots(2,3, figsize=(10, 10))
+    fig.suptitle(date)
 
-    fig, axes = plt.subplots(2, 2, figsize=(8, 8))
     axes = axes.flatten()
+
     for ax, var in zip(axes, cbar_lut.keys()):
-        data = df.to_xarray()[var]
-        im = ax.imshow(np.flipud(data), vmin=cbar_lut[var][0], vmax=cbar_lut[var][1])
+        color = "RdYlBu" if "DIF" in var else "viridis"
+        da = ds[var]
+        da.plot(ax=ax, vmin=cbar_lut[var][0], vmax=cbar_lut[var][1], cmap=color, add_colorbar=True)
         ax.set_title(var)
         ax.axis('off')
-
+        def format_coord(x, y, da=da):
+            # find nearest index
+            xi = int(np.clip(np.round(x), 0, da.sizes['LON']-1))
+            yi = int(np.clip(np.round(y), 0, da.sizes['LAT']-1))
+            value = da.values[yi, xi]
+            return f"x={x:.2f}, y={y:.2f}, {var}={value:.3f}"
+        ax.format_coord = format_coord
     plt.tight_layout()
+    plt.show()
+
+
+def plot_maps_day_night(
+        merged_df,
+        night_LPRM,
+        sat_band,
+):
+    """
+    Plot maps from Night LPRM from day (adjusted) lprm and their difference
+    :param merged_df: Merged df containing adjusted daytime retrievals
+    :param night_LPRM: Import night retrievals, untouched.
+    :param sat_band: Band
+    :return:
+    """
+
+    night_data = night_LPRM[f"SM_{sat_band}"]
+    original_data = merged_df[f"SM_{sat_band}"]
+    adj_data = merged_df[f"SM_ADJ"]
+
+    night_trim = night_data.isel(LON=slice(0, adj_data.sizes['LON']),
+                                 LAT=slice(0, adj_data.sizes['LAT']))
+
+    night_trim = night_trim.sortby(["LAT", "LON"])
+    adj_data = adj_data.sortby(["LAT", "LON"])
+
+    diff_values = np.where(
+        np.isnan(adj_data.data) | np.isnan(night_trim.data),
+        np.nan,
+        night_trim.data - adj_data.data
+    )
+
+    diff =  xr.DataArray(data = diff_values,
+                         dims = ["LAT", "LON"],
+                         coords =  dict(
+                             LAT =adj_data["LAT"],
+                             LON =adj_data["LON"],
+                         ))
+
+    fig, axes = plt.subplots(2, 2, figsize=(8, 8), constrained_layout=True)
+
+    night_trim.plot.pcolormesh(
+        x="LON", y="LAT", cmap="viridis", ax=axes[0,0], vmin= 0, vmax= 0.5,
+    )
+    axes[0,0].set_title(f"Night SM_{sat_band}")
+
+    adj_data.plot.pcolormesh(
+        x="LON", y="LAT", cmap="viridis", ax=axes[0,1], vmin= 0, vmax= 0.5,
+    )
+    axes[0,1].set_title(f"Day Adjusted SM_{sat_band}")
+
+    diff.plot.pcolormesh(
+        x="LON", y="LAT", cmap="coolwarm", ax=axes[1,0], vmin= -1, vmax= 1,
+    )
+    axes[1,0].set_title("Night − Day")
+
+    axes[1,1].hist(diff.values.flatten(), bins = 50, range= (-0.5, 0.5), histtype = 'bar' , color = "tab:blue")
+    axes[1,1].set_title("Night − Day")
+
     plt.show()
 
 
