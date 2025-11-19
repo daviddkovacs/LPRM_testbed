@@ -20,7 +20,7 @@ from utilities.retrieval_helpers import (
     interceptor,
     dummy_line, retrieve_LPRM,
 )
-from utilities.plotting import scatter_density,plot_maps
+from utilities.plotting import scatter_density,plot_maps_LPRM
 from config.paths import path_lprm, path_bt, path_aux
 
 
@@ -181,13 +181,28 @@ for d in datelist:
 
     }
 
-    plot_maps(merged_geo, cbar_lut,d)
+    plot_maps_LPRM(merged_geo, cbar_lut, d)
 
-    plt.figure()
-    night_LPRM["SM_C1"].plot.pcolormesh(
-        x="LON",
-        y="LAT",
-        cmap="viridis"
+    night_data = night_LPRM[f"SM_{sat_band}"]
+    original_data = merged_geo[f"SM_{sat_band}"]
+    adj_data = merged_geo[f"SM_ADJ"]
+
+    fig, axes = plt.subplots(1, 3, figsize=(18, 6), constrained_layout=True)
+
+    night_data.plot.pcolormesh(
+        x="LON", y="LAT", cmap="viridis", ax=axes[0]
     )
+    axes[0].set_title("Night SM_C1")
+
+    original_data.plot.pcolormesh(
+        x="LON", y="LAT", cmap="viridis", ax=axes[1]
+    )
+    axes[1].set_title("Day SM_C1")
+
+    adj_data.plot.pcolormesh(
+        x="LON", y="LAT", cmap="coolwarm", ax=axes[2]
+    )
+    axes[2].set_title("Night − Day")
+
     plt.show()
 

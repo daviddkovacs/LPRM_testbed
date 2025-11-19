@@ -193,12 +193,12 @@ def create_longitude_plot(ref_x,
         plt.show()
 
 
-def plot_maps(ds,
+def plot_maps_LPRM(ds,
               cbar_lut,
               date,
              ):
 
-    fig, axes = plt.subplots(2,2, figsize=(10, 10))
+    fig, axes = plt.subplots(2,3, figsize=(10, 10))
     fig.suptitle(date)
 
     axes = axes.flatten()
