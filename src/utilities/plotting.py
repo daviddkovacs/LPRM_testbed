@@ -220,3 +220,39 @@ def plot_maps_LPRM(ds,
     plt.show()
 
 
+def plot_maps_day_night(
+        merged_df,
+        night_LPRM,
+        sat_band,
+):
+    """
+    Plot maps from Night LPRM from day (adjusted) lprm and their difference
+    :param merged_df: Merged df containing adjusted daytime retrievals
+    :param night_LPRM: Import night retrievals, untouched.
+    :param sat_band: Band
+    :return:
+    """
+
+    night_data = night_LPRM[f"SM_{sat_band}"]
+    original_data = merged_df[f"SM_{sat_band}"]
+    adj_data = merged_df[f"SM_ADJ"]
+
+    fig, axes = plt.subplots(1, 3, figsize=(18, 6), constrained_layout=True)
+
+    night_data.plot.pcolormesh(
+        x="LON", y="LAT", cmap="viridis", ax=axes[0],
+    )
+    axes[0].set_title("Night SM_C1")
+
+    original_data.plot.pcolormesh(
+        x="LON", y="LAT", cmap="viridis", ax=axes[1]
+    )
+    axes[1].set_title("Day SM_C1")
+
+    adj_data.plot.pcolormesh(
+        x="LON", y="LAT", cmap="coolwarm", ax=axes[2], vmin= -1, vmax= 1,
+    )
+    axes[2].set_title("Night − Day")
+
+    plt.show()
+

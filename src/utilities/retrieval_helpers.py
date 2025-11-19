@@ -59,7 +59,7 @@ def interceptor(poly, p_0, p_5, TSURF):
     line = LineString([(0,p_0) ,(5, p_5)])
 
     intersection = poly.intersection(line)
-    if isinstance(intersection, LineString) or isinstance(intersection, MultiLineString) and not intersection.is_empty:
+    if (isinstance(intersection, LineString) or isinstance(intersection, MultiLineString)) and not intersection.is_empty:
         t_soil, t_canopy = [list(intersection.coords)[i][1] for i in range(0,2)]
     if isinstance(intersection, Point):
         t_soil = t_canopy = list(intersection.coords)[0][1]
