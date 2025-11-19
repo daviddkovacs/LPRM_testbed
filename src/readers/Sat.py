@@ -75,6 +75,7 @@ class BTData:
 
         dataset = xr.open_dataset(self.bt_file, decode_timedelta=False)
         dataset = dataset.rename({v: v.upper() for v in dataset.variables})
+        # dataset = dataset.rename({v: v.upper() for v in dataset.dims})
 
         if "time" in dataset.dims:
             dataset = dataset.squeeze("time", drop=True)

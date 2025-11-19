@@ -25,15 +25,15 @@ from config.paths import path_lprm, path_bt, path_aux
 
 
 list_bbox= [
-    -139.53262641880323,
-    -53.25153835096963,
-    154.84755657182347,
-    69.69520676341554
+    -7.886560668645558,
+    36.42817192064946,
+    32.2675786384153,
+    58.55418543529123
   ]
 
 # Frequencies(AMSR2):
 AMSR2_bands = ['6.9', '7.3', '10.7', '18.7', '23.8', '36.5', '89.0']
-sat_band = 'C1'
+sat_band = 'X'
 sat_sensor = "amsr2"
 overpass = "day"
 target_res = "25"
@@ -96,10 +96,10 @@ for d in datelist:
     scatter_density(
         ref=x,
         test=y,
-        test_colour=common_data["SM_C1"],
+        test_colour=common_data[f"SM_{sat_band}"],
         xlabel= x_var,
         ylabel=y_var,
-        cbar_label= "SM_C1",
+        cbar_label= sat_band,
         # cbar_type = "jet",
         xlim = (0,1.4),
         ylim = (273,330),
@@ -161,7 +161,6 @@ for d in datelist:
 
     common_data["T_soil_hull"], common_data["T_canopy_hull"] = zip(*results)
 
-
     merged_geo = retrieve_LPRM(common_data,
                   list_bbox,
                   target_res,
@@ -177,11 +176,9 @@ for d in datelist:
         f"SM_{sat_band}": (0, 0.5),
         f"SM_ADJ": (0, 0.5),
         f"DIF_SM{sat_band}-ADJ": (-0.25, 0.25),
-        f"SM_C1": (0, 0.5),
-
+        sat_band: (0, 0.5),
     }
 
     plot_maps_LPRM(merged_geo, cbar_lut, d)
 
-    plot_maps_day_night(merged_geo,night_LPRM,sat_band,)
-
+    plot_maps_day_night(merged_geo, night_LPRM, sat_band,)

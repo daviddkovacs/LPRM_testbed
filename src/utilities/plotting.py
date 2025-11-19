@@ -236,23 +236,24 @@ def plot_maps_day_night(
     night_data = night_LPRM[f"SM_{sat_band}"]
     original_data = merged_df[f"SM_{sat_band}"]
     adj_data = merged_df[f"SM_ADJ"]
+    dif = adj_data- night_data
 
-    fig, axes = plt.subplots(1, 3, figsize=(18, 6), constrained_layout=True)
+    fig, axes = plt.subplots(2, 2, figsize=(8, 8), constrained_layout=True)
 
     night_data.plot.pcolormesh(
-        x="LON", y="LAT", cmap="viridis", ax=axes[0],
+        x="LON", y="LAT", cmap="viridis", ax=axes[0,0],
     )
-    axes[0].set_title("Night SM_C1")
+    axes[0,0].set_title("Night SM_C1")
 
     original_data.plot.pcolormesh(
-        x="LON", y="LAT", cmap="viridis", ax=axes[1]
+        x="LON", y="LAT", cmap="viridis", ax=axes[0,1]
     )
-    axes[1].set_title("Day SM_C1")
+    axes[0,1].set_title("Day SM_C1")
 
-    adj_data.plot.pcolormesh(
-        x="LON", y="LAT", cmap="coolwarm", ax=axes[2], vmin= -1, vmax= 1,
+    dif.plot.pcolormesh(
+        x="LON", y="LAT", cmap="coolwarm", ax=axes[1,0], vmin= -1, vmax= 1,
     )
-    axes[2].set_title("Night − Day")
+    axes[1,1].set_title("Night − Day")
 
     plt.show()
 

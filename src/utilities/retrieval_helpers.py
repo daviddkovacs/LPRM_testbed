@@ -150,7 +150,7 @@ def retrieve_LPRM(common_data,
     merged_geo[f"VOD_ADJ"] = (("LAT", "LON"), vod)
     merged_geo[f"VOD_ADJ"] = merged_geo[f"VOD_ADJ"].where(merged_geo[f"VOD_ADJ"] != -2, np.nan)
 
-    merged_geo[f"DIF_SM{sat_band}-ADJ"] = merged_geo[f"SM_{sat_band}"] - merged_geo[f"SM_ADJ"]
+    merged_geo[f"DIF_SM{sat_band}-ADJ"] = merged_geo[f"SM_ADJ"] - merged_geo[f"SM_{sat_band}"]
 
     return  merged_geo
 
