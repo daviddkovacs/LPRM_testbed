@@ -5,6 +5,7 @@ from scipy.stats import gaussian_kde
 import pandas as pd
 import numpy as np
 import os
+import xarray as xr
 import mpl_scatter_density
 from matplotlib.colors import LinearSegmentedColormap
 
@@ -234,26 +235,47 @@ def plot_maps_day_night(
     """
 
     night_data = night_LPRM[f"SM_{sat_band}"]
-    original_data = merged_df[f"SM_{sat_band}"]
     adj_data = merged_df[f"SM_ADJ"]
-    dif = adj_data- night_data
+
+    night_trim = night_data.isel(LON=slice(0, adj_data.sizes['LON']),
+                                 LAT=slice(0, adj_data.sizes['LAT']))
+    night_trim = night_trim.sortby(["LAT", "LON"])
+    adj_data = adj_data.sortby(["LAT", "LON"])
+    diff_values = np.where(
+        np.isnan(adj_data.data) | np.isnan(night_trim.data),
+        np.nan,
+        adj_data.data - night_trim.data
+    )
+    diff =  xr.DataArray(data = diff_values,
+                         dims = ["LAT", "LON"],
+                         coords =  dict(
+                             LAT =adj_data["LAT"],
+                             LON =adj_data["LON"],
+                         ))
 
     fig, axes = plt.subplots(2, 2, figsize=(8, 8), constrained_layout=True)
 
-    night_data.plot.pcolormesh(
-        x="LON", y="LAT", cmap="viridis", ax=axes[0,0],
+    night_trim.plot.pcolormesh(
+        x="LON", y="LAT", cmap="viridis", ax=axes[0,0], vmin= 0, vmax= 0.5,
     )
-    axes[0,0].set_title("Night SM_C1")
+    axes[0,0].set_title(f"Night SM_{sat_band}")
 
-    original_data.plot.pcolormesh(
-        x="LON", y="LAT", cmap="viridis", ax=axes[0,1]
+    adj_data.plot.pcolormesh(
+        x="LON", y="LAT", cmap="viridis", ax=axes[0,1], vmin= 0, vmax= 0.5,
     )
-    axes[0,1].set_title("Day SM_C1")
+    axes[0,1].set_title(f"Day Adjusted SM_{sat_band}")
 
-    dif.plot.pcolormesh(
+    diff.plot.pcolormesh(
         x="LON", y="LAT", cmap="coolwarm", ax=axes[1,0], vmin= -1, vmax= 1,
     )
-    axes[1,1].set_title("Night − Day")
+    axes[1,0].set_title("Night − Day")
+
+    # adj_data.plot.pcolormesh(
+    #     x="LON", y="LAT", cmap="coolwarm", ax=axes[1,1], vmin= -1, vmax= 1,
+    # )
+    # axes[1,1].set_title("Night − Day")
 
     plt.show()
+
+    x=1
 

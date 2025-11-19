@@ -75,7 +75,7 @@ class BTData:
 
         dataset = xr.open_dataset(self.bt_file, decode_timedelta=False)
         dataset = dataset.rename({v: v.upper() for v in dataset.variables})
-        # dataset = dataset.rename({v: v.upper() for v in dataset.dims})
+        dataset = dataset.rename({v: v.upper() for v in dataset.dims})
 
         if "time" in dataset.dims:
             dataset = dataset.squeeze("time", drop=True)
@@ -84,9 +84,18 @@ class BTData:
             lon_mask = (dataset["LON"] >= bbox[0]) & (dataset["LON"] <= bbox[2])
             dataset = dataset.where(lat_mask & lon_mask, drop=True)
 
-        dataset = dataset.assign_coords(
-            {"LAT" : dataset["LAT"],
-             "LON" : dataset["LON"]})
+        if dataset['LAT'].ndim == 2:
+
+            lat_1d = dataset['LAT'][:, 0]
+            lon_1d = dataset['LON'][:, 0]
+
+            ds = dataset.drop_vars(['LAT', 'LON'])
+            dataset = ds.assign_coords(LAT=lat_1d, LON=lon_1d)
+
+        else:
+            dataset = dataset.assign_coords(
+                {"LAT" : dataset["LAT"],
+                 "LON" : dataset["LON"]})
 
         return dataset
 
@@ -110,6 +119,5 @@ class LPRMData(BTData):
 
         dataset = self.to_xarray()
         pandas = dataset.to_dataframe()
-        pandas = pandas.set_index(["LAT", "LON"])
 
         return pandas

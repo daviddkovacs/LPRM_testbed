@@ -24,11 +24,11 @@ from utilities.plotting import scatter_density, plot_maps_LPRM, plot_maps_day_ni
 from config.paths import path_lprm, path_bt, path_aux
 
 
-list_bbox= [
-    -7.886560668645558,
-    36.42817192064946,
-    32.2675786384153,
-    58.55418543529123
+list_bbox=  [
+    -8.76759228427818,
+    -20.918170176063057,
+    71.33427709487376,
+    55.65559401304364
   ]
 
 # Frequencies(AMSR2):
@@ -99,7 +99,7 @@ for d in datelist:
         test_colour=common_data[f"SM_{sat_band}"],
         xlabel= x_var,
         ylabel=y_var,
-        cbar_label= sat_band,
+        cbar_label= f"SM_{sat_band}",
         # cbar_type = "jet",
         xlim = (0,1.4),
         ylim = (273,330),
