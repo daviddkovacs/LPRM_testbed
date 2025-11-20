@@ -47,9 +47,8 @@ class BTData:
 
         res_path = resolution_path(target_res)
 
-        year_month = datetime.strptime(date, "%Y-%m-%d").strftime("%Y%m")
-        date_fmt = datetime.strptime(date, "%Y-%m-%d").strftime("%Y%m%d")
-
+        year_month = date.strftime("%Y%m")
+        date_fmt = date.strftime("%Y%m%d")
         pattern = f"{sat_sensor}_l1bt_{overpass}_{date_fmt}_{target_res}km.nc"
 
         self.bt_file = os.path.join(path, overpass,year_month,pattern)
@@ -104,8 +103,8 @@ class LPRMData(BTData):
 
     def __init__(self, path, sat_sensor, date, overpass, target_res, sat_freq=None):
 
-        year_month = datetime.strptime(date, "%Y-%m-%d").strftime("%Y%m")
-        date_fmt = datetime.strptime(date, "%Y-%m-%d").strftime("%Y%m%d")
+        year_month = date.strftime("%Y%m")
+        date_fmt = date.strftime("%Y%m%d")
         pattern = f"{sat_sensor.upper()}_LPRM_VEGC_{overpass}{date_fmt}_{target_res}km_v061.nc"
         res_path = resolution_path(target_res)
 

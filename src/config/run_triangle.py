@@ -3,7 +3,7 @@ from readers.Sat import BTData, LPRMData
 import matplotlib
 import numpy as np
 matplotlib.use("TkAgg")
-
+import xarray as xr
 import matplotlib.pyplot as plt
 from shapely.geometry import Polygon
 
@@ -41,7 +41,9 @@ target_res = "25"
 composite_start = "2024-06-01"
 composite_end = "2024-07-01"
 
-datelist = get_dates(composite_start,composite_end)
+datelist = get_dates(composite_start, composite_end)
+
+SM_ADJ_TS = xr.DataArray()
 
 for d in datelist:
 
@@ -93,19 +95,19 @@ for d in datelist:
     x = common_data[x_var]
     y = common_data[y_var]
 
-    scatter_density(
-        ref=x,
-        test=y,
-        test_colour=common_data[f"SM_{sat_band}"],
-        xlabel= x_var,
-        ylabel=y_var,
-        cbar_label= f"SM_{sat_band}",
-        # cbar_type = "jet",
-        xlim = (0,1.4),
-        ylim = (273,330),
-        # cbar_scale = (0,0.5),
-        # dpi =5
-        )
+    # scatter_density(
+    #     ref=x,
+    #     test=y,
+    #     test_colour=common_data[f"SM_{sat_band}"],
+    #     xlabel= x_var,
+    #     ylabel=y_var,
+    #     cbar_label= f"SM_{sat_band}",
+    #     # cbar_type = "jet",
+    #     xlim = (0,1.4),
+    #     ylim = (273,330),
+    #     cbar_scale = (0,0.5),
+    #     # dpi =5
+    #     )
 
     points = np.array([x,y]).T
 
@@ -116,7 +118,6 @@ for d in datelist:
                                x_variable= x_var,
                                y_variable= y_var, )
 
-    plt.plot(hull_x, hull_y, 'b--', lw=2)
 
     # Gradient of warm edge (y2-y1) / (x2-x1)
     # 0th is x and 1st index is y coord
@@ -125,15 +126,17 @@ for d in datelist:
 
     # Intercept of warm edge on y-axis
     intercept_warm_edge = ((grad_warm_edge * vertex[f"max_{x_var}"][0]) * -1) + vertex[f"max_{x_var}"][1]
-    plt.plot(x, grad_warm_edge * x + intercept_warm_edge, label = "Warm edge")
 
     # Cold edge
     cold_edge = vertex[f"min_{y_var}"][1]
-    plt.axhline(cold_edge)
 
     # full vegetation cover edge
     full_veg_cover = vertex[f"max_{x_var}"][0]
-    plt.axvline(full_veg_cover)
+
+    # plt.plot(hull_x, hull_y, 'b--', lw=2)
+    # plt.plot(x, grad_warm_edge * x + intercept_warm_edge, label = "Warm edge")
+    # plt.axhline(cold_edge)
+    # plt.axvline(full_veg_cover)
 
     temperatures_data = soil_canopy_temperatures(x,
                                                 y,
@@ -180,5 +183,7 @@ for d in datelist:
     }
 
     plot_maps_LPRM(merged_geo, cbar_lut, d)
-
     plot_maps_day_night(merged_geo, night_LPRM, sat_band,)
+
+    # SM_ADJ_array = merged_geo["SM_ADJ"].expand_dims(time = )
+    # SM_ADJ_TS = xr.concat([SM_ADJ_TS,SM_ADJ_array], "time")

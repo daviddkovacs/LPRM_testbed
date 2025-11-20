@@ -270,7 +270,7 @@ def plot_maps_day_night(
     axes[0,1].set_title(f"Day Adjusted SM_{sat_band}")
 
     diff.plot.pcolormesh(
-        x="LON", y="LAT", cmap="coolwarm", ax=axes[1,0], vmin= -1, vmax= 1,
+        x="LON", y="LAT", cmap="coolwarm", ax=axes[1,0], vmin= -0.8, vmax= 0.8,
     )
     axes[1,0].set_title("Night − Day")
 

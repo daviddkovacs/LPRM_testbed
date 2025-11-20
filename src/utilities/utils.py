@@ -236,8 +236,7 @@ def extreme_hull_vals(x_values,
 
 def get_dates(composite_start,composite_end, freq = "ME"):
 
-    _datelist = pd.date_range(start=composite_start, end=composite_end, freq=freq)
-    datelist = [s.strftime("%Y-%m-%d") for s in _datelist]
+    datelist = pd.date_range(start=composite_start, end=composite_end, freq=freq)
 
     return datelist
 
