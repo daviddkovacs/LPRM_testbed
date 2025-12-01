@@ -24,7 +24,7 @@ from utilities.retrieval_helpers import (
     interceptor,
     dummy_line, retrieve_LPRM,
 )
-from utilities.plotting import scatter_density, plot_maps_LPRM, plot_maps_day_night
+from utilities.plotting import scatter_density, plot_maps_LPRM, plot_maps_day_night, plot_timeseries
 from config.paths import path_lprm, path_bt, path_aux
 
 list_bbox= [
@@ -38,11 +38,11 @@ list_bbox= [
 AMSR2_bands = ['6.9', '7.3', '10.7', '18.7', '23.8', '36.5', '89.0']
 sat_band = 'X'
 sat_sensor = "amsr2"
-overpass = "day"
+overpass = "night"
 target_res = "25"
 
-composite_start = "2024-01-01"
-composite_end = "2024-12-31"
+composite_start = "2024-06-01"
+composite_end = "2024-06-01"
 
 datelist = get_dates(composite_start, composite_end, freq = "D")
 
@@ -99,19 +99,19 @@ for d in datelist:
         x = common_data[x_var]
         y = common_data[y_var]
 
-        # scatter_density(
-        #     ref=x,
-        #     test=y,
-        #     test_colour=common_data[f"SM_{sat_band}"],
-        #     xlabel= x_var,
-        #     ylabel=y_var,
-        #     cbar_label= f"SM_{sat_band}",
-        #     # cbar_type = "jet",
-        #     xlim = (0,1.4),
-        #     ylim = (273,330),
-        #     cbar_scale = (0,0.5),
-        #     # dpi =5
-        #     )
+        scatter_density(
+            ref=x,
+            test=y,
+            test_colour=common_data[f"SM_{sat_band}"],
+            xlabel= x_var,
+            ylabel=y_var,
+            cbar_label= f"SM_{sat_band}",
+            # cbar_type = "jet",
+            xlim = (0,1.4),
+            ylim = (273,330),
+            cbar_scale = (0,0.5),
+            # dpi =5
+            )
 
         points = np.array([x,y]).T
         hull_x, hull_y = convex_hull(points)
@@ -134,10 +134,10 @@ for d in datelist:
         # full vegetation cover edge
         full_veg_cover = vertex[f"max_{x_var}"][0]
 
-        # plt.plot(hull_x, hull_y, 'b--', lw=2)
-        # plt.plot(x, grad_warm_edge * x + intercept_warm_edge, label = "Warm edge")
-        # plt.axhline(cold_edge)
-        # plt.axvline(full_veg_cover)
+        plt.plot(hull_x, hull_y, 'b--', lw=2)
+        plt.plot(x, grad_warm_edge * x + intercept_warm_edge, label = "Warm edge")
+        plt.axhline(cold_edge)
+        plt.axvline(full_veg_cover)
 
         temperatures_data = soil_canopy_temperatures(x,
                                                     y,
@@ -156,7 +156,6 @@ for d in datelist:
 
         common_data["p_o"], common_data["p_5"] = dummy_line(
             common_data["gradient"],common_data["intercept"])
-
 
         poly = Polygon((x, y) for x, y in zip(hull_x, hull_y))
 
@@ -177,14 +176,14 @@ for d in datelist:
             "TSURF": (270, 330),
             "T_soil_hull": (270, 330),
             "T_canopy_hull": (270, 330),
-            f"SM_{sat_band}": (0, 0.5),
-            f"SM_ADJ": (0, 0.5),
-            f"DIF_SM{sat_band}-ADJ": (-0.25, 0.25),
-            sat_band: (0, 0.5),
+            # f"SM_{sat_band}": (0, 0.5),
+            # f"SM_ADJ": (0, 0.5),
+            # f"DIF_SM{sat_band}-ADJ": (-0.25, 0.25),
+            # sat_band: (0, 0.5),
         }
 
         plot_maps_LPRM(merged_geo, cbar_lut, d)
-        plot_maps_day_night(merged_geo, night_LPRM, sat_band,)
+        # plot_maps_day_night(merged_geo, night_LPRM, sat_band,)
 
         dt_original_array = merged_geo[f"SM_{sat_band}"].expand_dims(time = [d.date()])
         dt_original_ts.append(dt_original_array)
@@ -204,31 +203,9 @@ dt_adj_ds = xr.concat(dt_adjusted_ts, dim="time")
 nt_ds = xr.concat(nt_ts, dim="time")
 
 ##
-
 lat = 37.555028632
 lon = -102.313477769
 
-day_orig = dt_ori_ds[f"SM_{sat_band}"].sel(LAT=lat, LON=lon, method = "nearest")
-day_adjust = dt_adj_ds["SM_ADJ"].sel(LAT=lat, LON=lon, method = "nearest")
-night_array = nt_ds.sel(LAT=lat, LON=lon, method = "nearest")
+# plot_timeseries(dt_ori_ds, dt_adj_ds, nt_ds,lat,lon,sat_band = sat_band)
 
-##
-
-day_adjust.plot(label = "Day adjust")
-day_orig.plot(label = "Day original")
-night_array.plot(label = "night")
-plt.legend()
-
-bias_adjust = night_array.mean() - day_adjust.mean()
-bias_orig = night_array.mean() - day_orig.mean()
-
-
-r_night_adj = pearson_corr(night_array, f"SM_{sat_band}",
-                           day_adjust,"SM_ADJ")
-
-r_night_orig = pearson_corr(night_array, f"SM_{sat_band}",
-                           day_orig,f"SM_{sat_band}")
-
-
-# daytime_dataset["SM_ADJ"].isel(time= 0).plot()
 

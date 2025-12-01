@@ -8,7 +8,7 @@ import os
 import xarray as xr
 import mpl_scatter_density
 from matplotlib.colors import LinearSegmentedColormap
-
+from utilities.utils import pearson_corr
 
 def statistics(ref,test):
 
@@ -195,11 +195,14 @@ def create_longitude_plot(ref_x,
 
 
 def plot_maps_LPRM(ds,
-              cbar_lut,
-              date,
-             ):
+                   cbar_lut,
+                   date,
+                   ):
 
-    fig, axes = plt.subplots(2,3, figsize=(10, 10))
+    ncols = len(cbar_lut.keys()) if (len(cbar_lut.keys()) <3) else 3
+    nrows = 1 if len(cbar_lut.keys()) <= 3 else 2
+
+    fig, axes = plt.subplots(nrows,ncols, figsize=(10, 6))
     fig.suptitle(date)
 
     axes = axes.flatten()
@@ -278,5 +281,27 @@ def plot_maps_day_night(
     axes[1,1].set_title("Night − Day")
 
     plt.show()
+
+
+def plot_timeseries(dt_ori_ds, dt_adj_ds, nt_ds,lat,lon,sat_band = None):
+
+    day_orig = dt_ori_ds.sel(LAT=lat, LON=lon, method="nearest")
+    day_adjust = dt_adj_ds.sel(LAT=lat, LON=lon, method="nearest")
+    night_array = nt_ds.sel(LAT=lat, LON=lon, method="nearest")
+
+    day_adjust.plot(label = "Day adjust")
+    day_orig.plot(label = "Day original")
+    night_array.plot(label = "night")
+    plt.legend()
+    plt.plot()
+    # bias_adjust = night_array.mean() - day_adjust.mean()
+    # bias_orig = night_array.mean() - day_orig.mean()
+    #
+    # r_night_adj = pearson_corr(night_array, f"SM_{sat_band}",
+    #                            day_adjust,"SM_ADJ")
+    #
+    # r_night_orig = pearson_corr(night_array, f"SM_{sat_band}",
+    #                            day_orig,f"SM_{sat_band}")
+
 
 
