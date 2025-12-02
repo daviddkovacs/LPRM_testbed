@@ -240,6 +240,17 @@ def get_dates(composite_start,composite_end, freq = "ME"):
 
     return datelist
 
+def save_nc(ds,path):
+    """
+    saving datasets with converting time dim from "object" type, as it raised errors.
+    :param ds: input dataset
+    :param path: full path with filename and extension (.nc)
+    """
+    comp = dict(zlib=True, complevel=4)
+    encoding = {var: comp for var in ds.data_vars}
+    ds = ds.assign_coords(time=pd.to_datetime(ds.time.values))
+    ds.to_netcdf(path, encoding =  encoding)
+
 def convex_hull(points):
 
     hull = ConvexHull(points)
