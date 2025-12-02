@@ -35,9 +35,7 @@ def soil_canopy_temperatures(point_x,
     gradient_of_point =  (( T_soil_extreme - T_canopy_extreme) / (0 - full_veg_cover))
     intercept_of_point = T_soil_extreme
 
-    t_dict = {"T_soil_extreme" : T_soil_extreme,
-              "T_canopy_extreme": T_canopy_extreme,
-              "gradient_of_point" : gradient_of_point,
+    t_dict = {"gradient_of_point" : gradient_of_point,
               "intercept_of_point" : intercept_of_point}
 
     return t_dict
