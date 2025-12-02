@@ -306,15 +306,59 @@ def plot_timeseries(dt_ori_ds, dt_adj_ds, nt_ds,lat,lon,sat_band = None):
 
 
 def temp_sm_plot(
-    ismn_t, sat_t, sat_t_soil, sat_t_canopy,
-    ismn_sm, sat_sm, sat_adj, **kwargs
+    insitu_t, satellite_t, satellite_t_soil, satellite_t_canopy,
+    insitu_sm, satellite_sm, satellite_adj, **kwargs
 ):
+    insitu_sm_series = insitu_sm.iloc[:, 0]
+    satellite_sm_series = satellite_sm.to_series()
+    satellite_adj_series = satellite_adj.to_series()
+
+    df = pd.concat(
+        [
+            insitu_sm_series,
+            satellite_sm_series,
+            satellite_adj_series,
+        ],
+        axis=1
+    ).dropna()
+    df.columns = ["insitu", "lprm", "lprm_adj",]
+
+    r_sat = df["insitu"].corr(df["lprm"])
+    r_adj = df["insitu"].corr(df["lprm_adj"])
+
     fig, axes = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
 
     ax = axes[0]
-    ismn_t.plot(ax=ax, label="ISMN T_Soil")
-    sat_t.plot(ax=ax, label="TSURF")
-    sat_t_soil.plot(ax=ax, label="T_soil_hull")
-    sat_t_canopy.plot(ax=ax, label="T_canopy_hull")
+    insitu_t.plot(ax=ax, label="ISMN T_Soil")
+    satellite_t.plot(ax=ax, label="TSURF")
+    satellite_t_soil.plot(ax=ax, label="T_soil_hull")
+    satellite_t_canopy.plot(ax=ax, label="T_canopy_hull")
     ax.set_title("Temperature")
     ax.legend()
+
+    ax = axes[1]
+    insitu_sm.plot(ax=ax, label="ISMN SM")
+    satellite_sm.plot(ax=ax, label="LPRM SM (normal)")
+    satellite_adj.plot(ax=ax, label="LPRM SM (Adjusted!)")
+    ax.set_title("Soil Moisture")
+    ax.legend()
+
+    ax.text(
+        0.01, 0.97,
+        f"r(insitu, sat) = {r_sat:.2f}\n"
+        f"r(insitu, adj) = {r_adj:.2f}",
+        transform=ax.transAxes,
+        va="top"
+    )
+
+    t = satellite_sm.indexes["time"]
+    axes[1].set_xlim(t.min(), t.max())
+
+    if kwargs:
+        plt.suptitle(
+            f"{kwargs.get('name')}\nlat: {kwargs.get('lat')}, lon: {kwargs.get('lon')}",
+            fontsize=16
+        )
+
+    plt.tight_layout()
+    plt.show()

@@ -1,111 +1,76 @@
 from ismn.interface import ISMN_Interface
+from ismn.meta import Depth
 import matplotlib
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 import xarray as xr
-ISMN_stack = ISMN_Interface('/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/debug/daytime_retrieval/ismn_data/SCAN.zip',
-                    parallel=True)
+import numpy as np
+from pandas import Timestamp
+from utilities.plotting import temp_sm_plot
 sat_sm = xr.open_dataset("/home/ddkovacs/Desktop/personal/daytime_retrievals/datasets/US_2024.nc")
 
-subset = [
-    -97.53240268817623,
-    35.08715998253409,
-    -94.7909204023861,
-    37.798177765461276
-  ]
 
-station_name = "Adobe"
-sm_sensor_name = "Hydraprobe-Sdi-12-A_soil_moisture_1.016000_1.016000"
-t_sensor_name = "Hydraprobe-Sdi-12-A_soil_temperature_1.016000_1.016000"
-
-ismn_station = ISMN_stack["SCAN"][station_name]
-ismn_sm = ismn_station['Hydraprobe-Sdi-12-A_soil_moisture_1.016000_1.016000'].to_xarray()["soil_moisture"]
-ismn_t = ismn_station['Hydraprobe-Sdi-12-A_soil_temperature_1.016000_1.016000'].to_xarray()["soil_temperature"]
-
-data =  sat_sm.sel(
-    LAT =ismn_station.lat,
-    LON =ismn_station.lon,
-    method = "nearest"
-)
-
-sm_adj = data["SM_ADJ"]
-sat_sm = data["SM_X"]
-sat_t_soil = data["T_soil_hull"]-273.15
-sat_t_canopy = data["T_canopy_hull"] -273.15
-sat_t = data["TSURF"] -273.15
+ISMN_stack = ISMN_Interface('/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/debug/daytime_retrieval/ismn_data/SCAN.zip',
+                    parallel=True)
+NETWORK_stack = ISMN_stack["SCAN"]
 
 
-def temp_plot(ismn_t,
-              sat_t,
-              sat_t_soil,
-              sat_t_canopy):
-
-    plt.figure()
-
-    ismn_t.plot(label = "ISMN T_Soil")
-    sat_t.plot(label = "TSURF")
-    sat_t_soil.plot(label = "T_soil_hull")
-    sat_t_canopy.plot(label = "T_canopy_hull")
-
-    t = sat_t.indexes["time"]
-    plt.xlim(t.min(), t.max())
-    plt.legend()
-    plt.show()
-
-def sm_plot(ismn_sm,
-            sat_sm,
-            sat_adj
-            ):
-    plt.figure()
-
-    ismn_sm.plot(label="ISMN SM")
-    sat_sm.plot(label="LPRM SM (normal)")
-    sat_adj.plot(label="LPRM SM (Adjusted!)")
-
-    t = sat_sm.indexes["time"]
-    plt.xlim(t.min(), t.max())
-    plt.legend()
-    plt.show()
+station_user = "Abrams"
+ts_cutoff = Timestamp("2015-01-01")
+depth_selection = Depth(0., 0.1)
 
 
-def temp_sm_plot(
-    ismn_t, sat_t, sat_t_soil, sat_t_canopy,
-    ismn_sm, sat_sm, sat_adj
-):
-    fig, axes = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
+stat_list = [ 'Lind#1', 'Lindsay', 'LittleRedFox', 'LittleRiver', 'Livingston-UWA', 'LosLunasPMC', 'LovellSummit', 'LovelockNNR', 'LowerMulchatna', 'LyeBrook', 'MahantangoCk', 'MammothCave', 'ManaHouse', 'Mandan#1', 'Manderfield', 'MarbleCreek', 'MaricaoForest', 'MarkTwainHS', 'MascomaRiver', 'Mason#1', 'Mayday', 'McAllisterFarm',]
 
-    # --- Temperature subplot ---
-    ax = axes[0]
-    ismn_t.plot(ax=ax, label="ISMN T_Soil")
-    sat_t.plot(ax=ax, label="TSURF")
-    sat_t_soil.plot(ax=ax, label="T_soil_hull")
-    sat_t_canopy.plot(ax=ax, label="T_canopy_hull")
-    ax.set_title("Temperature")
-    ax.legend()
+for i in stat_list:
+    STATION = NETWORK_stack[i]
+    print(i)
+    try:
+        for  _, _sensor_sm in NETWORK_stack.iter_sensors(variable='soil_moisture',
+                                                         depth=depth_selection,
+                                                         filter_meta_dict={
+                                                             'station': [i],
+                                                         }):
 
-    # --- Soil moisture subplot ---
-    ax = axes[1]
-    ismn_sm.plot(ax=ax, label="ISMN SM")
-    sat_sm.plot(ax=ax, label="LPRM SM (normal)")
-    sat_adj.plot(ax=ax, label="LPRM SM (Adjusted!)")
-    ax.set_title("Soil Moisture")
-    ax.legend()
+            if _sensor_sm.metadata["timerange_from"][1] > ts_cutoff:
+                ismn_sm = _sensor_sm.read_data()
 
-    # Shared x-axis limits
-    t = sat_sm.indexes["time"]
-    axes[1].set_xlim(t.min(), t.max())
+            for _, _sensor_t in NETWORK_stack.iter_sensors(variable='soil_temperature',
+                                                           depth=depth_selection,
+                                                           filter_meta_dict={
+                                                               'station': [i],
+                                                           }):
+                if _sensor_t.metadata["timerange_from"][1] > ts_cutoff:
 
-    plt.tight_layout()
-    plt.show()
-temp_sm_plot(
-    ismn_t,
-    sat_t,
-    sat_t_soil,
-    sat_t_canopy,
-    ismn_sm,
-    sat_sm,
-    sm_adj
-)
+                    ismn_t = _sensor_t.read_data()
 
-# temp_plot(ismn_t,sat_t, sat_t_soil ,sat_t_canopy)
-# sm_plot(ismn_sm,sat_sm, sm_adj)
+
+
+        data =  sat_sm.sel(
+            LAT =STATION.lat,
+            LON =STATION.lon,
+            method = "nearest"
+        )
+
+        sm_adj = data["SM_ADJ"]
+        sm_x = data["SM_X"]
+        sat_t_soil = data["T_soil_hull"]-273.15
+        sat_t_canopy = data["T_canopy_hull"] -273.15
+        sat_t = data["TSURF"] -273.15
+
+        temp_sm_plot(
+            ismn_t,
+            sat_t,
+            sat_t_soil,
+            sat_t_canopy,
+            ismn_sm,
+            sm_x,
+            sm_adj,
+            **{
+            "name" : STATION.name,
+            "lat" : np.round(STATION.lat,2),
+            "lon" : np.round(STATION.lon,2),
+        }
+        )
+    except:
+        continue
