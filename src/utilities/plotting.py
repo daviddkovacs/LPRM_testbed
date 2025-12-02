@@ -305,3 +305,16 @@ def plot_timeseries(dt_ori_ds, dt_adj_ds, nt_ds,lat,lon,sat_band = None):
 
 
 
+def temp_sm_plot(
+    ismn_t, sat_t, sat_t_soil, sat_t_canopy,
+    ismn_sm, sat_sm, sat_adj, **kwargs
+):
+    fig, axes = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
+
+    ax = axes[0]
+    ismn_t.plot(ax=ax, label="ISMN T_Soil")
+    sat_t.plot(ax=ax, label="TSURF")
+    sat_t_soil.plot(ax=ax, label="T_soil_hull")
+    sat_t_canopy.plot(ax=ax, label="T_canopy_hull")
+    ax.set_title("Temperature")
+    ax.legend()
