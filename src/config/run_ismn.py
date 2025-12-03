@@ -98,7 +98,7 @@ ts_cutoff = Timestamp("2024-06-01")
 depth_selection = Depth(0., 0.1)
 site_list = [ 'Lind#1']
 
-station_user = 'Dexter'
+station_user = 'AlabamaHills'
 SINGLE_STATION = NETWORK_stack[station_user]
 
 _sat_data = sat_data.sel(
@@ -131,7 +131,7 @@ aux_df = tiff_df(path_aux)
 T_soil_range = np.arange(273,330,2)
 T_canopy_range = np.arange(273,330,2)
 iterables = [T_soil_range,T_canopy_range]
-dates = get_dates(Timestamp("2024-01-01"), Timestamp("2024-06-01"), freq = "ME")
+dates = get_dates(Timestamp("2024-01-01"), Timestamp("2024-12-01"), freq = "ME")
 
 for day in dates:
 
@@ -145,7 +145,7 @@ for day in dates:
 
         i = ts_sm.index.get_indexer([day], method="nearest")[0]
         closest_row = ts_sm.iloc[i]
-        SM_target = closest_row.xs("soil_moisture", level="variable").item()
+        SM_target = closest_row.xs("soil_moisture", level="variable").dropna().values[0]
 
         logger = {
             "Soil" : [],
@@ -174,9 +174,9 @@ for day in dates:
         df = df_logger.copy()
         plt.figure(figsize=(8, 6))
 
-        vmin=-0.5
+        vmin=-0.2
         vcenter=0
-        vmax=0.5
+        vmax=0.2
         norm = TwoSlopeNorm(vmin=vmin,
                             vcenter=vcenter,
                             vmax=vmax)
