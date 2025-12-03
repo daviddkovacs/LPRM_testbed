@@ -2,7 +2,8 @@ import numpy as np
 from sklearn.neighbors import BallTree
 import pandas as pd
 from scipy.spatial import ConvexHull
-
+import math
+from pandas import Timedelta
 pd.options.mode.chained_assignment = None
 
 
@@ -281,3 +282,12 @@ def pearson_corr(da1,
     r = df_m.corr(method="pearson").loc[column1, column2]
 
     return np.round(r,2)
+
+
+def local_solar_time(scantime,
+            DOY,
+            long):
+    # use this for the dataframe
+    site_UTC = DOY + Timedelta(seconds=scantime)
+    site_solar = site_UTC + Timedelta(hours= long/ (math.pi * 12))
+    return site_solar

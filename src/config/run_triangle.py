@@ -18,12 +18,12 @@ from utilities.utils import (
     get_dates,
     convex_hull,
     pearson_corr,
-    save_nc
+    save_nc,
 )
 from utilities.retrieval_helpers import (
     soil_canopy_temperatures,
     interceptor,
-    dummy_line, retrieve_LPRM,
+    dummy_line, retrieve_LPRM,tiff_df
 )
 from utilities.plotting import scatter_density, plot_maps_LPRM, plot_maps_day_night, plot_timeseries
 from config.paths import path_lprm, path_bt, path_aux
@@ -162,12 +162,12 @@ for d in datelist:
 
         common_data["T_soil_hull"], common_data["T_canopy_hull"] = zip(*results)
 
+        aux_df = tiff_df(path_aux, global_bbox, target_res)
+
         merged_geo = retrieve_LPRM(common_data,
-                      global_bbox,
-                      target_res,
-                      path_aux,
+                      aux_df,
                       sat_sensor,
-                      sat_band
+                      sat_band,
                       )
 
         cbar_lut = {
@@ -183,6 +183,8 @@ for d in datelist:
         # plot_maps_LPRM(merged_geo, cbar_lut, d)
         # plot_maps_day_night(merged_geo, night_LPRM, sat_band,)
         needed_vars = [
+            "BT_V",
+            "BT_H",
             "SCANTIME_BT",
             "SM_ADJ",
             f"SM_{sat_band}",

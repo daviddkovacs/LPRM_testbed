@@ -82,7 +82,7 @@ def get_aux(path,var):
     return panda
 
 
-def tiff_df(path,lista,target_res):
+def tiff_df(path,lista = (-180,-90,90,180),target_res = "25"):
 
     path_BLD = os.path.join(path,f"auxiliary_data_BLD_{target_res}km")
     path_SND = os.path.join(path,f"auxiliary_data_SND_{target_res}km")
@@ -103,21 +103,27 @@ def tiff_df(path,lista,target_res):
 
 
 def retrieve_LPRM(common_data,
-                  bbox,
-                  target_res,
-                  path_aux,
+                  aux_df,
                   sat_sensor,
-                  sat_band):
+                  sat_band,
+                  T_soil_test = None,
+                  T_canopy_test = None,
+                  ):
 
     # Retrieve LPRM here
-    aux_df = tiff_df(path_aux, bbox, target_res)
 
     merged = common_data.join(aux_df, how="inner")
 
     specs = get_specs(sat_sensor.upper())
     params = get_lprm_parameters_for_frequency(sat_band, specs.incidence_angle)
     freq = get_specs(sat_sensor.upper()).frequencies[sat_band.upper()]
-    merged_geo = merged.reset_index(drop =True).set_index(["LAT","LON"]).to_xarray()
+    if "time" in merged.index.names:
+        merged = merged.reset_index(level="time", drop=True)
+    merged_geo = merged.to_xarray()
+
+    if T_soil_test & T_canopy_test:
+        T_soil_test = np.broadcast_to(T_soil_test, merged_geo["BT_V"].values.shape).astype('double')
+        T_canopy_test = np.broadcast_to(T_canopy_test, merged_geo["BT_V"].values.shape).astype('double')
 
     sm, vod = par100.run_band(
         merged_geo["BT_V"].values.astype('double'),
@@ -138,8 +144,8 @@ def retrieve_LPRM(common_data,
         params.temp_freeze,
         False,
         None,
-        T_soil = merged_geo["T_soil_hull"].values.astype('double'),
-        T_canopy = merged_geo["T_canopy_hull"].values.astype('double'),
+        T_soil =  T_soil_test if T_soil_test else merged_geo["T_soil_hull"].values.astype('double'),
+        T_canopy = T_canopy_test if T_canopy_test else merged_geo["T_canopy_hull"].values.astype('double'),
     )
 
     merged_geo[f"SM_ADJ"] = (("LAT", "LON"), sm)
@@ -148,7 +154,7 @@ def retrieve_LPRM(common_data,
     merged_geo[f"VOD_ADJ"] = (("LAT", "LON"), vod)
     merged_geo[f"VOD_ADJ"] = merged_geo[f"VOD_ADJ"].where(merged_geo[f"VOD_ADJ"] != -2, np.nan)
 
-    merged_geo[f"DIF_SM{sat_band}-ADJ"] = merged_geo[f"SM_ADJ"] - merged_geo[f"SM_{sat_band}"]
+    # merged_geo[f"DIF_SM{sat_band}-ADJ"] = merged_geo[f"SM_ADJ"] - merged_geo[f"SM_{sat_band}"]
 
     return  merged_geo
 
