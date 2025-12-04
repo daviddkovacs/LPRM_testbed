@@ -98,7 +98,7 @@ ts_cutoff = Timestamp("2024-06-01")
 depth_selection = Depth(0., 0.1)
 site_list = [ 'Lind#1']
 
-station_user = 'AlabamaHills'
+station_user = 'Shenandoah'
 SINGLE_STATION = NETWORK_stack[station_user]
 
 _sat_data = sat_data.sel(
@@ -128,41 +128,56 @@ ts_st, meta_st = ISMN_stack.read(ids_st, return_meta=True)
 # plt.legend()
 # plt.show()
 aux_df = tiff_df(path_aux)
-T_soil_range = np.arange(273,330,2)
-T_canopy_range = np.arange(273,330,2)
+T_soil_range = np.arange(273,330,1)
+T_canopy_range = np.arange(273,330,1)
 iterables = [T_soil_range,T_canopy_range]
 dates = get_dates(Timestamp("2024-01-01"), Timestamp("2024-12-01"), freq = "ME")
 
-for day in dates:
+n = len(dates)
+ncols = 4
+nrows = int(np.ceil(n / ncols))
 
+fig, axes = plt.subplots(
+    nrows, ncols,
+    figsize=(4*ncols, 4*nrows),
+    constrained_layout=True
+)
+axes = axes.flatten()
+
+vmin = -0.2
+vcenter = 0
+vmax = 0.2
+norm = TwoSlopeNorm(vmin=vmin, vcenter=vcenter, vmax=vmax)
+
+last_scatter = None
+
+for ax, day in zip(axes, dates):
     print(day)
     try:
-        sat_day = _sat_data.drop(columns = ["SM_ADJ"]).xs(day, level="time")
+        sat_day = _sat_data.drop(columns=["SM_ADJ"]).xs(day, level="time")
 
-        sol_time = local_solar_time(sat_day["SCANTIME_BT"].values.item(),
-                    day,
-                    sat_day.index.get_level_values("LON")[0])
+        sol_time = local_solar_time(
+            sat_day["SCANTIME_BT"].values.item(),
+            day,
+            sat_day.index.get_level_values("LON")[0]
+        )
 
         i = ts_sm.index.get_indexer([day], method="nearest")[0]
         closest_row = ts_sm.iloc[i]
         SM_target = closest_row.xs("soil_moisture", level="variable").dropna().values[0]
 
-        logger = {
-            "Soil" : [],
-            "Canopy" : [],
-            "SM" : [],
-            "dif" : []
-        }
+        logger = {"Soil": [], "Canopy": [], "SM": [], "dif": []}
 
-        for T_soil_i,T_canopy_i in itertools.product(*iterables):
+        for T_soil_i, T_canopy_i in itertools.product(*iterables):
 
-            lprm_day = retrieve_LPRM(sat_day,
-                                     aux_df,
-                                     "AMSR2",
-                                     "X",
-                                     T_soil_test=T_soil_i,
-                                     T_canopy_test=T_canopy_i,
-                                     ).to_dataframe()
+            lprm_day = retrieve_LPRM(
+                sat_day,
+                aux_df,
+                "AMSR2",
+                "X",
+                T_soil_test=T_soil_i,
+                T_canopy_test=T_canopy_i,
+            ).to_dataframe()
 
             SM_i = lprm_day["SM_ADJ"].values.item()
             logger["Soil"].append(T_soil_i)
@@ -170,39 +185,41 @@ for day in dates:
             logger["SM"].append(SM_i)
             logger["dif"].append(SM_target - SM_i)
 
-        df_logger = pd.DataFrame(logger).sort_values(by=['dif'],key=abs)
-        df = df_logger.copy()
-        plt.figure(figsize=(8, 6))
+        df_logger = pd.DataFrame(logger).sort_values(by="dif", key=abs)
 
-        vmin=-0.2
-        vcenter=0
-        vmax=0.2
-        norm = TwoSlopeNorm(vmin=vmin,
-                            vcenter=vcenter,
-                            vmax=vmax)
-
-        sc = plt.scatter(
+        sc = ax.scatter(
             df_logger['Soil'],
             df_logger['Canopy'],
             c=df_logger['dif'],
             cmap='bwr',
             norm=norm,
             edgecolor='k',
-            s=80
+            s=60,
         )
+        last_scatter = sc
 
-        # create colorbar
-        cbar = plt.colorbar(sc, ticks=np.linspace(vmin, vmax, 5))
-        cbar.set_label('dif')
-        plt.scatter(lprm_day["TSURF"],lprm_day["TSURF"],color='gold')
-        plt.xlabel('Soil')
-        plt.ylabel('Canopy')
-        plt.title(f"{SM_target}\n {day}" )
-        plt.grid(False)
-        plt.show()
-    except ValueError as e:
-        print(e)
+        ax.scatter(lprm_day["TSURF"], lprm_day["TSURF"], color='gold')
+
+        ax.set_title(f"{SM_target} | {day}")
+        ax.set_xlabel("Soil")
+        ax.set_ylabel("Canopy")
+        ax.grid(False)
+
+    except Exception as e:
+        ax.set_title(f"{day}\n{e}")
+        ax.axis("off")
         continue
+fig.suptitle(station_user, fontsize=20, y=1.02)
+
+fig.colorbar(
+    last_scatter,
+    ax=axes,
+    location="right",
+    shrink=0.85,
+    label="dif"
+)
+
+plt.show()
 
 # if __name__ == "__main__":
 #     run_ismn_multi_site(satellite_data=sat_data,

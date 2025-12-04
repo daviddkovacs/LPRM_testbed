@@ -121,7 +121,7 @@ def retrieve_LPRM(common_data,
         merged = merged.reset_index(level="time", drop=True)
     merged_geo = merged.to_xarray()
 
-    if T_soil_test & T_canopy_test:
+    if T_soil_test and T_canopy_test:
         T_soil_test = np.broadcast_to(T_soil_test, merged_geo["BT_V"].values.shape).astype('double')
         T_canopy_test = np.broadcast_to(T_canopy_test, merged_geo["BT_V"].values.shape).astype('double')
 

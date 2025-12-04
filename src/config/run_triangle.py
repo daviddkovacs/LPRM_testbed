@@ -42,7 +42,7 @@ sat_sensor = "amsr2"
 overpass = "day"
 target_res = "25"
 
-composite_start = "2024-01-01"
+composite_start = "2022-01-01"
 composite_end = "2024-12-31"
 
 datelist = get_dates(composite_start, composite_end, freq = "D")
