@@ -97,6 +97,7 @@ def temperature_distribution(satellite_data,
                         site,
                         ts_cutoff,
                         depth_selection,
+                        dates,
                         network = "SCAN"
                         ):
     """
@@ -106,6 +107,7 @@ def temperature_distribution(satellite_data,
     :param site: List of site (singular) to process from network.
     :param ts_cutoff: Max date to limit sensor timespan.
     :param depth_selection: How deep does the sensor go? Dict : {"start": float, "end": float}
+    :param dates: Timestamps of the T distribution to plot
     :param network:  Which ISMN network do you use? Default: "SCAN"
     """
 
@@ -137,7 +139,6 @@ def temperature_distribution(satellite_data,
     T_soil_range = np.arange(273,330,1)
     T_canopy_range = np.arange(273,330,1)
     iterables = [T_soil_range,T_canopy_range]
-    dates = get_dates(Timestamp("2024-01-01"), Timestamp("2024-12-01"), freq = "ME")
 
     n = len(dates)
     ncols = 4
@@ -157,14 +158,19 @@ def temperature_distribution(satellite_data,
 
     last_scatter = None
 
+    failed_switch = False
     for ax, day in zip(axes, dates):
+
+        print(failed_switch)
+        day_i = day + Timedelta(days=1) if failed_switch else day
         print(day)
+
         try:
-            sat_day = _sat_data.drop(columns=["SM_ADJ"]).xs(day, level="time")
+            sat_day = _sat_data.drop(columns=["SM_ADJ"]).xs(day_i, level="time")
 
             sol_time = local_solar_time(
                 sat_day["SCANTIME_BT"].values.item(),
-                day,
+                day_i,
                 sat_day.index.get_level_values("LON")[0]
             )
 
@@ -208,18 +214,20 @@ def temperature_distribution(satellite_data,
             )
             last_scatter = sc
 
-            ax.scatter(lprm_day["TSURF"], lprm_day["TSURF"], color='gold')
-            ax.scatter(ST_target, 273, color='green')
+            ax.scatter(lprm_day["TSURF"], lprm_day["TSURF"], color='gold', label = "T_eff LPRM")
+            ax.scatter(ST_target, 273, color='green', label = "T eff True")
 
             ax.set_title(f"{SM_target} | {closest_insitu_sm.name}")
             ax.set_xlabel("Soil")
             ax.set_ylabel("Canopy")
             ax.grid(False)
+            failed_switch = False
 
         except Exception as e:
             print(e)
-            ax.set_title(f"{day}\n{e}")
-            ax.axis("off")
+            # ax.set_title(f"{day_i}\n{e}")
+            # ax.axis("off")
+            failed_switch = True
             continue
 
     fig.suptitle(station_user, fontsize=20, y=1.02)
@@ -237,14 +245,14 @@ def temperature_distribution(satellite_data,
 ##
 
 sat_data = xr.open_dataset(sat_stack_path)
-timespan = sat_data.time.values
 ISMN_stack = ISMN_Interface(ismn_data_path, parallel=True)
 ts_cutoff = Timestamp("2024-06-01")
+dates = get_dates(Timestamp("2024-01-01"), Timestamp("2024-12-01"), freq="ME")
 
 depth_selection = {"start": 0,
                    "end": 0.1}
 
-station_user = 'TwinPinesConservationArea'
+station_user = 'Buckhorn'
 
 if __name__ == "__main__":
 
@@ -260,4 +268,5 @@ if __name__ == "__main__":
                         ISMN_instance=ISMN_stack,
                         site=  station_user,
                         ts_cutoff=ts_cutoff,
-                        depth_selection=depth_selection)
+                        depth_selection=depth_selection,
+                        dates = dates)
