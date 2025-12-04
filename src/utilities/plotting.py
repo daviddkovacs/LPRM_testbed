@@ -307,8 +307,9 @@ def plot_timeseries(dt_ori_ds, dt_adj_ds, nt_ds,lat,lon,sat_band = None):
 
 def temp_sm_plot(
     insitu_t, satellite_t, satellite_t_soil, satellite_t_canopy,
-    insitu_sm, satellite_sm, satellite_adj, **kwargs
-):
+    insitu_sm, satellite_sm, satellite_adj, **kwargs):
+
+    insitu_t["soil_temperature"] = insitu_t["soil_temperature"] +273.15
     insitu_sm_series = insitu_sm.iloc[:, 0]
     satellite_sm_series = satellite_sm.to_series()
     satellite_adj_series = satellite_adj.to_series()

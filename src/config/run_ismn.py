@@ -40,58 +40,57 @@ def run_ismn_multi_site(satellite_data,
         STATION = NETWORK[i]
         print(i)
 
-        try:
-            for  _, _sensor_sm in NETWORK.iter_sensors(variable='soil_moisture',
-                                                             depth=Depth(depth_selection["start"],depth_selection["end"]),
-                                                             filter_meta_dict={
-                                                                 'station': [i],
-                                                             }):
+        # try:
+        for  _, _sensor_sm in NETWORK.iter_sensors(variable='soil_moisture',
+                                                         depth=Depth(depth_selection["start"],depth_selection["end"]),
+                                                         filter_meta_dict={
+                                                             'station': [i],
+                                                         }):
 
-                if _sensor_sm.metadata["timerange_to"][1] > ts_cutoff:
-                    ismn_sm = _sensor_sm.read_data()
+            if _sensor_sm.metadata["timerange_to"][1] > ts_cutoff:
+                ismn_sm = _sensor_sm.read_data()
 
-                for _, _sensor_t in NETWORK.iter_sensors(variable='soil_temperature',
-                                                               depth=Depth(depth_selection["start"],depth_selection["end"]),
-                                                               filter_meta_dict={
-                                                                   'station': [i],
-                                                               }):
-                    if _sensor_t.metadata["timerange_to"][1] > ts_cutoff:
+            for _, _sensor_t in NETWORK.iter_sensors(variable='soil_temperature',
+                                                           depth=Depth(depth_selection["start"],depth_selection["end"]),
+                                                           filter_meta_dict={
+                                                               'station': [i],
+                                                           }):
+                if _sensor_t.metadata["timerange_to"][1] > ts_cutoff:
 
-                        ismn_t = _sensor_t.read_data()
+                    ismn_t = _sensor_t.read_data()
 
-            data =  satellite_data.sel(
-                LAT =STATION.lat,
-                LON =STATION.lon,
-                method = "nearest"
-            )
+        data =  satellite_data.sel(
+            LAT =STATION.lat,
+            LON =STATION.lon,
+            method = "nearest"
+        )
 
-            sm_adj = data["SM_ADJ"]
-            sm_x = data["SM_X"]
-            sat_t_soil = data["T_soil_hull"]-273.15
-            sat_t_canopy = data["T_canopy_hull"] -273.15
-            sat_t = data["TSURF"] -273.15
+        sm_adj = data["SM_ADJ"]
+        sm_x = data["SM_X"]
+        sat_t_soil = data["T_soil_hull"]
+        sat_t_canopy = data["T_canopy_hull"]
+        sat_t = data["TSURF"]
 
-            temp_sm_plot(
-                ismn_t,
-                sat_t,
-                sat_t_soil,
-                sat_t_canopy,
-                ismn_sm,
-                sm_x,
-                sm_adj,
-                **{
-                "name" : STATION.name,
-                "lat" : np.round(STATION.lat,2),
-                "lon" : np.round(STATION.lon,2),
-            }
-            )
-        except Exception as e:
-            print(e)
-            continue
+        temp_sm_plot(
+            ismn_t ,
+            sat_t,
+            sat_t_soil,
+            sat_t_canopy,
+            ismn_sm,
+            sm_x,
+            sm_adj,
+            **{
+            "name" : STATION.name,
+            "lat" : np.round(STATION.lat,2),
+            "lon" : np.round(STATION.lon,2),
+        }
+        )
+        # except Exception as e:
+        #     print(e)
+        #     continue
 
 
 ##
-
 
 def temperature_distribution(satellite_data,
                         ISMN_instance,
@@ -169,9 +168,13 @@ def temperature_distribution(satellite_data,
                 sat_day.index.get_level_values("LON")[0]
             )
 
-            i = ts_sm.index.get_indexer([sol_time], method="nearest")[0]
-            closest_obs_time = ts_sm.iloc[i]
-            SM_target = closest_obs_time.xs("soil_moisture", level="variable").dropna().values[0]
+            i_sm = ts_sm.index.get_indexer([sol_time], method="nearest")[0]
+            i_st = ts_st.index.get_indexer([sol_time], method="nearest")[0]
+            closest_insitu_sm = ts_sm.iloc[i_sm]
+            closest_insitu_st = ts_st.iloc[i_st]
+
+            SM_target = closest_insitu_sm.xs("soil_moisture", level="variable").dropna().values[0]
+            ST_target = closest_insitu_st.xs("soil_temperature", level="variable").dropna().values[0]+273.15
 
             logger = {"Soil": [], "Canopy": [], "SM": [], "dif": []}
 
@@ -206,8 +209,9 @@ def temperature_distribution(satellite_data,
             last_scatter = sc
 
             ax.scatter(lprm_day["TSURF"], lprm_day["TSURF"], color='gold')
+            ax.scatter(ST_target, 273, color='green')
 
-            ax.set_title(f"{SM_target} | {closest_obs_time.name}")
+            ax.set_title(f"{SM_target} | {closest_insitu_sm.name}")
             ax.set_xlabel("Soil")
             ax.set_ylabel("Canopy")
             ax.grid(False)
@@ -240,16 +244,16 @@ ts_cutoff = Timestamp("2024-06-01")
 depth_selection = {"start": 0,
                    "end": 0.1}
 
-station_user = 'Shenandoah'
+station_user = 'TwinPinesConservationArea'
 
 if __name__ == "__main__":
 
 
-    # run_ismn_multi_site(satellite_data=sat_data,
-    #                     ISMN_instance=ISMN_stack,
-    #                     sites=  [station_user],
-    #                     ts_cutoff=ts_cutoff,
-    #                     depth_selection=depth_selection)
+    run_ismn_multi_site(satellite_data=sat_data,
+                        ISMN_instance=ISMN_stack,
+                        sites=  [station_user],
+                        ts_cutoff=ts_cutoff,
+                        depth_selection=depth_selection)
 
 
     temperature_distribution(satellite_data=sat_data,
