@@ -1,3 +1,5 @@
+from tokenize import String
+
 import pandas as pd
 from ismn.interface import ISMN_Interface
 from ismn.meta import Depth
@@ -17,7 +19,7 @@ import matplotlib.pyplot as plt
 
 def run_ismn_multi_site(satellite_data,
                         ISMN_instance,
-                        site_list,
+                        sites,
                         ts_cutoff,
                         depth_selection,
                         network = "SCAN"
@@ -26,38 +28,36 @@ def run_ismn_multi_site(satellite_data,
     Plot Soil T and Soil Moisture in loops for the selected ISMN sites.
     :param satellite_data: Satellite data containing LPRM derived values. Usually the output of "run_triangle.py"
     :param ISMN_instance: ISMN_Interface instance from .zip
-    :param site_list: List of sites to process from network.
+    :param sites: List of sites to process from network.
     :param ts_cutoff: Max date to limit sensor timespan.
-    :param depth_selection: How deep does the sensor go?
-    :param network: Which ISMN network do you use? Default: SCAN
+    :param depth_selection: How deep does the sensor go? Dict : {"start": float, "end": float}
+    :param network: Which ISMN network do you use? Default: "SCAN"
     """
 
     NETWORK = ISMN_instance[network]
-    for i in site_list:
+    for i in sites:
 
         STATION = NETWORK[i]
         print(i)
 
         try:
             for  _, _sensor_sm in NETWORK.iter_sensors(variable='soil_moisture',
-                                                             depth=depth_selection,
+                                                             depth=Depth(depth_selection["start"],depth_selection["end"]),
                                                              filter_meta_dict={
                                                                  'station': [i],
                                                              }):
 
-                if _sensor_sm.metadata["timerange_from"][1] > ts_cutoff:
+                if _sensor_sm.metadata["timerange_to"][1] > ts_cutoff:
                     ismn_sm = _sensor_sm.read_data()
 
                 for _, _sensor_t in NETWORK.iter_sensors(variable='soil_temperature',
-                                                               depth=depth_selection,
+                                                               depth=Depth(depth_selection["start"],depth_selection["end"]),
                                                                filter_meta_dict={
                                                                    'station': [i],
                                                                }):
-                    if _sensor_t.metadata["timerange_from"][1] > ts_cutoff:
+                    if _sensor_t.metadata["timerange_to"][1] > ts_cutoff:
 
                         ismn_t = _sensor_t.read_data()
-
-
 
             data =  satellite_data.sel(
                 LAT =STATION.lat,
@@ -85,145 +85,175 @@ def run_ismn_multi_site(satellite_data,
                 "lon" : np.round(STATION.lon,2),
             }
             )
-        except:
+        except Exception as e:
+            print(e)
             continue
 
 
 ##
+
+
+def temperature_distribution(satellite_data,
+                        ISMN_instance,
+                        site,
+                        ts_cutoff,
+                        depth_selection,
+                        network = "SCAN"
+                        ):
+    """
+    This function runs LPRM for a number of combinations of T_canopy and T_soil. It plots the difference to target SM.
+    :param satellite_data: Satellite data containing BT  values. Usually the output of "run_triangle.py"
+    :param ISMN_instance: ISMN_Interface instance from .zip
+    :param site: List of site (singular) to process from network.
+    :param ts_cutoff: Max date to limit sensor timespan.
+    :param depth_selection: How deep does the sensor go? Dict : {"start": float, "end": float}
+    :param network:  Which ISMN network do you use? Default: "SCAN"
+    """
+
+    NETWORK_stack = ISMN_instance[network]
+    SINGLE_STATION = NETWORK_stack[site]
+
+    _sat_data = satellite_data.sel(
+                LAT =SINGLE_STATION.lat,
+                LON =SINGLE_STATION.lon,
+                method = "nearest"
+            ).expand_dims(['LAT','LON']).to_dataframe()
+
+    base_coniditons = (
+        (ISMN_stack.metadata['instrument'].depth_from >= depth_selection["start"]) &
+        (ISMN_stack.metadata['instrument'].depth_to < depth_selection["end"]) &
+        (ISMN_stack.metadata["timerange_to"].val > ts_cutoff + Timedelta(days=1)) &
+        (ISMN_stack.metadata['station'].val == station_user)
+    )
+
+    conditions_sm = base_coniditons & (ISMN_stack.metadata['variable'].val == 'soil_moisture')
+    conditions_st = base_coniditons & (ISMN_stack.metadata['variable'].val == 'soil_temperature')
+
+    ids_sm = ISMN_stack.metadata[conditions_sm].index.to_list()
+    ids_st = ISMN_stack.metadata[conditions_st].index.to_list()
+    ts_sm, meta_sm = ISMN_stack.read(ids_sm, return_meta=True)
+    ts_st, meta_st = ISMN_stack.read(ids_st, return_meta=True)
+
+    aux_df = tiff_df(path_aux)
+    T_soil_range = np.arange(273,330,1)
+    T_canopy_range = np.arange(273,330,1)
+    iterables = [T_soil_range,T_canopy_range]
+    dates = get_dates(Timestamp("2024-01-01"), Timestamp("2024-12-01"), freq = "ME")
+
+    n = len(dates)
+    ncols = 4
+    nrows = int(np.ceil(n / ncols))
+
+    fig, axes = plt.subplots(
+        nrows, ncols,
+        figsize=(4*ncols, 4*nrows),
+        constrained_layout=True
+    )
+    axes = axes.flatten()
+
+    vmin = -0.2
+    vcenter = 0
+    vmax = 0.2
+    norm = TwoSlopeNorm(vmin=vmin, vcenter=vcenter, vmax=vmax)
+
+    last_scatter = None
+
+    for ax, day in zip(axes, dates):
+        print(day)
+        try:
+            sat_day = _sat_data.drop(columns=["SM_ADJ"]).xs(day, level="time")
+
+            sol_time = local_solar_time(
+                sat_day["SCANTIME_BT"].values.item(),
+                day,
+                sat_day.index.get_level_values("LON")[0]
+            )
+
+            i = ts_sm.index.get_indexer([sol_time], method="nearest")[0]
+            closest_obs_time = ts_sm.iloc[i]
+            SM_target = closest_obs_time.xs("soil_moisture", level="variable").dropna().values[0]
+
+            logger = {"Soil": [], "Canopy": [], "SM": [], "dif": []}
+
+            for T_soil_i, T_canopy_i in itertools.product(*iterables):
+
+                lprm_day = retrieve_LPRM(
+                    sat_day,
+                    aux_df,
+                    "AMSR2",
+                    "X",
+                    T_soil_test=T_soil_i,
+                    T_canopy_test=T_canopy_i,
+                ).to_dataframe()
+
+                SM_i = lprm_day["SM_ADJ"].values.item()
+                logger["Soil"].append(T_soil_i)
+                logger["Canopy"].append(T_canopy_i)
+                logger["SM"].append(SM_i)
+                logger["dif"].append(SM_target - SM_i)
+
+            df_logger = pd.DataFrame(logger).sort_values(by="dif", key=abs)
+
+            sc = ax.scatter(
+                df_logger['Soil'],
+                df_logger['Canopy'],
+                c=df_logger['dif'],
+                cmap='bwr',
+                norm=norm,
+                edgecolor='k',
+                s=60,
+            )
+            last_scatter = sc
+
+            ax.scatter(lprm_day["TSURF"], lprm_day["TSURF"], color='gold')
+
+            ax.set_title(f"{SM_target} | {closest_obs_time.name}")
+            ax.set_xlabel("Soil")
+            ax.set_ylabel("Canopy")
+            ax.grid(False)
+
+        except Exception as e:
+            print(e)
+            ax.set_title(f"{day}\n{e}")
+            ax.axis("off")
+            continue
+
+    fig.suptitle(station_user, fontsize=20, y=1.02)
+
+    fig.colorbar(
+        last_scatter,
+        ax=axes,
+        location="right",
+        shrink=0.85,
+        label="dif"
+    )
+
+    plt.show()
+
+##
+
 sat_data = xr.open_dataset(sat_stack_path)
 timespan = sat_data.time.values
 ISMN_stack = ISMN_Interface(ismn_data_path, parallel=True)
-NETWORK_stack = ISMN_stack["SCAN"]
 ts_cutoff = Timestamp("2024-06-01")
-depth_selection = Depth(0., 0.1)
-site_list = [ 'Lind#1']
+
+depth_selection = {"start": 0,
+                   "end": 0.1}
 
 station_user = 'Shenandoah'
-SINGLE_STATION = NETWORK_stack[station_user]
 
-_sat_data = sat_data.sel(
-            LAT =SINGLE_STATION.lat,
-            LON =SINGLE_STATION.lon,
-            method = "nearest"
-        ).expand_dims(['LAT','LON']).to_dataframe()
+if __name__ == "__main__":
 
-base_coniditons = (
-    (ISMN_stack.metadata['instrument'].depth_to < 0.1) &
-    (ISMN_stack.metadata['instrument'].depth_from >= 0) &
-    (ISMN_stack.metadata["timerange_to"].val > ts_cutoff + Timedelta(days=1)) &
-    (ISMN_stack.metadata['station'].val == station_user)
-)
 
-conditions_sm = base_coniditons & (ISMN_stack.metadata['variable'].val == 'soil_moisture')
-conditions_st = base_coniditons & (ISMN_stack.metadata['variable'].val == 'soil_temperature')
+    # run_ismn_multi_site(satellite_data=sat_data,
+    #                     ISMN_instance=ISMN_stack,
+    #                     sites=  [station_user],
+    #                     ts_cutoff=ts_cutoff,
+    #                     depth_selection=depth_selection)
 
-ids_sm = ISMN_stack.metadata[conditions_sm].index.to_list()
-ids_st = ISMN_stack.metadata[conditions_st].index.to_list()
-ts_sm, meta_sm = ISMN_stack.read(ids_sm, return_meta=True)
-ts_st, meta_st = ISMN_stack.read(ids_st, return_meta=True)
-# ts_sm.plot(label = "in situ")
-# _sat_data["SM_X"].reset_index(level=["LAT", "LON"],drop=True).plot(label = "LPRM_X")
-# t = _sat_data.index.get_level_values("time")
-# plt.xlim(timespan.min(), timespan.max())
-# plt.legend()
-# plt.show()
-aux_df = tiff_df(path_aux)
-T_soil_range = np.arange(273,330,1)
-T_canopy_range = np.arange(273,330,1)
-iterables = [T_soil_range,T_canopy_range]
-dates = get_dates(Timestamp("2024-01-01"), Timestamp("2024-12-01"), freq = "ME")
 
-n = len(dates)
-ncols = 4
-nrows = int(np.ceil(n / ncols))
-
-fig, axes = plt.subplots(
-    nrows, ncols,
-    figsize=(4*ncols, 4*nrows),
-    constrained_layout=True
-)
-axes = axes.flatten()
-
-vmin = -0.2
-vcenter = 0
-vmax = 0.2
-norm = TwoSlopeNorm(vmin=vmin, vcenter=vcenter, vmax=vmax)
-
-last_scatter = None
-
-for ax, day in zip(axes, dates):
-    print(day)
-    try:
-        sat_day = _sat_data.drop(columns=["SM_ADJ"]).xs(day, level="time")
-
-        sol_time = local_solar_time(
-            sat_day["SCANTIME_BT"].values.item(),
-            day,
-            sat_day.index.get_level_values("LON")[0]
-        )
-
-        i = ts_sm.index.get_indexer([day], method="nearest")[0]
-        closest_row = ts_sm.iloc[i]
-        SM_target = closest_row.xs("soil_moisture", level="variable").dropna().values[0]
-
-        logger = {"Soil": [], "Canopy": [], "SM": [], "dif": []}
-
-        for T_soil_i, T_canopy_i in itertools.product(*iterables):
-
-            lprm_day = retrieve_LPRM(
-                sat_day,
-                aux_df,
-                "AMSR2",
-                "X",
-                T_soil_test=T_soil_i,
-                T_canopy_test=T_canopy_i,
-            ).to_dataframe()
-
-            SM_i = lprm_day["SM_ADJ"].values.item()
-            logger["Soil"].append(T_soil_i)
-            logger["Canopy"].append(T_canopy_i)
-            logger["SM"].append(SM_i)
-            logger["dif"].append(SM_target - SM_i)
-
-        df_logger = pd.DataFrame(logger).sort_values(by="dif", key=abs)
-
-        sc = ax.scatter(
-            df_logger['Soil'],
-            df_logger['Canopy'],
-            c=df_logger['dif'],
-            cmap='bwr',
-            norm=norm,
-            edgecolor='k',
-            s=60,
-        )
-        last_scatter = sc
-
-        ax.scatter(lprm_day["TSURF"], lprm_day["TSURF"], color='gold')
-
-        ax.set_title(f"{SM_target} | {day}")
-        ax.set_xlabel("Soil")
-        ax.set_ylabel("Canopy")
-        ax.grid(False)
-
-    except Exception as e:
-        ax.set_title(f"{day}\n{e}")
-        ax.axis("off")
-        continue
-fig.suptitle(station_user, fontsize=20, y=1.02)
-
-fig.colorbar(
-    last_scatter,
-    ax=axes,
-    location="right",
-    shrink=0.85,
-    label="dif"
-)
-
-plt.show()
-
-# if __name__ == "__main__":
-#     run_ismn_multi_site(satellite_data=sat_data,
-#                         ISMN_instance=ISMN_stack,
-#                         site_list=site_list,
-#                         ts_cutoff=ts_cutoff,
-#                         depth_selection=depth_selection)
+    temperature_distribution(satellite_data=sat_data,
+                        ISMN_instance=ISMN_stack,
+                        site=  station_user,
+                        ts_cutoff=ts_cutoff,
+                        depth_selection=depth_selection)
