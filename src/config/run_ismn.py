@@ -159,76 +159,77 @@ def temperature_distribution(satellite_data,
     last_scatter = None
 
     failed_switch = False
-    for ax, day in zip(axes, dates):
+    for i, (ax, start_date) in enumerate(zip(axes, dates)):
 
-        print(failed_switch)
-        day_i = day + Timedelta(days=1) if failed_switch else day
-        print(day)
+        day_i = start_date
+        success = False
 
-        try:
-            sat_day = _sat_data.drop(columns=["SM_ADJ"]).xs(day_i, level="time")
+        while not success:
+            try:
+                sat_day = _sat_data.drop(columns=["SM_ADJ"]).xs(day_i, level="time")
 
-            sol_time = local_solar_time(
-                sat_day["SCANTIME_BT"].values.item(),
-                day_i,
-                sat_day.index.get_level_values("LON")[0]
-            )
+                sol_time = local_solar_time(
+                    sat_day["SCANTIME_BT"].values.item(),
+                    day_i,
+                    sat_day.index.get_level_values("LON")[0]
+                )
 
-            i_sm = ts_sm.index.get_indexer([sol_time], method="nearest")[0]
-            i_st = ts_st.index.get_indexer([sol_time], method="nearest")[0]
-            closest_insitu_sm = ts_sm.iloc[i_sm]
-            closest_insitu_st = ts_st.iloc[i_st]
+                i_sm = ts_sm.index.get_indexer([sol_time], method="nearest")[0]
+                i_st = ts_st.index.get_indexer([sol_time], method="nearest")[0]
+                closest_insitu_sm = ts_sm.iloc[i_sm]
+                closest_insitu_st = ts_st.iloc[i_st]
 
-            SM_target = closest_insitu_sm.xs("soil_moisture", level="variable").dropna().values[0]
-            ST_target = closest_insitu_st.xs("soil_temperature", level="variable").dropna().values[0]+273.15
+                SM_target = closest_insitu_sm.xs("soil_moisture", level="variable").dropna().values[0]
+                ST_target = closest_insitu_st.xs("soil_temperature", level="variable").dropna().values[0]+273.15
 
-            logger = {"Soil": [], "Canopy": [], "SM": [], "dif": []}
+                logger = {"Soil": [], "Canopy": [], "SM": [], "dif": []}
 
-            for T_soil_i, T_canopy_i in itertools.product(*iterables):
+                for T_soil_i, T_canopy_i in itertools.product(*iterables):
 
-                lprm_day = retrieve_LPRM(
-                    sat_day,
-                    aux_df,
-                    "AMSR2",
-                    "X",
-                    T_soil_test=T_soil_i,
-                    T_canopy_test=T_canopy_i,
-                ).to_dataframe()
+                    lprm_day = retrieve_LPRM(
+                        sat_day,
+                        aux_df,
+                        "AMSR2",
+                        "X",
+                        T_soil_test=T_soil_i,
+                        T_canopy_test=T_canopy_i,
+                    ).to_dataframe()
 
-                SM_i = lprm_day["SM_ADJ"].values.item()
-                logger["Soil"].append(T_soil_i)
-                logger["Canopy"].append(T_canopy_i)
-                logger["SM"].append(SM_i)
-                logger["dif"].append(SM_target - SM_i)
+                    SM_i = lprm_day["SM_ADJ"].values.item()
+                    logger["Soil"].append(T_soil_i)
+                    logger["Canopy"].append(T_canopy_i)
+                    logger["SM"].append(SM_i)
+                    logger["dif"].append(SM_target - SM_i)
 
-            df_logger = pd.DataFrame(logger).sort_values(by="dif", key=abs)
+                df_logger = pd.DataFrame(logger).sort_values(by="dif", key=abs)
 
-            sc = ax.scatter(
-                df_logger['Soil'],
-                df_logger['Canopy'],
-                c=df_logger['dif'],
-                cmap='bwr',
-                norm=norm,
-                edgecolor='k',
-                s=60,
-            )
-            last_scatter = sc
+                sc = ax.scatter(
+                    df_logger['Soil'],
+                    df_logger['Canopy'],
+                    c=df_logger['dif'],
+                    cmap='bwr',
+                    norm=norm,
+                    edgecolor='k',
+                    s=60,
+                )
+                last_scatter = sc
 
-            ax.scatter(lprm_day["TSURF"], lprm_day["TSURF"], color='gold', label = "T_eff LPRM")
-            ax.scatter(ST_target, 273, color='green', label = "T eff True")
+                ax.scatter(lprm_day["TSURF"], lprm_day["TSURF"], color='gold', label="T_eff LPRM (T_can.=T_soil)")
+                ax.scatter(ST_target, 273, color='cyan', label="T_soil in situ", marker="X")
+                ax.scatter(sat_day["T_soil_hull"], 273, color='sienna', label="T_soil LPRM", marker="X")
+                ax.scatter(273, sat_day["T_canopy_hull"], color='forestgreen', label="T_canopy LPRM", marker="X")
 
-            ax.set_title(f"{SM_target} | {closest_insitu_sm.name}")
-            ax.set_xlabel("Soil")
-            ax.set_ylabel("Canopy")
-            ax.grid(False)
-            failed_switch = False
+                ax.set_title(f"{SM_target} | {closest_insitu_sm.name}")
+                ax.set_xlabel("Soil")
+                ax.set_ylabel("Canopy")
+                ax.grid(False)
 
-        except Exception as e:
-            print(e)
-            # ax.set_title(f"{day_i}\n{e}")
-            # ax.axis("off")
-            failed_switch = True
-            continue
+                success = True
+
+            except Exception as e:
+                print(f"Failed on {day_i}: {e}")
+                day_i = day_i + pd.Timedelta(days=1)
+
 
     fig.suptitle(station_user, fontsize=20, y=1.02)
 
@@ -252,17 +253,16 @@ dates = get_dates(Timestamp("2024-01-01"), Timestamp("2024-12-01"), freq="ME")
 depth_selection = {"start": 0,
                    "end": 0.1}
 
-station_user = 'Buckhorn'
+# Close stations in TENESSE: NorthIssaquena,Onward, Mayday,SilverCity
+station_user = 'BeasleyLake'
 
 if __name__ == "__main__":
 
-
-    run_ismn_multi_site(satellite_data=sat_data,
-                        ISMN_instance=ISMN_stack,
-                        sites=  [station_user],
-                        ts_cutoff=ts_cutoff,
-                        depth_selection=depth_selection)
-
+    # run_ismn_multi_site(satellite_data=sat_data,
+    #                     ISMN_instance=ISMN_stack,
+    #                     sites=  [station_user],
+    #                     ts_cutoff=ts_cutoff,
+    #                     depth_selection=depth_selection)
 
     temperature_distribution(satellite_data=sat_data,
                         ISMN_instance=ISMN_stack,
@@ -270,3 +270,4 @@ if __name__ == "__main__":
                         ts_cutoff=ts_cutoff,
                         depth_selection=depth_selection,
                         dates = dates)
+
