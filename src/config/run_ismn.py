@@ -214,8 +214,10 @@ def temperature_distribution(satellite_data,
                 )
                 last_scatter = sc
 
-                ax.scatter(lprm_day["TSURF"], lprm_day["TSURF"], color='gold', label = "T_eff LPRM")
-                ax.scatter(ST_target, 273, color='green', label = "T eff True")
+                ax.scatter(lprm_day["TSURF"], lprm_day["TSURF"], color='gold', label="T_eff LPRM (T_can.=T_soil)")
+                ax.scatter(ST_target, 273, color='cyan', label="T_soil in situ", marker="X")
+                ax.scatter(sat_day["T_soil_hull"], 273, color='sienna', label="T_soil LPRM", marker="X")
+                ax.scatter(273, sat_day["T_canopy_hull"], color='forestgreen', label="T_canopy LPRM", marker="X")
 
                 ax.set_title(f"{SM_target} | {closest_insitu_sm.name}")
                 ax.set_xlabel("Soil")
