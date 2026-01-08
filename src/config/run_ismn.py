@@ -99,7 +99,7 @@ def temperature_distribution(satellite_day,
                              site,
                              dates,
                              network = "SCAN",
-                             target = "night"
+                             target = None
                              ):
     """
     This function runs LPRM for a number of combinations of T_canopy and T_soil. It plots the difference to target SM.
@@ -221,7 +221,7 @@ def temperature_distribution(satellite_day,
                 ax.scatter(sat_day["T_soil_hull"], 273, color='sienna', label="T_soil LPRM", marker="X")
                 ax.scatter(273, sat_day["T_canopy_hull"], color='forestgreen', label="T_canopy LPRM", marker="X")
 
-                ax.set_title(f"{SM_target} type:{target} | {closest_insitu_sm.name}")
+                ax.set_title(f"{np.round(SM_target,2)}  | {closest_insitu_sm.name}")
                 ax.set_xlabel("Soil")
                 ax.set_ylabel("Canopy")
                 ax.grid(False)
@@ -261,15 +261,16 @@ station_user = 'BeasleyLake'
 
 if __name__ == "__main__":
 
-    # run_ismn_multi_site(satellite_data=sat_data,
-    #                     ISMN_instance=ISMN_stack,
-    #                     sites=  [station_user],
-    #                     ts_cutoff=ts_cutoff,
-    #                     depth_selection=depth_selection)
+    run_ismn_multi_site(satellite_data=sat_day,
+                        ISMN_instance=ISMN_stack,
+                        sites=  [station_user],
+                        ts_cutoff=ts_cutoff,
+                        depth_selection=depth_selection)
 
     temperature_distribution(satellite_day=sat_day,
                              satellite_night=sat_night,
                              ISMN_instance=ISMN_stack,
                              site=station_user,
-                             dates=dates)
+                             dates=dates,
+                             target = "insitu")
 

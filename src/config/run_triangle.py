@@ -28,11 +28,11 @@ from utilities.retrieval_helpers import (
 from utilities.plotting import scatter_density, plot_maps_LPRM, plot_maps_day_night, plot_timeseries
 from config.paths import path_lprm, path_bt, path_aux
 
-global_bbox=  [
-    -133.14291712228476,
-    19.291560630075438,
-    -59.39447430763592,
-    51.672629885733926
+global_bbox= [
+    -135.31210691977134,
+    22.008027656392102,
+    -65.26280322994177,
+    51.277988105210454
   ]
 
 # Frequencies(AMSR2):
@@ -42,7 +42,7 @@ sat_sensor = "amsr2"
 overpass = "day"
 target_res = "25"
 
-composite_start = "2022-01-01"
+composite_start = "2024-01-01"
 composite_end = "2024-12-31"
 
 datelist = get_dates(composite_start, composite_end, freq = "D")
@@ -195,22 +195,16 @@ for d in datelist:
         ]
         dt_original_array = merged_geo[needed_vars].expand_dims(time = [d.date()])
         dt_original_ts.append(dt_original_array)
+        print(dt_original_array.dims)
 
     except Exception as e:
         print(e)
         continue
 
-dt_ori_ds = xr.concat(dt_original_ts, dim="time")
+dt_ori_ds = xr.concat(dt_original_ts, dim="time",join='outer')
 
 
 ##
 
-save_nc(dt_ori_ds,"/home/ddkovacs/Desktop/personal/daytime_retrievals/datasets/dt_ori_ds.nc")
-
-##
-lat = 37.555028632
-lon = -102.313477769
-
-# plot_timeseries(dt_ori_ds, dt_ori_ds, nt_ds,lat,lon,sat_band = sat_band)
-
+save_nc(dt_ori_ds,"/home/ddkovacs/Desktop/personal/daytime_retrievals/datasets/dt_ori_ds_day.nc")
 
