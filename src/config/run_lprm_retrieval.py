@@ -46,23 +46,32 @@ from lprm.retrieval.lprm_v6_1.parameters import get_lprm_parameters_for_frequenc
 from lprm.satellite_specs import get_specs
 from utilities.run_lprm import run_band
 
-
 bt_path = "/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/passive_input/coarse_resolution/"
-overpass = "night"
+overpass = "day"
 sensor = "AMSR2"
 # sat_band = "C1"
-frequencies={'C1': 6.9, 'C2': 7.3, 'X': 10.7,'KU': 18.7, 'K': 23.8, 'Ka': 36.5}
+frequencies={'C1': 6.9,
+             'C2': 7.3,
+             'X': 10.7,
+             'KU': 18.7,
+             'K': 23.8,
+             'Ka': 36.5
+             }
 
 start_date = "2023-01-01"
 end_date = "2024-12-31"
-selector = 0
+selector = 1
 theor_dict = {0 : "plain",
               1 : "edit"}
 datelist = get_dates(start_date, end_date, freq = "D")
 avg_dict= {}
 std_dict = {}
 
+sm_dict = {}
+vod_dict = {}
+
 for sat_band in list(frequencies.keys())[0:1]: # Set this to the index which Freq. u want
+    print(sat_band)
     sm_list = []
     vod_list = []
     for d in datelist:
@@ -77,7 +86,6 @@ for sat_band in list(frequencies.keys())[0:1]: # Set this to the index which Fre
 
             Teff  = (0.893 * bt_data[f"bt_36.5V"]) + 44.8
             TbKuH = bt_data["bt_18.7H"]
-            # T_theory = ((0.893 * bt_data["bt_18.7H"]) / (1 - (df["mpdi"] / 0.58))) + 44.8
 
             SND = load_aux_file(0.25,"SND")
             CLY = load_aux_file(0.25,"CLY")
@@ -109,19 +117,17 @@ for sat_band in list(frequencies.keys())[0:1]: # Set this to the index which Fre
                 BTKuH=TbKuH.values.astype('double'),
                 Theory_select = selector
             )
-            # smrun = np.array(smrun)
-            # opt_run = np.array(opt_run)
+
             sm  = xr.where(sm>0,sm,np.nan)
             dataset = xr.DataArray(
                 data=sm,
                 dims=Tbv.dims,
                 coords=Tbv.coords,
-                name='sm'
+                name=f'sm'
             ).to_dataset()
 
             vod  = np.where(vod>0,vod,np.nan)
-
-            dataset["vod"] = (("lat", "lon"),vod )
+            dataset[f'VOD_{sat_band}'] = (("lat", "lon"), vod)
 
             # plt.figure()
             # ax = plt.gca()
@@ -135,45 +141,70 @@ for sat_band in list(frequencies.keys())[0:1]: # Set this to the index which Fre
             # ax.format_coord = format_coord
             # plt.show()
 
-            sm_list.append(dataset["sm"] )
-            vod_list.append(dataset["vod"] )
-        except:
+            sm_list.append(dataset[f'sm'])
+            # vod_list.append(dataset[f'VOD_{sat_band}'] )
+
+        except Exception as e:
+            print(e)
             pass
-sm_da = xr.concat(sm_list, dim='time')
-vod_da = xr.concat(vod_list, dim='time')
 
+        sm_da = xr.concat(sm_list, dim='time')
+        # vod_da = xr.concat(vod_list, dim='time')
+
+        sm_dict.update({f"SM_{sat_band}" : sm_da})
+        # vod_dict.update({f"VOD_{sat_band}" : vod_da})
+
+sm_dataset = xr.Dataset(sm_dict)
+vod_dataset = xr.Dataset(vod_dict)
+
+merged_dataset =sm_dataset.merge(vod_dataset)
 comp = dict(zlib=True, complevel=5, shuffle=True, dtype='float32')
-encoding = {"sm": comp}
+encoding = {var : comp for var in merged_dataset.var() }
 
-sm_da.to_netcdf(f"/home/ddkovacs/Desktop/sm_{overpass}_{theor_dict[selector]}.nc",encoding=encoding)
+merged_dataset.to_netcdf(f"/home/ddkovacs/shares/climers/Projects/"
+                         f"CCIplus_Soil_Moisture/07_data/LPRM/debug/"
+                         f"daytime_retrieval/LPRM_retrievals/LPRM_siberia_{overpass}_{theor_dict[selector]}.nc",encoding=encoding)
+
 ##
-# x = np.array(datelist)
+# plain = xr.open_dataset("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/debug/daytime_retrieval/LPRM_retrievals/VOD_day_plain.nc")
+# edit = xr.open_dataset("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/debug/daytime_retrieval/LPRM_retrievals/VOD_day_edit.nc")
 #
-# plt.figure(figsize=(12, 7))
+# lat = 48
+# lon = 10
+# vod_plain = plain["VOD_X"].sel(lat = lat, lon = lon,method='nearest')
+# vod_edit = edit["VOD_X"].sel(lat = lat, lon = lon,method='nearest')
 #
-# for band in avg_dict.keys():
-#     y = np.array(avg_dict[band])
-#     std = np.array(std_dict[band])
+# plt.figure()
+# plt.scatter(vod_plain.values,vod_edit.values)
+# plt.xlabel("plain VOD")
+# plt.ylabel("edit VOD")
+# plt.xlim([0,1.5])
+# plt.ylim([0,1.5])
+# plt.show()
 #
-#     p = plt.plot(x, y, label=band, linewidth=2)
-#     color = p[0].get_color()
 #
-#     plt.fill_between(
-#         x,
-#         y - (std / 2),
-#         y + (std / 2),
-#         color=color,
-#         alpha=0.2,  # Lower alpha for overlap visibility
-#         edgecolor=None  # Removes border around the shade for a cleaner look
-#     )
+# valid_mask = np.isfinite(vod_plain) & np.isfinite(vod_edit)
+# vp_clean = vod_plain.where(valid_mask, drop=True)
+# ve_clean = vod_edit.where(valid_mask, drop=True)
 #
-# plt.title(f"Time Series delta T {pixel_type}")
-# plt.ylabel("$T_{Ka}$ - $T_{theory}$")  # Assuming dB based on typical backscatter data
-# plt.legend(loc='best')  # Automatically finds the best spot for the legend
-# plt.grid(True, alpha=0.3)
+# bias = (ve_clean - vp_clean).mean().item()
+# rmse = np.sqrt(((ve_clean - vp_clean)**2).mean()).item()
+# r = xr.corr(vp_clean, ve_clean).item()
 #
-# # Rotate dates
-# plt.xticks(rotation=45, ha='right')
+# plt.figure(figsize=(10, 6))
 #
-# plt.tight_layout()
+# vod_plain.plot(label="plain", alpha=0.7)
+# vod_edit.plot(label="edit", alpha=0.7, linestyle='-')
+#
+# stats_text = (f"Bias (edit-new): {bias:.4f}\n"
+#               f"RMSE: {rmse:.4f}\n"
+#               f"R2:       {r**2:.4f}")
+#
+# plt.text(0.05, 0.95, stats_text,
+#          transform=plt.gca().transAxes,
+#          fontsize=12, verticalalignment='top',
+#          bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+#
+# plt.legend()
+# plt.title(f"(Lat: {lat}, Lon: {lon})")
 # plt.show()

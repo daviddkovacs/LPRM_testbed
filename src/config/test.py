@@ -2,7 +2,7 @@ import os
 import glob
 from config.paths import path_bt, path_lprm
 import pandas as pd
-
+from sklearn import datasets, linear_model
 from readers.Sat import BTData, LPRMData
 from scipy.stats import gaussian_kde
 import matplotlib
@@ -18,27 +18,31 @@ from lprm.retrieval.lprm_v6_1.run_lprmv6 import load_band_from_ds
 
 year = "2024"
 sat_band = "C1"
+frequencies={'C1': 6.9, 'C2': 7.3, 'X': 10.7,'KU': 18.7, 'K': 23.8, 'Ka': 36.5}
 sat_sensor = "amsr2"
 bbox = [
-    -10.085077598814223,
-    7.702018665435389,
-    25.48544779340702,
-    15.553781844242934
+    15.283018365134978,
+    -21.25120683446025,
+    26.47320491849186,
+    -10.777343049931744
   ]
 
 bt_path = os.path.join(path_bt,"day",f"{year}*", f"*day_{year}*.nc")
 bt_files = glob.glob(bt_path)
 
+slope_list = []
+intercept_list = []
+# for d in range(0,360):
 
-bt_data = xr.open_dataset(bt_files[0], decode_timedelta=False)
+bt_data = xr.open_dataset(bt_files[150], decode_timedelta=False)
 bt_data = bt_data.sel(lat = slice(bbox[3],bbox[1]),
                       lon = slice(bbox[0], bbox[2]))
 
 
-BTV = bt_data["bt_6.9V"].isel(time = 0,drop=True).values.flatten()
-BTH = bt_data["bt_6.9H"].isel(time = 0,drop=True).values.flatten()
+BTV = bt_data[f"bt_{frequencies[sat_band]}V"].isel(time = 0,drop=True).values.flatten()
+BTH = bt_data[f"bt_{frequencies[sat_band]}H"].isel(time = 0,drop=True).values.flatten()
 
-KuH = bt_data["bt_18.7H"].isel(time = 0,drop=True).values.flatten()
+KuH = bt_data["bt_6.9H"].isel(time = 0,drop=True).values.flatten()
 KaV = bt_data["bt_36.5V"].isel(time = 0,drop=True).values.flatten()
 
 df = pd.DataFrame({"BTV" : BTV,
@@ -53,13 +57,15 @@ df["Teff"] = ((0.893*df["KuH"]) / (1- (df["mpdi"]/0.58))) + 44.8
 df = df.dropna(how="any")
 
 def hexbin_plot(x, y,
-                plot_TeffKa = False,
                 xlabel = None,
                 ylabel = None,
                 xlim=None,
                 ylim=None,
                 type = None,
-
+                plot_TeffKa=False,
+                plot_polyfit = False,
+                plot_1to1 = False,
+                color_array= None
                 ):
 
     fig, ax = plt.subplots()
@@ -68,19 +74,42 @@ def hexbin_plot(x, y,
         y,
         gridsize=100,
         bins= type,
+        cmap = "magma",
+        reduce_C_function=np.mean,
+        C=color_array,
     )
-    m, c = np.polyfit(x, y,1)
-    # ax.axline((0,0),slope=1)
+    if plot_polyfit:
+        ransac = linear_model.RANSACRegressor()
+        ransac.fit(x.reshape(-1, 1), y)
+        inlier_mask = ransac.inlier_mask_
+        outlier_mask = np.logical_not(inlier_mask)
+        line_x_ransac = np.arange(x.min(), x.max(),0.01)[:, np.newaxis]
+        line_y_ransac = ransac.predict(line_x_ransac)
+
+        ax.plot(
+            line_x_ransac,
+            line_y_ransac,
+            color="cornflowerblue",
+            linewidth=2,
+            label="RANSAC regressor",
+        )
+        m, c = np.polyfit(line_x_ransac.ravel(), line_y_ransac,1)
+        ax.plot(x, m * x + c, color='red', alpha =0.7,linestyle='--', linewidth=2)
+        fig.suptitle(f"slope: {np.round(m, 2)}, intercept: {np.round(c, 2)}")
+
+    if plot_1to1:
+        ax.axline((0,0),slope=1)
     if plot_TeffKa:
         ax.hexbin(
             x,
             df["TeffKa"],
             gridsize=100,
             bins=type,
+            reduce_C_function=np.mean,
+            C=color_array,
         )
-
+    plt.title(f"{sat_band} band")
     fig.colorbar(hb, ax=ax, label="log10(N)")
-    fig.suptitle(f"slope: {np.round(m,2)}, intercept: {np.round(c,2)}")
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     ax.set_xlim(xlim)
@@ -110,9 +139,36 @@ def hexbin_plot(x, y,
     fig.canvas.mpl_connect("motion_notify_event", on_move)
 
     plt.show()
+    # slope_list.append(m)
+    # intercept_list.append(c)
 
+hexbin_plot(df["kuka"].values,
+            df["mpdi"].values,
+            type = "log",
+            xlabel = f"Ku H / Ka V",
+            ylabel = f"mpdi_{sat_band}",
+            plot_polyfit=True,
+            xlim = [0.7,1.1],
+            ylim = [0,0.2],
+            )
 
-hexbin_plot(df["TeffKa"].values, df["mpdi"].values, type = "log",xlabel = "TeffKa" , ylabel = "mpdi C1")
-# hexbin_plot(df["TeffKa"].values, df["Teff"].values,type = "log", xlabel = "Teff Ka" , ylabel = "Teff analytic", xlim = [270,330], ylim = [270,330],plot_TeffKa=False)
-# hexbin_plot(((0.893*df["KuH"]) / (1- (df["mpdi"]/0.58))) + 44.8,df["Teff"].values,type="log", xlabel = "B" , ylabel = "teff analytic" ,plot_TeffKa=False)
-# hexbin_plot(((0.893*df["KuH"]) / (1- (df["mpdi"]/0.58))) + 44.8,df["mpdi"].values,type="log", xlabel = "B" , ylabel = "mpdi C1" ,plot_TeffKa=False)
+# hexbin_plot(df["mpdi"].values,
+#             df["Teff"].values,
+#             type = "log",
+#             xlabel = f"Teff Ka",
+#             ylabel = f"Teff X",
+#             # plot_1to1=True,
+#             # xlim = [270,330],
+#             # ylim = [270,330],
+#             # color_array=df["mpdi"].values
+#             plot_TeffKa=True
+#             )
+
+##
+# plt.plot(slope_list,label = "Slope")
+# plt.plot(intercept_list, label = "Intercept")
+# plt.title(f"{sat_band} band\nmean slope: {np.round(np.nanmean(slope_list),2)},  mean intercept: {np.round(np.nanmean(intercept_list),2)}")
+# plt.xlabel("DOY (2024)")
+# plt.ylim([-0.9,0.9])
+# plt.legend()
+# plt.show()
