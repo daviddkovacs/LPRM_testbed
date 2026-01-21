@@ -42,19 +42,30 @@ bt_data = bt_data.sel(lat = slice(bbox[3],bbox[1]),
 BTV = bt_data[f"bt_{frequencies[sat_band]}V"].isel(time = 0,drop=True).values.flatten()
 BTH = bt_data[f"bt_{frequencies[sat_band]}H"].isel(time = 0,drop=True).values.flatten()
 
-KuH = bt_data["bt_6.9H"].isel(time = 0,drop=True).values.flatten()
+norm_T_band  = "X" # Normally Ku band
+norm_T_num = bt_data[F"bt_{frequencies[norm_T_band]}H"].isel(time = 0,drop=True).values.flatten()
 KaV = bt_data["bt_36.5V"].isel(time = 0,drop=True).values.flatten()
 
 df = pd.DataFrame({"BTV" : BTV,
                   "BTH" : BTH,
-                  "KuH" : KuH,
+                  "norm_T_num" : norm_T_num,
                   "KaV" : KaV})
-
-df["kuka"] = df["KuH"] / df["KaV"]
-df["mpdi"] = ((df["BTV"] - df["BTH"]) / (df["BTV"] + df["BTH"]))
-df["TeffKa"] = bt_data["bt_36.5V"].isel(time = 0,drop=True).values.flatten() * 0.893 + 44.8
-df["Teff"] = ((0.893*df["KuH"]) / (1- (df["mpdi"]/0.58))) + 44.8
 df = df.dropna(how="any")
+
+df["mpdi"] = ((df["BTV"] - df["BTH"]) / (df["BTV"] + df["BTH"]))
+df["kuka"] = df["norm_T_num"] / df["KaV"]
+
+
+ransac = linear_model.RANSACRegressor()
+ransac.fit(df["kuka"].values.reshape(-1, 1), df["mpdi"])
+inlier_mask = ransac.inlier_mask_
+outlier_mask = np.logical_not(inlier_mask)
+line_x_ransac = np.arange(df["kuka"].min(), df["kuka"].max(), 0.01)[:, np.newaxis]
+line_y_ransac = ransac.predict(line_x_ransac)
+m, c = np.polyfit(line_x_ransac.ravel(), line_y_ransac, 1)
+
+df["Teff"] = ((0.893*df["norm_T_num"]) / (1- (df["mpdi"]/m))) + 44.8
+df["TeffKa"] = df["KaV"] * 0.893 + 44.8
 
 def hexbin_plot(x, y,
                 xlabel = None,
@@ -79,13 +90,6 @@ def hexbin_plot(x, y,
         C=color_array,
     )
     if plot_polyfit:
-        ransac = linear_model.RANSACRegressor()
-        ransac.fit(x.reshape(-1, 1), y)
-        inlier_mask = ransac.inlier_mask_
-        outlier_mask = np.logical_not(inlier_mask)
-        line_x_ransac = np.arange(x.min(), x.max(),0.01)[:, np.newaxis]
-        line_y_ransac = ransac.predict(line_x_ransac)
-
         ax.plot(
             line_x_ransac,
             line_y_ransac,
@@ -93,8 +97,7 @@ def hexbin_plot(x, y,
             linewidth=2,
             label="RANSAC regressor",
         )
-        m, c = np.polyfit(line_x_ransac.ravel(), line_y_ransac,1)
-        fig.suptitle(f"slope: {np.round(m, 2)}, intercept: {np.round(c, 2)}")
+        fig.suptitle(f"{sat_band}-MPDI {norm_T_band}-Norm\n slope: {np.round(m, 2)}, intercept: {np.round(c, 2)}")
 
     if plot_1to1:
         ax.axline((0,0),slope=1)
@@ -107,7 +110,6 @@ def hexbin_plot(x, y,
             reduce_C_function=np.mean,
             C=color_array,
         )
-    plt.title(f"{sat_band} band")
     fig.colorbar(hb, ax=ax, label="log10(N)")
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
@@ -136,7 +138,7 @@ def hexbin_plot(x, y,
         fig.canvas.draw_idle()
 
     fig.canvas.mpl_connect("motion_notify_event", on_move)
-
+    plt.title(f"{sat_band}-MPDI {norm_T_band}-Norm)")
     plt.show()
     # slope_list.append(m)
     # intercept_list.append(c)
@@ -144,7 +146,7 @@ def hexbin_plot(x, y,
 hexbin_plot(df["kuka"].values,
             df["mpdi"].values,
             type = "log",
-            xlabel = f"Ku H / Ka V",
+            xlabel = f"{norm_T_band} H / Ka V",
             ylabel = f"mpdi_{sat_band}",
             plot_polyfit=True,
             # color_array=
@@ -166,18 +168,14 @@ hexbin_plot(df["kuka"].values,
 #             )
 
 ##
-xr_v = bt_data[f"bt_{frequencies[sat_band]}V"].isel(time = 0)
-xr_h = bt_data[f"bt_{frequencies[sat_band]}H"].isel(time = 0)
-mpdi = ((xr_v - xr_h) / (xr_v + xr_h))
-
-xr_kuh = bt_data["bt_18.7H"].isel(time = 0)
-xr_kav = bt_data["bt_36.5V"].isel(time = 0)
-TeffKa =xr_kav * 0.893 + 44.8
-Teff = ((0.893*xr_kuh) / (1- (mpdi/0.58))) + 44.8
+dataset = xr.Dataset(df)
+lat = bt_data["lat"].values.flatten()
+lon = bt_data["lon"].values.flatten()
+dataset = dataset.expand_dims(bt_data.coords)
 
 plt.figure()
 Teff.plot(label = "Teff",vmin = 270,vmax = 330)
-plt.title("Teff")
+plt.title(f"Teff {sat_band}-MPDI {norm_T_band}-Norm")
 plt.show()
 
 plt.figure()
@@ -189,3 +187,4 @@ plt.figure()
 (TeffKa - Teff).plot(label = "Teff Ka", vmin = -30,vmax = 30,cmap = "coolwarm")
 plt.title("Teff Ka - Teff")
 plt.show()
+matplotlib.use("TkAgg")
