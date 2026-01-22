@@ -18,15 +18,18 @@ import lprm.retrieval.lprm_v6_1.par100m_v6_1 as par100
 from shapely.geometry import LineString,  Point
 from lprm.retrieval.lprm_v6_1.run_lprmv6 import load_band_from_ds
 from lprm.retrieval.lprm_general import load_aux_file
+from utilities.run_lprm import run_band as run_band_py
 
 from utilities.retrieval_helpers import (
     soil_canopy_temperatures,
     interceptor,
     dummy_line, retrieve_LPRM,tiff_df
 )
-
+# for sb in ["C1","X","KU"]:
+#     for nb in ["C1","X","KU"]:
 year = "2024"
 sat_band = "C1"
+# sat_band = sb
 frequencies={'C1': 6.9, 'C2': 7.3, 'X': 10.7,'KU': 18.7, 'K': 23.8, 'KA': 36.5}
 sat_sensor = "amsr2"
 bbox = [
@@ -43,7 +46,7 @@ slope_list = []
 intercept_list = []
 # for d in range(0,360):
 
-bt_data = xr.open_dataset(bt_files[150], decode_timedelta=False)
+bt_data = xr.open_dataset(bt_files[110], decode_timedelta=False)
 bt_data = bt_data.sel(lat = slice(bbox[3],bbox[1]),
                       lon = slice(bbox[0], bbox[2]))
 
@@ -52,8 +55,9 @@ BTV = bt_data[f"bt_{frequencies[sat_band]}V"].isel(time = 0,drop=True)
 BTH = bt_data[f"bt_{frequencies[sat_band]}H"].isel(time = 0,drop=True)
 BTKaV = bt_data[f"bt_36.5V"].isel(time = 0,drop=True)
 
-num_T  = "KU" # Normally KU band (numerator)
-denominator_T = "KA" # Normally KA band (denominator)
+num_T  = "C1" # Normally KU band (numerator)
+# num_T  =nb
+denominator_T = "C1" # Normally KA band (denominator)
 corrector = "H/V" # Normally H/V (Ka&vertical must go hand in hand otherwise algebra wont work!
 norm_T_num = bt_data[F"bt_{frequencies[num_T]}{corrector.split("/")[0]}"].isel(time = 0,drop=True)
 denom_T_num = bt_data[f"bt_{frequencies[denominator_T]}{corrector.split("/")[1]}"].isel(time = 0,drop=True)
@@ -189,7 +193,7 @@ specs = get_specs(sat_sensor.upper())
 params = get_lprm_parameters_for_frequency(sat_band, specs.incidence_angle)
 
 def lprm_retrieval(selector):
-    sm, vod= par100.run_band(
+    sm, vod= run_band_py(
         BTV.values.astype('double'),
         BTH.values.astype('double'),
         TeffKa.values.astype('double'),
@@ -208,8 +212,8 @@ def lprm_retrieval(selector):
         params.temp_freeze,
         False,
         None,
-        T_theor=Teff.values.astype('double'),
-        Theory_select = selector
+        # T_theor=Teff.values.astype('double'),
+        # Theory_select = selector
     )
     sm = np.where(sm<0, np.nan, sm)
     vod = np.where(vod<0, np.nan, vod)
@@ -286,7 +290,7 @@ make_interactive(fig, axs[1,1], sm_edit, "sm_edit")
 
 diff_sm = sm_edit - sm_plain
 diff_sm.plot(ax=axs[2,1], vmin=-1, vmax=1, cmap="coolwarm")
-axs[2,1].set_title("diff_sm")
+axs[2,1].set_title("diff_sm (sm_edit - sm_plain)")
 make_interactive(fig, axs[2,1], diff_sm, "diff_sm")
 
 plt.show()
