@@ -145,6 +145,12 @@ def radiative_transfer(sm,
     vod_ln = np.empty((lon, lat))
     vod_ln[:] = np.nan
 
+
+    TbV_sim =  np.empty((lon, lat))
+    # TbV_sim[:] = np.nan
+
+    TbH_sim = np.empty((lon, lat))
+    # TbH_sim[:] = np.nan
     # % definitions from p293 Wang and Schmugge, 1980
     # dielectric constants
     # Ice:
@@ -167,15 +173,12 @@ def radiative_transfer(sm,
         for ic in range(lat):
 
             # indb[:] = np.int64([0, 144, 288, 432, 576, 720, 864, 1008])
-            print(ir)
-            print(ic)
             Sand = sand[ir, ic]
             Clay = clay[ir, ic]
             BulkDensity = bulk_density[ir, ic]
             sm_pixel = sm[ir, ic]
             vod_pixel = vod[ir, ic]
             T = Temperature[ir, ic]
-            print(Clay)
 
             if T > temp_freeze and BulkDensity > 0:
                 # if (TBv + TBh) > 0:
@@ -183,7 +186,6 @@ def radiative_transfer(sm,
                 # else:
                 #     mpdi_l = 0.
                 # if mpdi_l > 0.0001:
-                print(BulkDensity)
                 WiltingP = 0.06774 - 0.064 * Sand + 0.478 * Clay # eq(1) Wang and Schmugge,1980
 
                 Porosity = 1. - (BulkDensity / 2.65) # eq(7) Wang and Schmugge,1980
@@ -278,16 +280,16 @@ def radiative_transfer(sm,
                 opt = vod_pixel
                 trans_v = math.exp(-opt / cos_u)
 
-                TbH_sim = T * emissivity_h * trans_v + (1 - single_scat_a) * T * (1 - trans_v) + (
+                TbH_sim[ir, ic] = T * emissivity_h * trans_v + (1 - single_scat_a) * T * (1 - trans_v) + (
                         1 - emissivity_h) * (1 - single_scat_a) * T * (1 - trans_v) * trans_v
 
-                TbV_sim = T * emissivity_v * trans_v + (1 - single_scat_a) * T * (1 - trans_v) + (
+                TbV_sim[ir, ic] = T * emissivity_v * trans_v + (1 - single_scat_a) * T * (1 - trans_v) + (
                         1 - emissivity_v) * (1 - single_scat_a) * T * (1 - trans_v) * trans_v
 
-
+                print(TbV_sim)
             else:
                 # If temperature is no data value then we have no coverage
-                TbH_sim = np.nan
-                TbV_sim = np.nan
+                TbH_sim[ir, ic] = np.nan
+                TbV_sim[ir, ic] = np.nan
 
     return TbH_sim, TbV_sim,smrun2, opt, T
