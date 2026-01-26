@@ -147,10 +147,11 @@ def radiative_transfer(sm,
 
 
     TbV_sim =  np.empty((lon, lat))
-    # TbV_sim[:] = np.nan
-
     TbH_sim = np.empty((lon, lat))
-    # TbH_sim[:] = np.nan
+    opt_sim = np.empty((lon, lat))
+    T_soil = np.empty((lon, lat))
+    T_canopy = np.empty((lon, lat))
+    T_return = np.empty((lon, lat))
     # % definitions from p293 Wang and Schmugge, 1980
     # dielectric constants
     # Ice:
@@ -275,21 +276,26 @@ def radiative_transfer(sm,
                 emissivity_v = 1 - ((1 - Q) * Rv + Q * Rh) * hu
                 d = 0.5 * (single_scat_a / (1 - single_scat_a))
 
-                # a = 0.5 * ((emissivity_v - emissivity_h) / mpdi_l - emissivity_v - emissivity_h)
-                # opt = max(cos_u * np.log(a * d + np.sqrt((a * d) ** 2 + a + 1)), 0)
                 opt = vod_pixel
                 trans_v = math.exp(-opt / cos_u)
 
-                TbH_sim[ir, ic] = T * emissivity_h * trans_v + (1 - single_scat_a) * T * (1 - trans_v) + (
-                        1 - emissivity_h) * (1 - single_scat_a) * T * (1 - trans_v) * trans_v
+                T_s = T + 3
+                T_c = T - 3
+                T_soil[ir, ic] =  T_s
+                T_canopy[ir, ic] =T_c
+                TbH_sim[ir, ic] = T_s * emissivity_h * trans_v + (1 - single_scat_a) * T_c * (1 - trans_v) + (
+                        1 - emissivity_h) * (1 - single_scat_a) * T_c * (1 - trans_v) * trans_v
 
-                TbV_sim[ir, ic] = T * emissivity_v * trans_v + (1 - single_scat_a) * T * (1 - trans_v) + (
-                        1 - emissivity_v) * (1 - single_scat_a) * T * (1 - trans_v) * trans_v
+                TbV_sim[ir, ic] = T_s * emissivity_v * trans_v + (1 - single_scat_a) * T_c * (1 - trans_v) + (
+                        1 - emissivity_v) * (1 - single_scat_a) * T_c * (1 - trans_v) * trans_v
 
-                print(TbV_sim)
+                mpdi =((TbV_sim[ir, ic]-TbH_sim[ir, ic])/(TbV_sim[ir, ic]+TbH_sim[ir, ic]))
+                a = 0.5 * ((emissivity_v - emissivity_h) / mpdi - emissivity_v - emissivity_h)
+                opt_sim[ir, ic] = max(cos_u * np.log(a * d + np.sqrt((a * d) ** 2 + a + 1)), 0)
+                # T_return[ir, ic] = T
             else:
                 # If temperature is no data value then we have no coverage
                 TbH_sim[ir, ic] = np.nan
                 TbV_sim[ir, ic] = np.nan
 
-    return TbH_sim, TbV_sim,smrun2, opt, T
+    return TbH_sim, TbV_sim, opt_sim
