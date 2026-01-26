@@ -81,25 +81,30 @@ t_cons = 313
 i_variable = "sm"
 
 opt_sim_list = []
+
+sm_m_dict = {}
+sm_c_dict = {}
+
 m_list = []
 c_list = []
+
 
 for i in range(0,len(iterations)):
     try:
         if i_variable.lower() == "sm":
-            sm_slice = sm_dummy[:,:,i]
+            sm_slice = sm_dummy[:,:,i].values
             vod_slice = np.full((lats,lons), vod_cons)
             t_slice = np.full((lats,lons), t_cons)
 
         elif i_variable.lower() == "vod":
             sm_slice =  np.full((lats,lons), sm_cons)
-            vod_slice = vod_dummy[:,:,i]
+            vod_slice = vod_dummy[:,:,i].values
             t_slice = np.full((lats,lons), t_cons)
 
         elif i_variable.lower() == "t":
             sm_slice =  np.full((lats,lons), sm_cons)
             vod_slice = np.full((lats, lons), vod_cons)
-            t_slice = t_dummy[:,:,i]
+            t_slice = t_dummy[:,:,i].values
 
         else:
             raise Exception
