@@ -1,19 +1,13 @@
 import os
 import glob
-from config.paths import path_bt, path_lprm
-import pandas as pd
-from readers.Sat import BTData, LPRMData
+from config.paths import path_bt
 import matplotlib
 import numpy as np
 import xarray as xr
 import matplotlib.pyplot as plt
 from lprm.retrieval.lprm_v6_1.parameters import get_lprm_parameters_for_frequency
 from lprm.satellite_specs import get_specs
-import lprm.retrieval.lprm_v6_1.par100m_v6_1 as par100
-from shapely.geometry import LineString,  Point
-from lprm.retrieval.lprm_v6_1.run_lprmv6 import load_band_from_ds
-from lprm.retrieval.lprm_general import load_aux_file
-from utilities.radiative_transfer_lprm import radiative_transfer
+from simulator.radiative_transfer_lprm import radiative_transfer
 matplotlib.use("TkAgg")
 from osgeo import gdal
 

@@ -1,8 +1,6 @@
 import os
 import glob
-from config.paths import path_bt, path_lprm
-import pandas as pd
-from readers.Sat import BTData, LPRMData
+from config.paths import path_bt
 import matplotlib
 import numpy as np
 from sklearn.linear_model import HuberRegressor
@@ -11,11 +9,7 @@ import xarray as xr
 import matplotlib.pyplot as plt
 from lprm.retrieval.lprm_v6_1.parameters import get_lprm_parameters_for_frequency
 from lprm.satellite_specs import get_specs
-import lprm.retrieval.lprm_v6_1.par100m_v6_1 as par100
-from shapely.geometry import LineString,  Point
-from lprm.retrieval.lprm_v6_1.run_lprmv6 import load_band_from_ds
-from lprm.retrieval.lprm_general import load_aux_file
-from utilities.radiative_transfer_lprm import radiative_transfer
+from simulator.radiative_transfer_lprm import radiative_transfer
 matplotlib.use("TkAgg")
 from osgeo import gdal
 
@@ -26,11 +20,12 @@ specs = get_specs(sat_sensor.upper())
 params = get_lprm_parameters_for_frequency(sat_band, specs.incidence_angle)
 
 def auxdata(string_type):
-    file =f"/home/ddkovacs/Desktop/soil_maps/auxiliary_data_{string_type}_25km"
+    file =f"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/02_aux/soil_maps/coarse_resolution/lprm_v6/soil_content/auxiliary_data_{string_type}_25km"
 
     tif_data = gdal.Open(file, gdal.GA_ReadOnly)
     array = tif_data.GetRasterBand(1).ReadAsArray().astype(float)
     return array
+
 
 year = "2024"
 bt_path = os.path.join(path_bt,"day",f"{year}*", f"*day_{year}*.nc")
@@ -62,6 +57,7 @@ i_variable = "sm"
 da_list = []
 da_dict = {}
 opt_sim_list = []
+
 for i in range(0,len(iterations)):
     print(i)
     if i_variable.lower() == "sm":
@@ -116,6 +112,9 @@ for i in range(0,len(iterations)):
         ),
         coords=da_c,
     ).expand_dims(i=[i])
+
+
+
     da_list.append(da)
     opt_sim_list.append(np.nanmean(opt_sim))
 sim_ds = xr.concat(da_list,dim = "i")
@@ -191,6 +190,7 @@ for i in range(0, len(iterations)):
 title  = {"vod": f"constants sm: {sm_cons} T: {t_cons}",
           "sm" : f"constants vod: {vod_cons} T: {t_cons}",
           "t" : f"constants sm: {sm_cons} vod: {vod_cons}",}
+
 plt.figure()
 plt.plot(var_dict[i_variable],m_list, label = "gradient")
 plt.plot(var_dict[i_variable],opt_sim_list, label = "opt")
@@ -203,11 +203,3 @@ plt.ylim([-0.85,0.85])
 plt.show()
 
 
-
-
-#
-#
-# comp = dict(zlib=True, complevel=5, shuffle=True, dtype='float32')
-# encoding = {var : comp for var in dataset.var() }
-#
-# dataset.to_netcdf(f"/home/ddkovacs/Desktop/lprm_simulations/{i_variable}/{i_variable}_vod{vod_cons}.nc",encoding=encoding)
