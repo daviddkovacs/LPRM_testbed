@@ -91,7 +91,7 @@ for i in range(0,2):
         params.temp_freeze,  # fixed
         False,
         None,
-        # T_theor=Teff.values.astype('double'),
+        # T_theor=THolmes.values.astype('double'),
         # Theory_select = selector
     )
     tb_h = xr.DataArray(
