@@ -28,7 +28,7 @@ def run_band(Vertical_polarized_BT,
              VODN = None,
              slope_mpdi = 1.0,
              intercept_mpdi = 0.0,
-             return_other_stats=('mpdi', 'Teff'),
+             return_other_stats=('mpdi', 'THolmes'),
              return_other_iter_stats=tuple(),
     ):
     """
@@ -79,7 +79,7 @@ def run_band(Vertical_polarized_BT,
     return_other_stats: list[str]
         List of other statistics to return. Possible values are:
         - 'mpdi': MPDI
-        - 'Teff': Effective temperature
+        - 'THolmes': Effective temperature
     return_other_iter_stats: list[str]
         List of other statistics to return for each iteration. Possible values are:
 

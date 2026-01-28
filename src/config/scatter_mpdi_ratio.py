@@ -39,7 +39,7 @@ bbox = [
     70.75914606353328
   ]
 
-bt_path = os.path.join(path_bt,"day",f"{year}*", f"*day_{year}*.nc")
+bt_path = os.path.join(path_bt,sat_sensor.upper(),"day",f"{year}*", f"*day_{year}*.nc")
 bt_files = glob.glob(bt_path)
 
 slope_list = []
@@ -55,9 +55,9 @@ BTV = bt_data[f"bt_{frequencies[sat_band]}V"].isel(time = 0,drop=True)
 BTH = bt_data[f"bt_{frequencies[sat_band]}H"].isel(time = 0,drop=True)
 BTKaV = bt_data[f"bt_36.5V"].isel(time = 0,drop=True)
 
-num_T  = "C1" # Normally KU band (numerator)
+num_T  = "KU" # Normally KU band (numerator)
 # num_T  =nb
-denominator_T = "C1" # Normally KA band (denominator)
+denominator_T = "KA" # Normally KA band (denominator)
 corrector = "H/V" # Normally H/V (Ka&vertical must go hand in hand otherwise algebra wont work!
 norm_T_num = bt_data[F"bt_{frequencies[num_T]}{corrector.split("/")[0]}"].isel(time = 0,drop=True)
 denom_T_num = bt_data[f"bt_{frequencies[denominator_T]}{corrector.split("/")[1]}"].isel(time = 0,drop=True)
@@ -179,7 +179,7 @@ hexbin_plot(df["kuka"].values,
 # hexbin_plot(df["TeffKa"].values,
 #             df["mpdi"].values,
 #             type = "log",
-#             xlabel = f"Teff Ka",
+#             xlabel = f"THolmes Ka",
 #             ylabel = f"mpdi",
 #             # plot_1to1=True,
 #             # xlim = [270,330],
@@ -212,7 +212,7 @@ def lprm_retrieval(selector):
         params.temp_freeze,
         False,
         None,
-        # T_theor=Teff.values.astype('double'),
+        # T_theor=THolmes.values.astype('double'),
         # Theory_select = selector
     )
     sm = np.where(sm<0, np.nan, sm)
@@ -268,31 +268,26 @@ def make_interactive(fig, ax, data, label):
 fig,axs= plt.subplots(3, 2, figsize=(18, 5), constrained_layout=True)
 
 TeffKa.plot(ax=axs[0,0], vmin=270, vmax=330, cmap="viridis")
-axs[0,0].set_title("Teff Ka")
-make_interactive(fig, axs[0,0], TeffKa, "Teff Ka")
+axs[0,0].set_title("THolmes Ka")
+make_interactive(fig, axs[0,0], TeffKa, "THolmes Ka")
 
-Teff.plot(ax=axs[1,0], vmin=270, vmax=330, cmap="viridis")
-axs[1,0].set_title(f"Teff ({sat_band}-MPDI {num_T}/{denominator_T})")
-make_interactive(fig, axs[1,0], Teff, f"Teff ({sat_band}-MPDI  {num_T}/{denominator_T})")
+Teff_plot = xr.where((Teff - TeffKa) <20,Teff,TeffKa)
+Teff_plot.plot(ax=axs[1,0], vmin=270, vmax=330, cmap="viridis")
+axs[1,0].set_title(f"THolmes ({sat_band}-MPDI {num_T}/{denominator_T})")
+make_interactive(fig, axs[1,0], Teff, f"THolmes ({sat_band}-MPDI  {num_T}/{denominator_T})")
 
-diff_t = Teff - TeffKa
+diff_t = Teff_plot - TeffKa
 diff_t.plot(ax=axs[2,0], vmin=-30, vmax=30, cmap="coolwarm")
-axs[2,0].set_title(f"Diff (Teff - TeffKa)\n{sat_band}-MPDI  {num_T}/{denominator_T} T")
-make_interactive(fig, axs[2,0], diff_t, f"Diff (Teff - TeffKa)")
+axs[2,0].set_title(f"Diff (THolmes - TeffKa)\n{sat_band}-MPDI  {num_T}/{denominator_T} T")
+make_interactive(fig, axs[2,0], diff_t, f"Diff (THolmes - TeffKa)")
 
-sm_plain.plot(ax=axs[0,1], vmin=0, vmax=1, cmap="viridis")
-axs[0,1].set_title(f"sm_plain")
-make_interactive(fig, axs[0,1], sm_plain, f"sm_plain")
+mpdi.plot(ax=axs[0,1], vmin=0, vmax=0.3, cmap="viridis")
+axs[0,1].set_title(f"mpdi")
+make_interactive(fig, axs[0,1], sm_plain, f"mpdi")
 
-sm_edit.plot(ax=axs[1,1], vmin=0, vmax=1, cmap="viridis")
-axs[1,1].set_title("sm_edit")
-make_interactive(fig, axs[1,1], sm_edit, "sm_edit")
-
-diff_sm = sm_edit - sm_plain
-diff_sm.plot(ax=axs[2,1], vmin=-1, vmax=1, cmap="coolwarm")
-axs[2,1].set_title("diff_sm (sm_edit - sm_plain)")
-make_interactive(fig, axs[2,1], diff_sm, "diff_sm")
-
+kuka.plot(ax=axs[1,1],  cmap="viridis")
+axs[1,1].set_title("kuka")
+make_interactive(fig, axs[1,1], sm_edit, "kuka")
 plt.show()
 
 matplotlib.use("TkAgg")

@@ -7,6 +7,7 @@ import numpy as np
 from sklearn.linear_model import HuberRegressor
 import xarray as xr
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 from lprm.retrieval.lprm_v6_1.parameters import get_lprm_parameters_for_frequency
 from lprm.satellite_specs import get_specs
 from simulator.radiative_transfer_lprm import radiative_transfer
@@ -76,17 +77,22 @@ t_dummy = xr.DataArray(
 
 sm_cons = [0.01, 0.1, 0.2, 0.4, 0.6, 0.8, 0.99]
 vod_cons = [0.01,0.1, 0.2, 0.4, 0.6, 0.8, 1]
-t_cons = 313
+t_cons = 293
 
 i_variable = "vod"
 
 opt_sim_list = []
 
+const_tbv_dict = {}
+const_tbh_dict = {}
 const_m_dict = {}
 const_c_dict = {}
 
-for const_variable_value in vod_cons:
+for const_variable_value in sm_cons:
     print(f"SM value to be: {str(const_variable_value)}")
+
+    tbv_list = []
+    tbh_list = []
     m_list = []
     c_list = []
 
@@ -148,8 +154,11 @@ for const_variable_value in vod_cons:
             da = da.sel(lat=slice(bbox[3], bbox[1]),
                                 lon=slice(bbox[0], bbox[2]))
 
-            mpdi = ((TbV_sim - TbH_sim) / (TbV_sim + TbH_sim)).flatten()
-            Tb_ratio = (TbH_sim / TbV_sim).flatten()
+            TbV_sim = da["TbV_sim"]
+            TbH_sim = da["TbH_sim"]
+
+            mpdi = ((TbV_sim - TbH_sim) / (TbV_sim + TbH_sim)).values.flatten()
+            Tb_ratio = (TbH_sim / TbV_sim).values.flatten()
 
             X = Tb_ratio.reshape(-1, 1)
             y = mpdi
@@ -167,6 +176,8 @@ for const_variable_value in vod_cons:
 
             opt_sim_list.append(np.nanmean(opt_sim))
 
+            tbv_list.append(TbV_sim.mean().item())
+            tbh_list.append(TbH_sim.mean().item())
             m_list.append(m)
             c_list.append(c)
             print(f"succes data: {i}")
@@ -174,6 +185,8 @@ for const_variable_value in vod_cons:
         except Exception as e:
             print(e)
 
+    const_tbh_dict.update({const_variable_value : tbv_list})
+    const_tbv_dict.update({const_variable_value : tbh_list})
     const_m_dict.update({const_variable_value : m_list})
     const_c_dict.update({const_variable_value : c_list})
 
@@ -181,37 +194,37 @@ for const_variable_value in vod_cons:
 
 
 ##
-
 var_dict = {"sm" :sm_i,
             "vod": vod_i,
             "t": t_i}
 
-# title  = {"vod": f"constants sm: {sm_cons} T: {t_cons}",
-#           "sm" : f"constants T:  {t_cons}",
-#           "t" : f"constants sm: {sm_cons} vod: {vod_cons}",}
-
-
 
 keys = list(const_c_dict.keys())
 n_lines = len(keys)
-green_colors = plt.cm.Greens(np.linspace(1, 0.3, n_lines))
-blue_colors = plt.cm.Blues(np.linspace(1, 0.3, n_lines))
-plt.figure()
+# Using a single color map for clarity, or you can stick to your two-tone approach
+colors = plt.cm.Blues(np.linspace(1, 0.3, n_lines))
 
-# plt.plot(var_dict[i_variable],m_list, label = "gradient")
-# plt.plot(var_dict[i_variable],c_list, label ="intercept")
+plt.figure(figsize=(10, 6))
+
 for i, key in enumerate(keys):
-    plt.plot(var_dict[i_variable][0:len(const_c_dict[key])],const_c_dict[key], label = f"sm: {key}",color=green_colors[i])
-    plt.plot(var_dict[i_variable][0:len(const_m_dict[key])],const_m_dict[key], color=blue_colors[i])
+    # Slice the x-axis variable to match the length of the data
+    x_data = var_dict[i_variable][0:len(const_tbv_dict[key])]
 
-ax = plt.gca()
-plt.text(0.02, 0.95, "c", transform=ax.transAxes, fontsize=14, fontweight='bold', color='green')
-plt.text(0.02, 0.05, "m", transform=ax.transAxes, fontsize=14, fontweight='bold', color='blue')
+    plt.plot(x_data, const_tbv_dict[key], color=colors[i], linestyle='-', alpha=0.8)
+    # plt.plot(x_data, const_tbh_dict[key], color=colors[i], linestyle='-', alpha=0.8)
+
+custom_lines = [Line2D([0], [0], color=colors[i], lw=2) for i in range(n_lines)]
+type_lines = [Line2D([0], [0], color='gray', linestyle='-'),
+              Line2D([0], [0], color='gray', linestyle='--')]
+
+legend1 = plt.legend(custom_lines, keys, title="SM", loc='upper right')
+plt.gca().add_artist(legend1)
+
+# plt.legend(type_lines, ['TbV', 'TbH'], loc='lower right', title="pol")
+
 plt.xlabel(i_variable)
-plt.legend()
-plt.ylabel("m and c")
-plt.title(f"constants T:  {t_cons}")
-plt.ylim([-0.85,0.85])
-plt.show(block=True)
-
-
+plt.ylabel("Kelvin")
+plt.title(f"TbV")
+plt.ylim([90,300])
+# plt.grid(F, which='both', linestyle='--', alpha=0.5)
+plt.show()

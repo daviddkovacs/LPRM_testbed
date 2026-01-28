@@ -28,7 +28,7 @@ def radiative_transfer(sm,
              VODN = None,
              slope_mpdi = 1.0,
              intercept_mpdi = 0.0,
-             return_other_stats=('mpdi', 'Teff'),
+             return_other_stats=('mpdi', 'THolmes'),
              return_other_iter_stats=tuple(),
     ):
     """
@@ -79,7 +79,7 @@ def radiative_transfer(sm,
     return_other_stats: list[str]
         List of other statistics to return. Possible values are:
         - 'mpdi': MPDI
-        - 'Teff': Effective temperature
+        - 'THolmes': Effective temperature
     return_other_iter_stats: list[str]
         List of other statistics to return for each iteration. Possible values are:
 
@@ -283,6 +283,7 @@ def radiative_transfer(sm,
                 T_c = T - 3
                 T_soil[ir, ic] =  T_s
                 T_canopy[ir, ic] =T_c
+
                 TbH_sim[ir, ic] = T_s * emissivity_h * trans_v + (1 - single_scat_a) * T_c * (1 - trans_v) + (
                         1 - emissivity_h) * (1 - single_scat_a) * T_c * (1 - trans_v) * trans_v
 
