@@ -1,10 +1,10 @@
-import matplotlib.pyplot as plt
-from scipy.stats import alpha
 from config.paths import SLSTR_path
 import xarray as xr
-import pandas as pd
 import numpy as np
-from NDVI_utils import open_sltsr, filter_empty, plot_lst, crop2roi
+from NDVI_utils import open_sltsr, filter_empty_var, plot_lst, crop2roi, filternan, cloud_filtering
+import matplotlib
+import matplotlib.pyplot as plt
+matplotlib.use("TkAgg")
 
 if __name__=="__main__":
 
@@ -23,23 +23,26 @@ if __name__=="__main__":
                         )
 
     _SLSTR = xr.merge([NDVI,LST])[["LST","NDVI"]]
-    SLSTR = filter_empty(_SLSTR,"NDVI")
+
+    SLSTR_cloud_free = cloud_filtering(_SLSTR) # Mask clouds (strict)
+
+    SLSTR = filter_empty_var(SLSTR_cloud_free, "NDVI") # Filter empty NDVI obs
 
     ##
-    date = "2024-04-30"
+    date = "2024-07-25"
 
     bbox = [
-    -104.72584198593596,
-    36.51867771410325,
-    -104.0223717289054,
-    37.34538593805205
+    -107.79360536401147,
+    33.308332423254896,
+    -97.7708702338834,
+    40.160182398589114
   ]
-
+    ndvi_thres =0.3
     SLSTR_obs = SLSTR.sel(time=date, method="nearest")
     SLSTR_obs = crop2roi(SLSTR_obs.compute(),bbox)
 
-    veg_temp = xr.where(SLSTR_obs["NDVI"]>0.3,SLSTR_obs["LST"], np.nan)
-    soil_temp = xr.where(SLSTR_obs["NDVI"]<0.3,SLSTR_obs["LST"], np.nan)
+    veg_temp = xr.where(SLSTR_obs["NDVI"]>ndvi_thres,SLSTR_obs["LST"], np.nan)
+    soil_temp = xr.where(SLSTR_obs["NDVI"]<ndvi_thres,SLSTR_obs["LST"], np.nan)
 
     LST_plot_params = {"x": "lon",
                        "y":"lat",
@@ -69,7 +72,7 @@ if __name__=="__main__":
                        "y":"lat",
                        "cmap":"coolwarm",
                        "cbar_kwargs":{'label': 'Soil LST [K]'},
-                       "vmin":273,
+                       "vmin":290,
                         "vmax": 320,
                         "title": "Soil (NDVI<0.3) LST"
                        }
@@ -78,7 +81,7 @@ if __name__=="__main__":
                         "y":"lat",
                         "cmap":"coolwarm",
                         "cbar_kwargs":{'label':"NDVI [-]"},
-                        "vmin" : 273,
+                        "vmin" : 290,
                         "vmax" : 320,
                         "title" :"Veg. (NDVI>0.3) LST"
                        }
@@ -90,23 +93,36 @@ if __name__=="__main__":
 
 ##
 
-hist_soil = soil_temp.values.flatten()[~np.isnan(soil_temp.values.flatten())]
-hist_veg = veg_temp.values.flatten()[~np.isnan(veg_temp.values.flatten())]
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
 
-plt.hist(hist_soil,
-         bins =200,
-         alpha = 0.8,
-         label = "T_soil (NDVI<0.3)",
-         color = "brown"
-         )
-plt.hist(hist_veg,
-         bins =200,
-         alpha = 0.9,
-         label="T_vegetation (NDVI<0.3)",
-         color = "green"
-         )
-plt.xlabel("T [K]")
-plt.ylabel("freq")
-plt.title("Soil/Veg. Temp")
-plt.legend(loc ="upper left")
+ax1.hist(filternan(soil_temp),
+         bins=200,
+         alpha=0.8,
+         label=f"$T_{{soil}}$ (NDVI < {ndvi_thres})",
+         color="brown")
+ax1.hist(filternan(veg_temp),
+         bins=200,
+         alpha=0.7,
+         label=f"$T_{{vegetation}}$ (NDVI > {ndvi_thres})",
+         color="green")
+ax1.set_xlabel("$T$ [K]")
+ax1.set_ylabel("frequency")
+ax1.set_title("Temp Distribution")
+ax1.legend(loc="upper left")
+
+data_to_plot = [filternan(soil_temp), filternan(veg_temp)]
+bp = ax2.boxplot(data_to_plot,
+                 patch_artist=True,
+                 showfliers = False,
+                 labels=[f"Soil", f"Veg"])
+
+colors = ["brown", "green"]
+for patch, color in zip(bp['boxes'], colors):
+    patch.set_facecolor(color)
+    patch.set_alpha(0.7)
+
+ax2.set_ylabel("$T$ [K]")
+ax2.set_title("Soil/Veg. Temp Boxplot")
+
+plt.tight_layout()
 plt.show()
