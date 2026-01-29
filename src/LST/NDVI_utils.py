@@ -12,6 +12,7 @@ from config.paths import NDVI_path, SLSTR_path
 import pandas as pd
 from datetime import datetime
 
+
 def crop2roi(ds,bbox):
     mask = (
             (ds.lon >= bbox[0]) & (ds.lon <= bbox[2]) &
@@ -24,7 +25,7 @@ def filternan(array):
     return  array.values.flatten()[~np.isnan(array.values.flatten())]
 
 
-def clip_before(ds):
+def clip_swath(ds):
     """
     Some S3 Tiles have a larger (1-2pix) across-scan dim resulting in errors. Thus we crop it.
     """
@@ -37,6 +38,38 @@ def filter_empty_var(ds, var = "NDVI"):
     """
     valid = ds[var].notnull().any(dim = ["rows","columns"])
     return ds.sel(time=valid)
+
+
+def open_amsr2(path,
+               sensor,
+               date_pattern,
+               overpass,
+               subdir_pattern,
+               file_pattern,
+               time_start = "2024-01-01",
+               time_stop = "2025-01-01",
+               ):
+
+    folder = os.path.join(path,sensor,overpass,subdir_pattern,file_pattern)
+
+    files = glob.glob(folder)
+
+    dates_string =  [re.search(date_pattern, p).group(1) for p in files]
+
+    _dates = pd.to_datetime(dates_string)
+
+    date_mask  = (pd.to_datetime(time_start) < _dates) & (_dates < pd.to_datetime(time_stop))
+    files_valid = np.array(files)[date_mask]
+
+    dataset = xr.open_mfdataset(files_valid,
+                                combine ="nested",
+                                join = "outer",
+                                concat_dim = "time",
+                                chunks = "auto").assign_coords(time = _dates[date_mask])
+
+    print(f"Loading dataset finished (AMSR2)")
+
+    return dataset
 
 
 def open_sltsr(path,
@@ -57,7 +90,7 @@ def open_sltsr(path,
     dates_dt = [pd.to_datetime(f"{dt[0]} {dt[1]}") for dt in dates_string]
 
     dataset = xr.open_mfdataset(files,
-                                preprocess =clip_before,
+                                preprocess =clip_swath,
                                 combine ="nested",
                                 join = "outer",
                                 concat_dim = "time",
@@ -69,7 +102,7 @@ def open_sltsr(path,
         geo_files = glob.glob(coord_path)
 
         geo = xr.open_mfdataset(geo_files,
-                                preprocess =clip_before,
+                                preprocess =clip_swath,
                                 combine="nested",
                                 join="outer",
                                 concat_dim="time",
@@ -136,7 +169,26 @@ def cloud_filtering(dataset,
                    variable_file=cloud_variable_file,
                         )
 
-    cloud_pos = xr.where(CLOUD["cloud_in"]>threshold,True,False )
+    cloudy = xr.where(CLOUD["cloud_in"]>threshold,True,False )
 
-    return xr.where(cloud_pos, np.nan, dataset)
+    return xr.where(cloudy, np.nan, dataset)
 
+
+def snow_filtering(dataset,
+                    cloud_path=SLSTR_path,
+                    cloud_subdir_pattern=f"S3A_SL_2_LST____*",
+                    cloud_date_pattern=r'___(\d{8})T(\d{4})',
+                    cloud_variable_file="LST_ancillary_ds.nc",
+                    snow_and_ice_flag = 27):
+    """
+    Optional snow and ice masking, with default path and variable parameters to SLSTR cloud flags.
+    """
+
+    SNOWICE= open_sltsr(path=cloud_path,
+                   subdir_pattern=cloud_subdir_pattern,
+                   date_pattern=cloud_date_pattern,
+                   variable_file=cloud_variable_file,
+                        )
+    snowy = xr.where(SNOWICE["biome"]==27, True, False)
+
+    return xr.where(snowy, np.nan, dataset)

@@ -1,10 +1,19 @@
-from config.paths import SLSTR_path
+from LST.NDVI_utils import snow_filtering
+from config.paths import SLSTR_path, path_bt
 import xarray as xr
 import numpy as np
-from NDVI_utils import open_sltsr, filter_empty_var, plot_lst, crop2roi, filternan, cloud_filtering
+from NDVI_utils import (open_sltsr,
+                        open_amsr2,
+                        filter_empty_var,
+                        plot_lst, crop2roi,
+                        filternan,
+                        cloud_filtering)
 import matplotlib
 import matplotlib.pyplot as plt
 matplotlib.use("TkAgg")
+
+##
+
 
 if __name__=="__main__":
 
@@ -22,11 +31,22 @@ if __name__=="__main__":
                    # bbox= bbox
                         )
 
+    AMSR2 = open_amsr2(path=path_bt,
+                       sensor="AMSR2",
+                       overpass="day",
+                       subdir_pattern=f"20*",
+                       file_pattern="amsr2_l1bt_*.nc",
+                       date_pattern=r"_(\d{8})_",
+                       time_start="2024-01-01",
+                       time_stop="2025-01-01",
+                       )
+
     _SLSTR = xr.merge([NDVI,LST])[["LST","NDVI"]]
 
-    SLSTR_cloud_free = cloud_filtering(_SLSTR) # Mask clouds (strict)
+    _SLSTR = cloud_filtering(_SLSTR) # Mask clouds (strict)
+    _SLSTR = snow_filtering(_SLSTR) # Mask clouds (strict)
 
-    SLSTR = filter_empty_var(SLSTR_cloud_free, "NDVI") # Filter empty NDVI obs
+    SLSTR = filter_empty_var(_SLSTR, "NDVI") # Filter empty NDVI obs
 
     ##
     date = "2024-07-25"
@@ -114,7 +134,7 @@ data_to_plot = [filternan(soil_temp), filternan(veg_temp)]
 bp = ax2.boxplot(data_to_plot,
                  patch_artist=True,
                  showfliers = False,
-                 labels=[f"Soil", f"Veg"])
+                 tick_labels=[f"Soil", f"Veg"])
 
 colors = ["brown", "green"]
 for patch, color in zip(bp['boxes'], colors):
