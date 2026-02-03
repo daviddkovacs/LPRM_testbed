@@ -13,6 +13,30 @@ import matplotlib
 import matplotlib.pyplot as plt
 matplotlib.use("TkAgg")
 
+LST_plot_params = {"x": "lon",
+                   "y": "lat",
+                   "cmap": "coolwarm",
+                   "cbar_kwargs": {'label': 'LST [K]'},
+                   "vmin": 290,
+                   "title": "LST"
+                   }
+NDVI_plot_params = {
+    "x": "lon",
+    "y": "lat",
+    "cmap": "YlGn",
+    "cbar_kwargs": {'label': "NDVI [-]"},
+    "vmin": 0,
+    "vmax": 0.6,
+    "title": "NDVI"
+}
+AMSR2_plot_params = {
+    "cmap": "coolwarm",
+    "cbar_kwargs": {'label': 'LST [K]'},
+    "vmin": 290,
+    "vmax": 320,
+    # "title": np.datetime_as_string(AMSR2_obs.time.values, unit='D')
+}
+
 def plot_lst(left_da,
              right_da,
              left_params,
@@ -98,6 +122,35 @@ def boxplot_soil_veg(soil, veg, ndvi_thres=0.3, bins =200):
 
     ax2.set_ylabel("$T$ [K]")
     ax2.set_title("Soil/Veg. Temp Boxplot")
+
+    plt.tight_layout()
+    plt.show()
+
+def temps_plot(df):
+    """
+    create a plot with Ka-band microwave temps, Vegetation (higher NDVI) and soil (lower NDVI) temperatures.
+    This allows to compare how these differ.
+    """
+    x = np.arange(len(df))
+
+    plt.figure()
+    plt.plot(x, df["tsurf_ka"], label='Ka TSURF', color='red', linewidth=2)
+
+    plt.plot(x, df["veg_mean"], label='Vegetation Mean', color='forestgreen', linewidth=2)
+    plt.fill_between(x,
+                     np.array(df["veg_mean"]) - np.array(df["veg_std"]),
+                     np.array(df["veg_mean"]) + np.array(df["veg_std"]),
+                     color='forestgreen', alpha=0.2,)
+
+    plt.plot(x, df["soil_mean"], label='Soil Mean', color='saddlebrown', linewidth=2)
+    plt.fill_between(x,
+                     np.array(df["soil_mean"]) - np.array(df["soil_std"]),
+                     np.array(df["soil_mean"]) + np.array(df["soil_std"]),
+                     color='saddlebrown', alpha=0.2, )
+
+    plt.ylabel('Land Surface Temperature [K]')
+    plt.title('Sub-pixel LST Statistics per Coarse Pixel')
+    plt.legend(loc='upper left', frameon=True)
 
     plt.tight_layout()
     plt.show()

@@ -1,3 +1,5 @@
+import pandas as pd
+
 from LST.NDVI_utils import snow_filtering, get_edges
 from config.paths import SLSTR_path, path_bt
 import xarray as xr
@@ -12,7 +14,9 @@ from NDVI_utils import (open_sltsr,
                         subset_statistics,
                         get_edges,
                         binning_smaller_pixels)
-from plot_functions import plot_lst, plot_amsr2, boxplot_soil_veg
+from plot_functions import (plot_lst,
+                            plot_amsr2,
+                            boxplot_soil_veg, temps_plot, LST_plot_params, NDVI_plot_params, AMSR2_plot_params)
 import matplotlib
 import matplotlib.pyplot as plt
 matplotlib.use("TkAgg")
@@ -54,11 +58,11 @@ if __name__=="__main__":
     ##
     date = "2024-08-25"
 
-    bbox =   [
-    -98.25,
-    35.62525958403951,
-    -97.3774255778045,
-    36.13940216587241
+    bbox = [
+    -106.50714078246102,
+    35.262436997113625,
+    -100.81621233002745,
+    38.02600079214329
   ]
     ndvi_thres =0.5
 
@@ -76,34 +80,10 @@ if __name__=="__main__":
 
     soil_temp, veg_temp = threshold_ndvi(lst = SLSTR_obs["LST"], ndvi = SLSTR_obs["NDVI"] ,ndvi_thres = ndvi_thres)
 
-    LST_plot_params = {"x": "lon",
-                       "y":"lat",
-                       "cmap":"coolwarm",
-                       "cbar_kwargs":{'label': 'LST [K]'},
-                       "vmin":290,
-                       "title": "LST"
-                       }
-    NDVI_plot_params = {
-                        "x":"lon",
-                        "y":"lat",
-                        "cmap":"YlGn",
-                        "cbar_kwargs":{'label':"NDVI [-]"},
-                        "vmin" : 0,
-                        "vmax" : 0.6,
-                        "title" :"NDVI"
-                       }
-    AMSR2_plot_params = {
-                        "cmap":"coolwarm",
-                        "cbar_kwargs":{'label': 'LST [K]'},
-                        "vmin": 290,
-                        "vmax": 320,
-        "title" : np.datetime_as_string(AMSR2_obs.time.values, unit='D')
-                       }
-
-    # plot_lst(left_da = SLSTR_obs["LST"],
-    #          right_da = SLSTR_obs["NDVI"],
-    #          left_params=LST_plot_params,
-    #          right_params= NDVI_plot_params)
+    plot_lst(left_da = SLSTR_obs["LST"],
+             right_da = SLSTR_obs["NDVI"],
+             left_params=LST_plot_params,
+             right_params= NDVI_plot_params)
 
     # plot_amsr2(TSURF,AMSR2_plot_params)
 
@@ -117,16 +97,11 @@ if __name__=="__main__":
     soil_std_list = []
     TSURF_list = []
 
-
-
     bin_dict = binning_smaller_pixels(SLSTR_obs["NDVI"], TSURF)
 
-    # for targetlon in np.unique(bin_dict["lons"]):
-    #     for targetlat in np.unique(bin_dict["lats"]):
-    for targetlon in range(2,3):
-        for targetlat in range(1,2):
-            print(TSURF.lon.values)
-            print(TSURF.lat.values)
+    for targetlat in range(0, bin_dict["lats"].max()):
+        for targetlon in range(0,bin_dict["lons"].max()):
+
             soil_subset = slstr_pixels_in_amsr2(soil_temp,
                                   bin_dict,
                                   targetlat,
@@ -136,47 +111,33 @@ if __name__=="__main__":
                                   bin_dict,
                                   targetlat,
                                   targetlon)
-            TSURF_subset = TSURF.isel(lat=targetlat,lon=targetlon)
 
             soil_mean_list.append(subset_statistics(soil_subset)[1]["mean"])
             soil_std_list.append(subset_statistics(soil_subset)[1]["std"])
 
             veg_mean_list.append(subset_statistics(veg_subset)[1]["mean"])
             veg_std_list.append(subset_statistics(veg_subset)[1]["std"])
+
+            TSURF_subset = TSURF.isel(lat=targetlat,lon=targetlon)
             TSURF_list.append(TSURF_subset.values)
-            x = np.arange(len(veg_mean_list))
 
-            plt.figure()
-            TSURF.plot()
-            plt.show()
-            plt.figure()
-            soil_subset.plot(x = "lon",y = "lat")
-            plt.show()
-            plt.figure()
-            veg_subset.plot(x = "lon",y = "lat")
-            plt.show()
-    plt.figure()
-    plt.plot(x, TSURF_list, label='Ka TSURF', color='red', linewidth=2)
+            # plt.figure()
+            # TSURF.plot()
+            # plt.show()
+            # plt.figure()
+            # soil_subset.plot(x = "lon",y = "lat")
+            # plt.show()
+            # plt.figure()
+            # veg_subset.plot(x = "lon",y = "lat")
+            # plt.show()
 
-    plt.plot(x, veg_mean_list, label='Vegetation Mean', color='forestgreen', linewidth=2)
-    plt.fill_between(x,
-                     np.array(veg_mean_list) - np.array(veg_std_list),
-                     np.array(veg_mean_list) + np.array(veg_std_list),
-                     color='forestgreen', alpha=0.2,)
-
-    plt.plot(x, soil_mean_list, label='Soil Mean', color='saddlebrown', linewidth=2)
-    plt.fill_between(x,
-                     np.array(soil_mean_list) - np.array(soil_std_list),
-                     np.array(soil_mean_list) + np.array(soil_std_list),
-                     color='saddlebrown', alpha=0.2, )
-
-    plt.ylabel('Land Surface Temperature [K]')
-    plt.title('Sub-pixel LST Statistics per Coarse Pixel')
-    plt.legend(loc='upper left', frameon=True)
-
-    plt.tight_layout()
-    plt.show()
-            # boxplot_soil_veg(soil_subset,veg_subset,ndvi_thres,  bins =100)
+    df_temps = pd.DataFrame({"veg_mean": veg_mean_list,
+                             "veg_std": veg_std_list,
+                             "soil_mean" :soil_mean_list,
+                             "soil_std" :soil_std_list,
+                             "tsurf_ka": TSURF_list,
+                             }).sort_values(by="tsurf_ka")
+    temps_plot(df_temps)
 
 ##
     # soil_plot_params = {"x": "lon",
