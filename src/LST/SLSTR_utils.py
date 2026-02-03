@@ -1,13 +1,11 @@
 import glob
 import re
-from functools import partial
 import matplotlib
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 import os
-from xarray import apply_ufunc
 from config.paths import  SLSTR_path
 import pandas as pd
 from datetime import datetime
@@ -21,7 +19,14 @@ def threshold_ndvi(lst, ndvi, ndvi_thres=0.3):
 
     return soil_temp, veg_temp
 
+
 def crop2roi(ds,bbox):
+    """
+    Cropping to bbox. Handles S3 projection (lat, lon) for each coord
+    :param ds:
+    :param bbox:
+    :return:
+    """
     mask = (
             (ds.lon >= bbox[0]) & (ds.lon <= bbox[2]) &
             (ds.lat >= bbox[1]) & (ds.lat <= bbox[3])
@@ -47,6 +52,7 @@ def filter_empty_var(ds, var = "NDVI"):
     valid = ds[var].notnull().any(dim = ["rows","columns"])
     return ds.sel(time=valid)
 
+
 def subset_statistics(array):
 
     _array = filternan(array)
@@ -54,7 +60,6 @@ def subset_statistics(array):
     stat_dict["mean"], stat_dict["std"] = np.nanmean(_array), np.nanstd(_array)
 
     return _array, stat_dict
-
 
 def open_amsr2(path,
                sensor,
@@ -93,14 +98,11 @@ def open_sltsr(path,
                subdir_pattern,
                date_pattern,
                variable_file,
-               # bbox=None,
                georeference_file = "geodetic_in.nc"
                ):
 
     folder = os.path.join(path,subdir_pattern,variable_file)
-
     files = glob.glob(folder)
-
     dates_string =  [(re.search(date_pattern, p).group(1),
                       re.search(date_pattern, p).group(2))for p in files]
 
@@ -135,9 +137,8 @@ def open_sltsr(path,
         )
 
         print(f"Loading dataset finished ({variable_file})")
+
     return dataset
-
-
 
 
 def cloud_filtering(dataset,
@@ -182,15 +183,26 @@ def snow_filtering(dataset,
     return xr.where(snowy, np.nan, dataset)
 
 
+def preprocess_slstr(NDVI,LST):
+    """
+    Merge LST and NDVI, then Cloud, snow filtering and clearing possibly empty NDVI observations
+    """
+    _SLSTR = xr.merge([NDVI,LST])[["LST","NDVI"]]
+    _SLSTR = cloud_filtering(_SLSTR) # Mask clouds (strict)
+    _SLSTR = snow_filtering(_SLSTR) # Mask clouds (strict)
+
+    return filter_empty_var(_SLSTR, "NDVI") # Filter empty NDVI obs
+
+
 def get_edges(centers):
     """
     Calculate the spacing between pixels, to properly handle np.digitize. Otherwise offset.
     """
     res = np.abs(np.diff(centers)[0])
 
-    # edges = np.append(centers - res / 2, centers[-1] + res / 2)
     edges = np.append(np.sort(centers) - res / 2, np.sort(centers)[-1] + res / 2)
     return np.sort(edges)
+
 
 def binning_smaller_pixels(slstr_da,amsr2_da):
 
@@ -204,6 +216,7 @@ def binning_smaller_pixels(slstr_da,amsr2_da):
 
     return iterables
 
+
 def slstr_pixels_in_amsr2(slstr_da,
                           bin_dict,
                           target_lat_bin,
@@ -213,3 +226,47 @@ def slstr_pixels_in_amsr2(slstr_da,
     pixels_within = slstr_da.where(xr.DataArray(mask, coords=slstr_da.coords), drop=True)
 
     return pixels_within
+
+
+def compare_temperatures(soil_temp, veg_temp, TSURF, ):
+    """
+    Gets the underlying SLSTR pixels for every AMSR2 Ka-LST pixel. Then calculates the mean and std for these, and plots
+    """
+    veg_mean_list = []
+    veg_std_list = []
+
+    soil_mean_list = []
+    soil_std_list = []
+    TSURF_list = []
+
+    bin_dict = binning_smaller_pixels(soil_temp,
+                                      TSURF)  # instead of soil_temp, any shoudl be good thats a SLSTR obs
+
+    for targetlat in range(0, bin_dict["lats"].max()):
+        for targetlon in range(0, bin_dict["lons"].max()):
+
+            soil_subset = slstr_pixels_in_amsr2(soil_temp,
+                                                bin_dict,
+                                                targetlat,
+                                                targetlon)
+
+            veg_subset = slstr_pixels_in_amsr2(veg_temp,
+                                               bin_dict,
+                                               targetlat,
+                                               targetlon)
+
+            soil_mean_list.append(subset_statistics(soil_subset)[1]["mean"])
+            soil_std_list.append(subset_statistics(soil_subset)[1]["std"])
+
+            veg_mean_list.append(subset_statistics(veg_subset)[1]["mean"])
+            veg_std_list.append(subset_statistics(veg_subset)[1]["std"])
+
+            TSURF_subset = TSURF.isel(lat=targetlat, lon=targetlon)
+            TSURF_list.append(TSURF_subset.values)
+
+    return pd.DataFrame({"veg_mean": veg_mean_list,
+                             "veg_std": veg_std_list,
+                             "soil_mean": soil_mean_list,
+                             "soil_std": soil_std_list,
+                             "tsurf_ka": TSURF_list,
+                             }).sort_values(by="tsurf_ka")

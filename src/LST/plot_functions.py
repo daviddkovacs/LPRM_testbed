@@ -8,7 +8,7 @@ from xarray import apply_ufunc
 from config.paths import SLSTR_path
 import pandas as pd
 from datetime import datetime
-from NDVI_utils import filternan, subset_statistics
+from LST.SLSTR_utils import filternan, subset_statistics
 import matplotlib
 import matplotlib.pyplot as plt
 matplotlib.use("TkAgg")
@@ -34,7 +34,6 @@ AMSR2_plot_params = {
     "cbar_kwargs": {'label': 'LST [K]'},
     "vmin": 290,
     "vmax": 320,
-    # "title": np.datetime_as_string(AMSR2_obs.time.values, unit='D')
 }
 
 def plot_lst(left_da,
@@ -82,9 +81,8 @@ def plot_amsr2(ds,
         vmin=plot_params["vmin"],
         vmax=plot_params["vmax"]
     )
-    plt.title(f"AMSR2 $T_{{surface}}$\n {plot_params["title"]}")
+    plt.title("AMSR2 LST")
     plt.show()
-
 
 
 def boxplot_soil_veg(soil, veg, ndvi_thres=0.3, bins =200):
@@ -126,6 +124,7 @@ def boxplot_soil_veg(soil, veg, ndvi_thres=0.3, bins =200):
     plt.tight_layout()
     plt.show()
 
+
 def temps_plot(df):
     """
     create a plot with Ka-band microwave temps, Vegetation (higher NDVI) and soil (lower NDVI) temperatures.
@@ -154,3 +153,4 @@ def temps_plot(df):
 
     plt.tight_layout()
     plt.show()
+
