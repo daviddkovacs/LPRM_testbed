@@ -23,7 +23,7 @@ def preprocess_datacubes(SLSTR, AMSR2, date, bbox):
     # We select SLSTR's observation to get AMSR2. the frequency of obs for AMSR2 is higher.
     AMSR2_obs = AMSR2.sortby('time').sel(time=SLSTR_obs.time.dt.floor("d"), method="nearest")
     AMSR2_roi = crop2roi(AMSR2_obs.compute(), bbox)
-    AMSR2_roi["TSURF"] = AMSR2_roi["bt_36.5V"] * 0.893 + 44.8
+    AMSR2_roi["TSURF"] = calc_Holmes_temp(AMSR2_roi["bt_36.5V"])
 
     AMSR2_bbox = [get_edges(AMSR2_roi.lon.values).min(),
                   get_edges(AMSR2_roi.lat.values).min(),
@@ -32,11 +32,11 @@ def preprocess_datacubes(SLSTR, AMSR2, date, bbox):
 
     SLSTR_roi = crop2roi(SLSTR_obs.compute(), AMSR2_bbox)
 
-    plot_lst(left_da=SLSTR_obs["LST"],
-             right_da=SLSTR_obs["NDVI"],
-             left_params=LST_plot_params,
-             right_params=NDVI_plot_params,
-             bbox=bbox)
+    # plot_lst(left_da=SLSTR_obs["LST"],
+    #          right_da=SLSTR_obs["NDVI"],
+    #          left_params=LST_plot_params,
+    #          right_params=NDVI_plot_params,
+    #          bbox=bbox)
 
     # plot_lst(left_da=SLSTR_roi["LST"],
     #          right_da=SLSTR_roi["NDVI"],
@@ -232,10 +232,23 @@ def preprocess_slstr(NDVI,LST, SLSTR_path_region):
 
 # ---------------------------------------
 # MISCELLANEOUS UTILS
-def mpdi(AMSR2, band):
 
+def calc_Holmes_temp(KaV):
+    """
+    Surface temperature from Ka-band observations according to Holmes et al. 2008
+    """
+    return KaV * 0.893 + 44.8
+
+
+def mpdi(AMSR2, band):
+    """
+    calculate MPDI for AMSR2 BTs. Also accepts frequencies, to select band.
+    :param AMSR2:
+    :param band:
+    :return:
+    """
     frequencies = {'C1': 6.9, 'C2': 7.3, 'X': 10.7, 'KU': 18.7, 'K': 23.8, 'KA': 36.5}
-    btv, bth = AMSR2[f"bt_{band[frequencies]}V"], AMSR2[f"bt_{band[frequencies]}H"]
+    btv, bth = AMSR2[f"bt_{frequencies[band]}V"], AMSR2[f"bt_{frequencies[band]}H"]
     return ((btv-bth)/(btv+bth))
 
 
@@ -332,20 +345,19 @@ def slstr_pixels_in_amsr2(slstr_da,
     return pixels_within
 
 
-def compare_temperatures(soil_temp, veg_temp, TSURF,):
+def compare_temperatures(soil_temp, veg_temp, TSURF, MPDI =None):
     """
     Gets the underlying SLSTR pixels for every AMSR2 Ka-LST pixel. Then calculates the mean and std for these, and plots
     """
-    # try:
     veg_mean_list = []
     veg_std_list = []
 
     soil_mean_list = []
     soil_std_list = []
     TSURF_list = []
+    MPDI_list = []
 
-    bin_dict = binning_smaller_pixels(soil_temp,
-                                      TSURF)  # instead of soil_temp, any shoudl be good thats a SLSTR obs
+    bin_dict = binning_smaller_pixels(soil_temp, TSURF)  # instead of soil_temp, any shoudl be good thats a SLSTR obs
 
     for targetlat in range(0, bin_dict["lats"].max()):
         for targetlon in range(0, bin_dict["lons"].max()):
@@ -369,11 +381,18 @@ def compare_temperatures(soil_temp, veg_temp, TSURF,):
             TSURF_subset = TSURF.isel(lat=targetlat, lon=targetlon)
             TSURF_list.append(TSURF_subset.values.item())
 
+            if MPDI is not None:
+                try:
+                    MPDI_subset = MPDI.isel(lat=targetlat, lon=targetlon)
+                    MPDI_list.append(MPDI_subset.values.item())
+                except Exception as e:
+                    print(e)
     df =  pd.DataFrame({"veg_mean": veg_mean_list,
                              "veg_std": veg_std_list,
                              "soil_mean": soil_mean_list,
                              "soil_std": soil_std_list,
                              "tsurf_ka": TSURF_list,
+                             "mpdi": MPDI_list,
                              })
 
 

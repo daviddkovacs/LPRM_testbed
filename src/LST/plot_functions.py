@@ -40,26 +40,30 @@ def plot_lst(left_da,
 
     obs_date = pd.to_datetime(left_da.time.values)
 
-    left_da.plot(
+    ax_lst = plt.subplot(3, 2, 1)
+    left_da.plot.pcolormesh(
         x=left_params["x"],
         y=left_params["y"],
-        ax=ax1,
+        ax=ax_lst,
         cmap=left_params["cmap"],
         cbar_kwargs=left_params["cbar_kwargs"],
-        vmin=left_params["vmin"]
+        vmin=left_params["vmin"],
+        add_colorbar=True
     )
-    ax1.set_title(left_params["title"])
+    ax_lst.set_title(left_params["title"])
 
-    right_da.plot(
+    ax_ndvi = plt.subplot(3, 2, 2)
+    right_da.plot.pcolormesh(
         x=right_params["x"],
         y=right_params["y"],
-        ax=ax2,
+        ax=ax_ndvi,
         cmap=right_params["cmap"],
         cbar_kwargs=right_params["cbar_kwargs"],
-        vmin=right_params["vmin"],
-        vmax=right_params["vmax"]
+        vmin=right_params.get("vmin"),
+        vmax=right_params.get("vmax"),
+        add_colorbar=True
     )
-    ax2.set_title(right_params["title"])
+    ax_ndvi.set_title(right_params["title"])
     plt.suptitle(f"Sentinel-3 SLSTR\n{obs_date}")
 
     if bbox:
@@ -90,7 +94,7 @@ def plot_amsr2(ds,
 
 
 
-def temps_plot(df):
+def temps_plot(df, plot_mpdi = False):
     """
     combined plot with Ka-band microwave temperatures, Vegetation, and Soil temps.
     """
@@ -111,6 +115,11 @@ def temps_plot(df):
                      np.array(df["soil_mean"]) + np.array(df["soil_std"]),
                      color='saddlebrown', alpha=0.2)
     ax1.plot(x, df["tsurf_ka"], label='Ka TSURF', color='red', linewidth=2)
+    if "mpdi" in df.columns and plot_mpdi:
+        ax2 = ax1.twinx()
+        ax2.plot(x, df["mpdi"], label='MPDI', color='blue', linewidth=2, alpha = 0.5)
+        ax2.set_ylabel('MPDI', color='blue')
+        ax2.tick_params(axis='y', labelcolor='blue')
 
     ax1.set_ylabel(r'Surface Temperature $[K]$')
     ax1.set_xlabel(r'# of AMSR2 pixels')
@@ -134,4 +143,105 @@ def temps_plot(df):
     ax3.set_title('Temperatures: Ka - Soil')
 
     plt.tight_layout()
+    plt.show()
+
+
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+import pandas as pd
+import numpy as np
+
+
+def combined_dashboard(left_da, right_da, left_params, right_params, df, bbox=None, plot_mpdi=False,
+                       plot_scatter=False):
+    """
+    Combines Sentinel-3 spatial plots (LST/NDVI) and AMSR2/LST statistical plots into one figure.
+    """
+    if 'time' in left_da.dims:
+        if left_da.sizes['time'] > 1:
+            left_da = left_da.isel(time=0)
+        else:
+            left_da = left_da.squeeze('time')
+
+    if 'time' in right_da.dims:
+        if right_da.sizes['time'] > 1:
+            right_da = right_da.isel(time=0)
+        else:
+            right_da = right_da.squeeze('time')
+
+    # try:
+    obs_date = pd.to_datetime(left_da.time.values).strftime('%Y-%m-%d')
+    # except:
+    #     obs_date = "Selected Date"
+
+    fig = plt.figure(figsize=(14, 10))
+
+    ax_lst = plt.subplot(2, 2, 1)
+    left_da.plot.pcolormesh(
+        x=left_params["x"],
+        y=left_params["y"],
+        ax=ax_lst,
+        cmap=left_params["cmap"],
+        cbar_kwargs=left_params["cbar_kwargs"],
+        vmin=left_params["vmin"],
+        add_colorbar=True
+    )
+    ax_lst.set_title(left_params["title"])
+
+    ax_ndvi = plt.subplot(2, 2, 2)
+    right_da.plot.pcolormesh(
+        x=right_params["x"],
+        y=right_params["y"],
+        ax=ax_ndvi,
+        cmap=right_params["cmap"],
+        cbar_kwargs=right_params["cbar_kwargs"],
+        vmin=right_params.get("vmin"),
+        vmax=right_params.get("vmax"),
+        add_colorbar=True
+    )
+    ax_ndvi.set_title(right_params["title"])
+
+    # Draw Bounding Box if provided
+    if bbox:
+        xmin, ymin, xmax, ymax = bbox
+        for ax in [ax_lst, ax_ndvi]:
+            rect = patches.Rectangle((xmin, ymin), xmax - xmin, ymax - ymin,
+                                     linewidth=2, edgecolor='red',
+                                     facecolor='none', linestyle='--')
+            ax.add_patch(rect)
+
+    ax1 = plt.subplot(2, 2, (3, 4))
+    x_idx = np.arange(len(df))
+
+    ax1.plot(x_idx, df["veg_mean"], label='Vegetation Mean', color='forestgreen', linewidth=2)
+    ax1.fill_between(x_idx,
+                     df["veg_mean"] - df["veg_std"],
+                     df["veg_mean"] + df["veg_std"],
+                     color='forestgreen', alpha=0.2)
+
+    # Soil Stats
+    ax1.plot(x_idx, df["soil_mean"], label='Soil Mean', color='saddlebrown', linewidth=2)
+    ax1.fill_between(x_idx,
+                     df["soil_mean"] - df["soil_std"],
+                     df["soil_mean"] + df["soil_std"],
+                     color='saddlebrown', alpha=0.2)
+
+    # AMSR2 Reference
+    ax1.plot(x_idx, df["tsurf_ka"], label='Ka TSURF', color='red', linewidth=2,)
+
+    ax1.set_ylabel(r'Temperature $[K]$')
+    ax1.set_xlabel('AMSR2 Pixel Index')
+    ax1.set_title('Sub-pixel LST Statistics per AMSR2 pixel')
+    ax1.legend(loc='upper left', frameon=True)
+
+    # Secondary Axis for MPDI
+    if "mpdi" in df.columns and plot_mpdi:
+        ax_mpdi = ax1.twinx()
+        ax_mpdi.plot(x_idx, df["mpdi"], label='MPDI', color='blue', linewidth=1.5, alpha=0.5)
+        ax_mpdi.set_ylabel('MPDI', color='blue')
+        ax_mpdi.tick_params(axis='y', labelcolor='blue')
+
+
+    plt.suptitle(f"Sentinel-3 SLSTR and AMSR2 Analysis | {obs_date}", fontsize=18, y=0.98)
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.show()
