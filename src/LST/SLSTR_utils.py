@@ -57,8 +57,12 @@ def subset_statistics(array):
 
     _array = filternan(array)
     stat_dict = {}
-    stat_dict["mean"], stat_dict["std"] = np.nanmean(_array), np.nanstd(_array)
-
+    if np.any(~np.isnan(_array)):
+        stat_dict["mean"] = np.nanmean(_array).item()
+        stat_dict["std"] = np.nanstd(_array).item()
+    else:
+        stat_dict["mean"] = np.nan
+        stat_dict["std"] = np.nan
     return _array, stat_dict
 
 def open_amsr2(path,
@@ -232,41 +236,49 @@ def compare_temperatures(soil_temp, veg_temp, TSURF, ):
     """
     Gets the underlying SLSTR pixels for every AMSR2 Ka-LST pixel. Then calculates the mean and std for these, and plots
     """
-    veg_mean_list = []
-    veg_std_list = []
+    try:
+        veg_mean_list = []
+        veg_std_list = []
 
-    soil_mean_list = []
-    soil_std_list = []
-    TSURF_list = []
+        soil_mean_list = []
+        soil_std_list = []
+        TSURF_list = []
 
-    bin_dict = binning_smaller_pixels(soil_temp,
-                                      TSURF)  # instead of soil_temp, any shoudl be good thats a SLSTR obs
+        bin_dict = binning_smaller_pixels(soil_temp,
+                                          TSURF)  # instead of soil_temp, any shoudl be good thats a SLSTR obs
 
-    for targetlat in range(0, bin_dict["lats"].max()):
-        for targetlon in range(0, bin_dict["lons"].max()):
+        for targetlat in range(0, bin_dict["lats"].max()):
+            for targetlon in range(0, bin_dict["lons"].max()):
 
-            soil_subset = slstr_pixels_in_amsr2(soil_temp,
-                                                bin_dict,
-                                                targetlat,
-                                                targetlon)
+                soil_subset = slstr_pixels_in_amsr2(soil_temp,
+                                                    bin_dict,
+                                                    targetlat,
+                                                    targetlon)
 
-            veg_subset = slstr_pixels_in_amsr2(veg_temp,
-                                               bin_dict,
-                                               targetlat,
-                                               targetlon)
+                veg_subset = slstr_pixels_in_amsr2(veg_temp,
+                                                   bin_dict,
+                                                   targetlat,
+                                                   targetlon)
 
-            soil_mean_list.append(subset_statistics(soil_subset)[1]["mean"])
-            soil_std_list.append(subset_statistics(soil_subset)[1]["std"])
+                soil_mean_list.append(subset_statistics(soil_subset)[1]["mean"])
+                soil_std_list.append(subset_statistics(soil_subset)[1]["std"])
 
-            veg_mean_list.append(subset_statistics(veg_subset)[1]["mean"])
-            veg_std_list.append(subset_statistics(veg_subset)[1]["std"])
+                veg_mean_list.append(subset_statistics(veg_subset)[1]["mean"])
+                veg_std_list.append(subset_statistics(veg_subset)[1]["std"])
 
-            TSURF_subset = TSURF.isel(lat=targetlat, lon=targetlon)
-            TSURF_list.append(TSURF_subset.values)
+                TSURF_subset = TSURF.isel(lat=targetlat, lon=targetlon)
+                TSURF_list.append(TSURF_subset.values.item())
 
-    return pd.DataFrame({"veg_mean": veg_mean_list,
-                             "veg_std": veg_std_list,
-                             "soil_mean": soil_mean_list,
-                             "soil_std": soil_std_list,
-                             "tsurf_ka": TSURF_list,
-                             }).sort_values(by="tsurf_ka")
+        df =  pd.DataFrame({"veg_mean": veg_mean_list,
+                                 "veg_std": veg_std_list,
+                                 "soil_mean": soil_mean_list,
+                                 "soil_std": soil_std_list,
+                                 "tsurf_ka": TSURF_list,
+                                 })
+        df_sorted = df.sort_values(by="tsurf_ka")
+
+    except Exception as e:
+        print(e)
+        breakpoint()
+
+    return df_sorted

@@ -9,6 +9,7 @@ from config.paths import SLSTR_path
 import pandas as pd
 from datetime import datetime
 from LST.SLSTR_utils import filternan, subset_statistics
+import matplotlib.patches as patches
 import matplotlib
 import matplotlib.pyplot as plt
 matplotlib.use("TkAgg")
@@ -40,6 +41,7 @@ def plot_lst(left_da,
              right_da,
              left_params,
              right_params,
+             bbox = None
              ):
 
     pd.to_datetime(left_da.time.values)
@@ -68,6 +70,17 @@ def plot_lst(left_da,
     )
     ax2.set_title(right_params["title"])
     plt.suptitle(f"Sentinel-3 SLSTR\n{obs_date}")
+
+    if bbox:
+        xmin, ymin, xmax, ymax = bbox
+        width = xmax - xmin
+        height = ymax - ymin
+
+        for ax in [ax1, ax2]:
+            rect = patches.Rectangle((xmin, ymin), width, height,
+                                     linewidth=2, edgecolor='red',
+                                     facecolor='none', linestyle='--')
+            ax.add_patch(rect)
     plt.show()
 
 
@@ -81,7 +94,7 @@ def plot_amsr2(ds,
         vmin=plot_params["vmin"],
         vmax=plot_params["vmax"]
     )
-    plt.title("AMSR2 LST")
+    plt.title(f"AMSR2 LST {ds.time}")
     plt.show()
 
 
@@ -147,8 +160,8 @@ def temps_plot(df):
                      np.array(df["soil_mean"]) + np.array(df["soil_std"]),
                      color='saddlebrown', alpha=0.2, )
 
-    plt.ylabel('Land Surface Temperature [K]')
-    plt.title('Sub-pixel LST Statistics per Coarse Pixel')
+    plt.ylabel('Surface Temperature [K]')
+    plt.title('Sub-pixel LST Statistics per  AMSR2 pixel')
     plt.legend(loc='upper left', frameon=True)
 
     plt.tight_layout()
