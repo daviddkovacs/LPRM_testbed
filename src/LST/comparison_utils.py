@@ -14,36 +14,34 @@ from config.paths import SLSTR_path, path_bt
 
 # ---------------------------------------
 # DATACUBE PROCESSORS
-
-def preprocess_datacubes(SLSTR, AMSR2, date, bbox):
-
-    # preprocess SLSTR
+def get_nearest_obs(SLSTR, AMSR2, date):
+    """
+    Select the closest date to SLSTR, and thus select this date to access AMSR2
+    """
     SLSTR_obs = SLSTR.sel(time=date, method="nearest")
 
     # We select SLSTR's observation to get AMSR2. the frequency of obs for AMSR2 is higher.
     AMSR2_obs = AMSR2.sortby('time').sel(time=SLSTR_obs.time.dt.floor("d"), method="nearest")
-    AMSR2_roi = crop2roi(AMSR2_obs.compute(), bbox)
-    AMSR2_roi["TSURF"] = calc_Holmes_temp(AMSR2_roi["bt_36.5V"])
 
-    AMSR2_bbox = [get_edges(AMSR2_roi.lon.values).min(),
-                  get_edges(AMSR2_roi.lat.values).min(),
-                  get_edges(AMSR2_roi.lon.values).max(),
-                  get_edges(AMSR2_roi.lat.values).max()]
+    return {"SLSTR": SLSTR_obs, "AMSR2": AMSR2_obs}
 
-    SLSTR_roi = crop2roi(SLSTR_obs.compute(), AMSR2_bbox)
 
-    # plot_lst(left_da=SLSTR_obs["LST"],
-    #          right_da=SLSTR_obs["NDVI"],
-    #          left_params=LST_plot_params,
-    #          right_params=NDVI_plot_params,
-    #          bbox=bbox)
+def preprocess_datacubes(SLSTR, AMSR2,  bbox):
+    """
+    SLSTR is cut to the full spatial extent of AMSR2. Holmes Ka TSURF is calculated for AMSR2.
+    Both AMSR2 and SLSTR cropped to bbox
+    """
+    AMSR2 = crop2roi(AMSR2.compute(), bbox)
+    AMSR2["TSURF"] = calc_Holmes_temp(AMSR2["bt_36.5V"])
 
-    # plot_lst(left_da=SLSTR_roi["LST"],
-    #          right_da=SLSTR_roi["NDVI"],
-    #          left_params=LST_plot_params,
-    #          right_params=NDVI_plot_params)
+    AMSR2_bbox = [get_edges(AMSR2.lon.values).min(),
+                  get_edges(AMSR2.lat.values).min(),
+                  get_edges(AMSR2.lon.values).max(),
+                  get_edges(AMSR2.lat.values).max()]
 
-    return {"SLSTR": SLSTR_roi, "AMSR2": AMSR2_roi}
+    SLSTR_roi = crop2roi(SLSTR.compute(), AMSR2_bbox)
+
+    return {"SLSTR": SLSTR_roi, "AMSR2": AMSR2}
 
 
 def SLSTR_AMSR2_datacubes( region : Literal["sahel", "siberia", "midwest"],
@@ -248,16 +246,16 @@ def mpdi(AMSR2, band):
     :return:
     """
     frequencies = {'C1': 6.9, 'C2': 7.3, 'X': 10.7, 'KU': 18.7, 'K': 23.8, 'KA': 36.5}
-    btv, bth = AMSR2[f"bt_{frequencies[band]}V"], AMSR2[f"bt_{frequencies[band]}H"]
+    btv, bth = AMSR2[f"bt_{frequencies[band.upper()]}V"], AMSR2[f"bt_{frequencies[band.upper()]}H"]
     return ((btv-bth)/(btv+bth))
 
 
-def threshold_ndvi(lst, ndvi, ndvi_thres=0.3):
+def threshold_ndvi(lst, ndvi, soil_range=[0,0.3], ndvi_range=[0.3,1]):
     """
     Simple thresholding of Soil-Veg to get different temps.
     """
-    veg_temp = xr.where(ndvi >ndvi_thres, lst, np.nan)
-    soil_temp = xr.where(ndvi <ndvi_thres, lst, np.nan)
+    veg_temp = xr.where((max(ndvi_range)>= ndvi) & (ndvi >min(ndvi_range)), lst, np.nan)
+    soil_temp = xr.where((max(soil_range)> ndvi) & (ndvi >=min(soil_range)), lst, np.nan)
 
     return soil_temp, veg_temp
 
