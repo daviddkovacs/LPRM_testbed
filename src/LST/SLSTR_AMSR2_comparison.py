@@ -4,6 +4,7 @@ from LST.comparison_utils import (
     threshold_ndvi,
     compare_temperatures,
     mpdi,
+    KuKa,
     get_nearest_obs
 )
 from plot_functions import (
@@ -22,18 +23,19 @@ matplotlib.use("TkAgg")
 #     L2: AMSR2 TSURF calculated, both cropped to ROI.
 
 if __name__=="__main__":
-    DATACUBES_L1 = SLSTR_AMSR2_datacubes(region="midwest")
+    DATACUBES_L1 = SLSTR_AMSR2_datacubes(region="sahel")
 ##
-    date = "2024-02-09"
+    date = "2024-08-19"
 
     bbox =  [
-    -104.97906697811854,
-    31.788447796119954,
-    -100.59432040067783,
-    34.3466239385767
+    -4.265869864360127,
+    14.150931271788593,
+    -1.0980552648969706,
+    16.779016882581217
   ]
-
-    ndvi_threshold  = 0.1
+    # Soil and Vegetation masks based on NDVI
+    soil_range = [0, 0.5]
+    veg_range = [0.5, 1]
     mpdi_band = "C1"
 
     # get the nearest date observation for SLSTR, select this date for AMSR2
@@ -49,16 +51,17 @@ if __name__=="__main__":
     SLSTR_NDVI = DATACUBES_L2["SLSTR"]["NDVI"]
     AMSR2_LST = DATACUBES_L2["AMSR2"]["TSURF"]
     AMSR2_MPDI = mpdi(DATACUBES_L2["AMSR2"],mpdi_band)
+    AMSR2_KUKA = KuKa(DATACUBES_L2["AMSR2"], num="C1", denom="ka")
 
     soil_temp, veg_temp = threshold_ndvi(lst = SLSTR_LST,
                                          ndvi = SLSTR_NDVI,
-                                         soil_range =[0,0.3],
-                                         ndvi_range =[0.8,1])
+                                         soil_range =soil_range,
+                                         ndvi_range =veg_range)
 
 
     # plot_amsr2(AMSR2_LST,AMSR2_plot_params)
 
-    df = compare_temperatures(soil_temp, veg_temp, AMSR2_LST, MPDI=AMSR2_MPDI)
+    df = compare_temperatures(soil_temp, veg_temp, AMSR2_LST, MPDI=AMSR2_MPDI, KUKA=AMSR2_KUKA)
     _df = df.sort_values(by="tsurf_ka")
 
     combined_dashboard(LST_L1=DATACUBES_L1B["SLSTR"]["LST"],
@@ -69,6 +72,6 @@ if __name__=="__main__":
                        bbox=bbox, plot_mpdi=True,
                        mpdi_band = mpdi_band)
 
-    # plt.figure()
-    # plt.scatter(df["mpdi"], df["soil_mean"])
-    # plt.show()
+    plt.figure()
+    plt.scatter(df["mpdi"], df["soil_mean"])
+    plt.show()

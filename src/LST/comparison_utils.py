@@ -230,6 +230,7 @@ def preprocess_slstr(NDVI,LST, SLSTR_path_region):
 
 # ---------------------------------------
 # MISCELLANEOUS UTILS
+frequencies = {'C1': 6.9, 'C2': 7.3, 'X': 10.7, 'KU': 18.7, 'K': 23.8, 'KA': 36.5}
 
 def calc_Holmes_temp(KaV):
     """
@@ -238,14 +239,19 @@ def calc_Holmes_temp(KaV):
     return KaV * 0.893 + 44.8
 
 
+def KuKa(AMSR2, num = "Ku",denom = "Ka"):
+    """
+    Calculate ratio, as seen in SSM/I Cal/Val document
+    https://apps.dtic.mil/sti/tr/pdf/ADA274626.pdf
+    https://www.tandfonline.com/doi/epdf/10.1080/014311698215603?needAccess=true
+    """
+    return (AMSR2[f"bt_{frequencies[num.upper()]}H"] / AMSR2[f"bt_{frequencies[denom.upper()]}V"])
+
+
 def mpdi(AMSR2, band):
     """
     calculate MPDI for AMSR2 BTs. Also accepts frequencies, to select band.
-    :param AMSR2:
-    :param band:
-    :return:
     """
-    frequencies = {'C1': 6.9, 'C2': 7.3, 'X': 10.7, 'KU': 18.7, 'K': 23.8, 'KA': 36.5}
     btv, bth = AMSR2[f"bt_{frequencies[band.upper()]}V"], AMSR2[f"bt_{frequencies[band.upper()]}H"]
     return ((btv-bth)/(btv+bth))
 
@@ -343,7 +349,7 @@ def slstr_pixels_in_amsr2(slstr_da,
     return pixels_within
 
 
-def compare_temperatures(soil_temp, veg_temp, TSURF, MPDI =None):
+def compare_temperatures(soil_temp, veg_temp, TSURF, MPDI =None, KUKA = None):
     """
     Gets the underlying SLSTR pixels for every AMSR2 Ka-LST pixel. Then calculates the mean and std for these, and plots
     """
@@ -354,6 +360,7 @@ def compare_temperatures(soil_temp, veg_temp, TSURF, MPDI =None):
     soil_std_list = []
     TSURF_list = []
     MPDI_list = []
+    KUKA_list = []
 
     bin_dict = binning_smaller_pixels(soil_temp, TSURF)  # instead of soil_temp, any shoudl be good thats a SLSTR obs
 
@@ -382,7 +389,10 @@ def compare_temperatures(soil_temp, veg_temp, TSURF, MPDI =None):
             if MPDI is not None:
                 try:
                     MPDI_subset = MPDI.isel(lat=targetlat, lon=targetlon)
+                    KUKA_subset = KUKA.isel(lat=targetlat, lon=targetlon)
                     MPDI_list.append(MPDI_subset.values.item())
+                    KUKA_list.append(KUKA_subset.values.item())
+
                 except Exception as e:
                     print(e)
     df =  pd.DataFrame({"veg_mean": veg_mean_list,
@@ -391,6 +401,7 @@ def compare_temperatures(soil_temp, veg_temp, TSURF, MPDI =None):
                              "soil_std": soil_std_list,
                              "tsurf_ka": TSURF_list,
                              "mpdi": MPDI_list,
+                             "kuka": KUKA_list,
                              })
 
 

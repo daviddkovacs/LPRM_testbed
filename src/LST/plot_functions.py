@@ -9,7 +9,7 @@ LST_plot_params = {"x": "lon",
                    "y": "lat",
                    "cmap": "coolwarm",
                    "cbar_kwargs": {'label': 'LST [K]'},
-                   "vmin": 290,
+                   "vmin": 273,
                    "title": "LST"
                    }
 NDVI_plot_params = {
@@ -155,14 +155,16 @@ def combined_dashboard(LST_L1,
     ax1 = plt.subplot(2, 2, (3, 4))
     x_idx = np.arange(len(df_S3_pixels_in_AMSR2))
 
-    ax1.plot(x_idx, df_S3_pixels_in_AMSR2["veg_mean"], label='Vegetation Mean', color='forestgreen', linewidth=2)
+    ax1.plot(x_idx, df_S3_pixels_in_AMSR2["veg_mean"],
+             label='Vegetation Mean', color='forestgreen', linewidth=2)
     ax1.fill_between(x_idx,
                      df_S3_pixels_in_AMSR2["veg_mean"] - df_S3_pixels_in_AMSR2["veg_std"],
                      df_S3_pixels_in_AMSR2["veg_mean"] + df_S3_pixels_in_AMSR2["veg_std"],
                      color='forestgreen', alpha=0.2)
 
     # Soil Stats
-    ax1.plot(x_idx, df_S3_pixels_in_AMSR2["soil_mean"], label='Soil Mean', color='saddlebrown', linewidth=2)
+    ax1.plot(x_idx, df_S3_pixels_in_AMSR2["soil_mean"],
+             label='Soil Mean', color='saddlebrown', linewidth=2)
     ax1.fill_between(x_idx,
                      df_S3_pixels_in_AMSR2["soil_mean"] - df_S3_pixels_in_AMSR2["soil_std"],
                      df_S3_pixels_in_AMSR2["soil_mean"] + df_S3_pixels_in_AMSR2["soil_std"],
@@ -178,11 +180,25 @@ def combined_dashboard(LST_L1,
 
     # Secondary Axis for MPDI
     if "mpdi" in df_S3_pixels_in_AMSR2.columns and plot_mpdi:
+        # First twin axis for MPDI
         ax_mpdi = ax1.twinx()
-        ax_mpdi.plot(x_idx, df_S3_pixels_in_AMSR2["mpdi"], label='MPDI', color='blue', linewidth=1.5, alpha=0.5)
+        ax_mpdi.plot(x_idx, df_S3_pixels_in_AMSR2["mpdi"],
+                     label='MPDI', color='blue', linewidth=1.5)
         ax_mpdi.set_ylabel(f'MPDI {mpdi_band}', color='blue')
         ax_mpdi.tick_params(axis='y', labelcolor='blue')
 
+        # Second twin axis for KuKa
+        ax_kuka = ax1.twinx()
+        # Offset the right spine of the second twin axis so it's not on top of MPDI
+        ax_kuka.spines["right"].set_position(("axes", 1.1))
+
+        ax_kuka.plot(x_idx, df_S3_pixels_in_AMSR2["kuka"],
+                     label='KuKa', color='magenta', linewidth=1.5)
+        ax_kuka.set_ylabel('KuKa Index', color='magenta')
+        ax_kuka.tick_params(axis='y', labelcolor='magenta')
+
+        # Optional: Adjust plot layout to make room for the extra axis on the right
+        plt.subplots_adjust(right=0.85)
 
     plt.suptitle(f"Sentinel-3 SLSTR and AMSR2 comparison | {obs_date}", fontsize=18, y=0.98)
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
