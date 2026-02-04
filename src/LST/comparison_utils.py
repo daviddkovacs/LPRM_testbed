@@ -6,65 +6,91 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 import os
-from config.paths import  SLSTR_path
+from typing import Literal
 import pandas as pd
-from datetime import datetime
+from plot_functions import (plot_lst,
+                            LST_plot_params, NDVI_plot_params,)
+from config.paths import SLSTR_path, path_bt
 
-def threshold_ndvi(lst, ndvi, ndvi_thres=0.3):
+# ---------------------------------------
+# DATACUBE PROCESSORS
+
+def preprocess_datacubes(SLSTR, AMSR2, date, bbox):
+
+    # preprocess SLSTR
+    SLSTR_obs = SLSTR.sel(time=date, method="nearest")
+
+    # We select SLSTR's observation to get AMSR2. the frequency of obs for AMSR2 is higher.
+    AMSR2_obs = AMSR2.sortby('time').sel(time=SLSTR_obs.time.dt.floor("d"), method="nearest")
+    AMSR2_roi = crop2roi(AMSR2_obs.compute(), bbox)
+    AMSR2_roi["TSURF"] = AMSR2_roi["bt_36.5V"] * 0.893 + 44.8
+
+    AMSR2_bbox = [get_edges(AMSR2_roi.lon.values).min(),
+                  get_edges(AMSR2_roi.lat.values).min(),
+                  get_edges(AMSR2_roi.lon.values).max(),
+                  get_edges(AMSR2_roi.lat.values).max()]
+
+    SLSTR_roi = crop2roi(SLSTR_obs.compute(), AMSR2_bbox)
+
+    plot_lst(left_da=SLSTR_obs["LST"],
+             right_da=SLSTR_obs["NDVI"],
+             left_params=LST_plot_params,
+             right_params=NDVI_plot_params,
+             bbox=bbox)
+
+    # plot_lst(left_da=SLSTR_roi["LST"],
+    #          right_da=SLSTR_roi["NDVI"],
+    #          left_params=LST_plot_params,
+    #          right_params=NDVI_plot_params)
+
+    return {"SLSTR": SLSTR_roi, "AMSR2": AMSR2_roi}
+
+
+def SLSTR_AMSR2_datacubes( region : Literal["sahel", "siberia", "midwest"],
+                           SLSTR_path = SLSTR_path,
+                           AMSR2_path = path_bt,):
     """
-    Simple thresholding of Soil-Veg to get different temps.
+    Main function to obtain SLSTR and AMSR2 observations, cut to the ROI.
+    :param date: Date
+    :param bbox: Bound box (lonmin, latmin, lonmax, latmax)
+    :param SLSTR_path: Path where SLSTR data is stored. Accepts "SL_2_LST*.SEN3" unpacked folders.
+    :param AMSR2_path: Path where AMSR2 brightness temperatures are stored
+    :param region: Region of SLSTR. Currently downloaded: Sahel, Siberia and US Midwest
+    :return: dictionary with SLSTR and AMSR2 datacubes.
     """
-    veg_temp = xr.where(ndvi >ndvi_thres, lst, np.nan)
-    soil_temp = xr.where(ndvi <ndvi_thres, lst, np.nan)
+    SLSTR_path_region = os.path.join(SLSTR_path,region)
 
-    return soil_temp, veg_temp
+    NDVI = open_sltsr(path=SLSTR_path_region,
+                   subdir_pattern=f"S3A_SL_2_LST____*",
+                   date_pattern=r'___(\d{8})T(\d{4})',
+                   variable_file="LST_ancillary_ds.nc",
+                        )
+    LST= open_sltsr(path=SLSTR_path_region,
+                   subdir_pattern=f"S3A_SL_2_LST____*",
+                   date_pattern=r'___(\d{8})T(\d{4})',
+                   variable_file="LST_in.nc",
+                        )
+    SLSTR = preprocess_slstr(NDVI, LST, SLSTR_path_region)
 
-
-def crop2roi(ds,bbox):
-    """
-    Cropping to bbox. Handles S3 projection (lat, lon) for each coord
-    :param ds:
-    :param bbox:
-    :return:
-    """
-    mask = (
-            (ds.lon >= bbox[0]) & (ds.lon <= bbox[2]) &
-            (ds.lat >= bbox[1]) & (ds.lat <= bbox[3])
-    )
-    return ds.where(mask, drop=True)
-
-
-def filternan(array):
-    return  array.values.flatten()[~np.isnan(array.values.flatten())]
-
-
-def clip_swath(ds):
-    """
-    Some S3 Tiles have a larger (1-2pix) across-scan dim resulting in errors. Thus we crop it.
-    """
-    return ds.isel(rows=slice(0, 1200))
+    AMSR2 = open_amsr2(path=AMSR2_path,
+                       sensor="AMSR2",
+                       overpass="day",
+                       subdir_pattern=f"20*",
+                       file_pattern="amsr2_l1bt_*.nc",
+                       date_pattern=r"_(\d{8})_",
+                       time_start="2024-01-01",
+                       time_stop="2025-01-01",
+                       )
 
 
-def filter_empty_var(ds, var = "NDVI"):
-    """
-    Sometimes NDVI is empty.. then we filter the whole dataset
-    """
-    valid = ds[var].notnull().any(dim = ["rows","columns"])
-    return ds.sel(time=valid)
+    return  {"SLSTR" : SLSTR, "AMSR2" : AMSR2,}
 
 
-def subset_statistics(array):
 
-    _array = filternan(array)
-    stat_dict = {}
-    if np.any(~np.isnan(_array)):
-        stat_dict["mean"] = np.nanmean(_array).item()
-        stat_dict["std"] = np.nanstd(_array).item()
-    else:
-        stat_dict["mean"] = np.nan
-        stat_dict["std"] = np.nan
-    return _array, stat_dict
 
+
+# ---------------------------------------
+# RAW SATELLITE PROCESSORS
 def open_amsr2(path,
                sensor,
                date_pattern,
@@ -196,6 +222,80 @@ def preprocess_slstr(NDVI,LST, SLSTR_path_region):
     _SLSTR = snow_filtering(_SLSTR, cloud_path=SLSTR_path_region) # Mask clouds (strict)
 
     return filter_empty_var(_SLSTR, "NDVI") # Filter empty NDVI obs
+
+
+
+
+
+
+
+
+# ---------------------------------------
+# MISCELLANEOUS UTILS
+def mpdi(AMSR2, band):
+
+    frequencies = {'C1': 6.9, 'C2': 7.3, 'X': 10.7, 'KU': 18.7, 'K': 23.8, 'KA': 36.5}
+    btv, bth = AMSR2[f"bt_{band[frequencies]}V"], AMSR2[f"bt_{band[frequencies]}H"]
+    return ((btv-bth)/(btv+bth))
+
+
+def threshold_ndvi(lst, ndvi, ndvi_thres=0.3):
+    """
+    Simple thresholding of Soil-Veg to get different temps.
+    """
+    veg_temp = xr.where(ndvi >ndvi_thres, lst, np.nan)
+    soil_temp = xr.where(ndvi <ndvi_thres, lst, np.nan)
+
+    return soil_temp, veg_temp
+
+
+def crop2roi(ds,bbox):
+    """
+    Cropping to bbox. Handles S3 projection (lat, lon) for each coord
+    :param ds:
+    :param bbox:
+    :return:
+    """
+    mask = (
+            (ds.lon >= bbox[0]) & (ds.lon <= bbox[2]) &
+            (ds.lat >= bbox[1]) & (ds.lat <= bbox[3])
+    )
+    return ds.where(mask, drop=True)
+
+
+def filternan(array):
+    return  array.values.flatten()[~np.isnan(array.values.flatten())]
+
+
+def clip_swath(ds):
+    """
+    Some S3 Tiles have a larger (1-2pix) across-scan dim resulting in errors. Thus we crop it.
+    """
+    return ds.isel(rows=slice(0, 1200))
+
+
+def filter_empty_var(ds, var = "NDVI"):
+    """
+    Sometimes NDVI is empty.. then we filter the whole dataset
+    """
+    valid = ds[var].notnull().any(dim = ["rows","columns"])
+    return ds.sel(time=valid)
+
+
+def subset_statistics(array):
+
+    _array = filternan(array)
+    stat_dict = {}
+    if np.any(~np.isnan(_array)):
+        stat_dict["mean"] = np.nanmean(_array).item()
+        stat_dict["std"] = np.nanstd(_array).item()
+    else:
+        stat_dict["mean"] = np.nan
+        stat_dict["std"] = np.nan
+    return _array, stat_dict
+
+
+
 
 
 def get_edges(centers):

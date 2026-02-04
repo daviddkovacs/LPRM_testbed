@@ -1,14 +1,5 @@
-import glob
-import re
-from functools import partial
 import numpy as np
-import xarray as xr
-import os
-from xarray import apply_ufunc
-from config.paths import SLSTR_path
 import pandas as pd
-from datetime import datetime
-from LST.SLSTR_utils import filternan, subset_statistics
 import matplotlib.patches as patches
 import matplotlib
 import matplotlib.pyplot as plt
