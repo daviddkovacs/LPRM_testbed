@@ -187,13 +187,13 @@ def snow_filtering(dataset,
     return xr.where(snowy, np.nan, dataset)
 
 
-def preprocess_slstr(NDVI,LST):
+def preprocess_slstr(NDVI,LST, SLSTR_path_region):
     """
     Merge LST and NDVI, then Cloud, snow filtering and clearing possibly empty NDVI observations
     """
     _SLSTR = xr.merge([NDVI,LST])[["LST","NDVI"]]
-    _SLSTR = cloud_filtering(_SLSTR) # Mask clouds (strict)
-    _SLSTR = snow_filtering(_SLSTR) # Mask clouds (strict)
+    _SLSTR = cloud_filtering(_SLSTR, cloud_path=SLSTR_path_region) # Mask clouds (strict)
+    _SLSTR = snow_filtering(_SLSTR, cloud_path=SLSTR_path_region) # Mask clouds (strict)
 
     return filter_empty_var(_SLSTR, "NDVI") # Filter empty NDVI obs
 
@@ -232,53 +232,50 @@ def slstr_pixels_in_amsr2(slstr_da,
     return pixels_within
 
 
-def compare_temperatures(soil_temp, veg_temp, TSURF, ):
+def compare_temperatures(soil_temp, veg_temp, TSURF,):
     """
     Gets the underlying SLSTR pixels for every AMSR2 Ka-LST pixel. Then calculates the mean and std for these, and plots
     """
-    try:
-        veg_mean_list = []
-        veg_std_list = []
+    # try:
+    veg_mean_list = []
+    veg_std_list = []
 
-        soil_mean_list = []
-        soil_std_list = []
-        TSURF_list = []
+    soil_mean_list = []
+    soil_std_list = []
+    TSURF_list = []
 
-        bin_dict = binning_smaller_pixels(soil_temp,
-                                          TSURF)  # instead of soil_temp, any shoudl be good thats a SLSTR obs
+    bin_dict = binning_smaller_pixels(soil_temp,
+                                      TSURF)  # instead of soil_temp, any shoudl be good thats a SLSTR obs
 
-        for targetlat in range(0, bin_dict["lats"].max()):
-            for targetlon in range(0, bin_dict["lons"].max()):
+    for targetlat in range(0, bin_dict["lats"].max()):
+        for targetlon in range(0, bin_dict["lons"].max()):
 
-                soil_subset = slstr_pixels_in_amsr2(soil_temp,
-                                                    bin_dict,
-                                                    targetlat,
-                                                    targetlon)
+            soil_subset = slstr_pixels_in_amsr2(soil_temp,
+                                                bin_dict,
+                                                targetlat,
+                                                targetlon)
 
-                veg_subset = slstr_pixels_in_amsr2(veg_temp,
-                                                   bin_dict,
-                                                   targetlat,
-                                                   targetlon)
+            veg_subset = slstr_pixels_in_amsr2(veg_temp,
+                                               bin_dict,
+                                               targetlat,
+                                               targetlon)
 
-                soil_mean_list.append(subset_statistics(soil_subset)[1]["mean"])
-                soil_std_list.append(subset_statistics(soil_subset)[1]["std"])
+            soil_mean_list.append(subset_statistics(soil_subset)[1]["mean"])
+            soil_std_list.append(subset_statistics(soil_subset)[1]["std"])
 
-                veg_mean_list.append(subset_statistics(veg_subset)[1]["mean"])
-                veg_std_list.append(subset_statistics(veg_subset)[1]["std"])
+            veg_mean_list.append(subset_statistics(veg_subset)[1]["mean"])
+            veg_std_list.append(subset_statistics(veg_subset)[1]["std"])
 
-                TSURF_subset = TSURF.isel(lat=targetlat, lon=targetlon)
-                TSURF_list.append(TSURF_subset.values.item())
+            TSURF_subset = TSURF.isel(lat=targetlat, lon=targetlon)
+            TSURF_list.append(TSURF_subset.values.item())
 
-        df =  pd.DataFrame({"veg_mean": veg_mean_list,
-                                 "veg_std": veg_std_list,
-                                 "soil_mean": soil_mean_list,
-                                 "soil_std": soil_std_list,
-                                 "tsurf_ka": TSURF_list,
-                                 })
-        df_sorted = df.sort_values(by="tsurf_ka")
+    df =  pd.DataFrame({"veg_mean": veg_mean_list,
+                             "veg_std": veg_std_list,
+                             "soil_mean": soil_mean_list,
+                             "soil_std": soil_std_list,
+                             "tsurf_ka": TSURF_list,
+                             })
 
-    except Exception as e:
-        print(e)
-        breakpoint()
 
-    return df_sorted
+    return df
+

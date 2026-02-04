@@ -1,3 +1,5 @@
+import os.path
+from typing import Literal
 from config.paths import SLSTR_path, path_bt
 from LST.SLSTR_utils import (preprocess_slstr,
                          open_sltsr,
@@ -46,26 +48,31 @@ def preprocess_datacubes(SLSTR, AMSR2, date, bbox):
     return {"SLSTR": SLSTR_roi, "AMSR2": AMSR2_roi}
 
 
-def SLSTR_AMSR2_datacubes(SLSTR_path = SLSTR_path, AMSR2_path =path_bt ):
+def SLSTR_AMSR2_datacubes( region : Literal["sahel", "siberia", "midwest"],
+                           SLSTR_path = SLSTR_path,
+                           AMSR2_path = path_bt,):
     """
     Main function to obtain SLSTR and AMSR2 observations, cut to the ROI.
     :param date: Date
     :param bbox: Bound box (lonmin, latmin, lonmax, latmax)
     :param SLSTR_path: Path where SLSTR data is stored. Accepts "SL_2_LST*.SEN3" unpacked folders.
     :param AMSR2_path: Path where AMSR2 brightness temperatures are stored
+    :param region: Region of SLSTR. Currently downloaded: Sahel, Siberia and US Midwest
     :return: dictionary with SLSTR and AMSR2 datacubes.
     """
-    NDVI = open_sltsr(path=SLSTR_path,
+    SLSTR_path_region = os.path.join(SLSTR_path,region)
+
+    NDVI = open_sltsr(path=SLSTR_path_region,
                    subdir_pattern=f"S3A_SL_2_LST____*",
                    date_pattern=r'___(\d{8})T(\d{4})',
                    variable_file="LST_ancillary_ds.nc",
                         )
-    LST= open_sltsr(path=SLSTR_path,
+    LST= open_sltsr(path=SLSTR_path_region,
                    subdir_pattern=f"S3A_SL_2_LST____*",
                    date_pattern=r'___(\d{8})T(\d{4})',
                    variable_file="LST_in.nc",
                         )
-    SLSTR = preprocess_slstr(NDVI, LST)
+    SLSTR = preprocess_slstr(NDVI, LST, SLSTR_path_region)
 
     AMSR2 = open_amsr2(path=AMSR2_path,
                        sensor="AMSR2",
@@ -84,15 +91,15 @@ def SLSTR_AMSR2_datacubes(SLSTR_path = SLSTR_path, AMSR2_path =path_bt ):
 
 
 if __name__=="__main__":
-    DATACUBES = SLSTR_AMSR2_datacubes()
+    DATACUBES = SLSTR_AMSR2_datacubes(region="sahel")
 ##
-    date = "2024-04-25"
+    date = "2024-01-10"
 
-    bbox =  [
-    -105.35388677738635,
-    31.081231952565545,
-    -100.97999785526429,
-    33.873041636022975
+    bbox = [
+    -3.114992771726577,
+    12.58077857296621,
+    -0.12847188822379962,
+    14.320359668899599
   ]
 
     ndvi_threshold  = 0.5
@@ -113,6 +120,6 @@ if __name__=="__main__":
     plot_amsr2(AMSR2_LST,AMSR2_plot_params)
 
     df = compare_temperatures(soil_temp,veg_temp,AMSR2_LST)
-    _df = df.dropna(subset="tsurf_ka")
+    _df = df.sort_values(by="tsurf_ka").dropna(subset="tsurf_ka")
     temps_plot(_df)
 

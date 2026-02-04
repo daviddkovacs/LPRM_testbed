@@ -101,49 +101,46 @@ def plot_amsr2(ds,
 
 def temps_plot(df):
     """
-    create a plot with Ka-band microwave temps, Vegetation (higher NDVI) and soil (lower NDVI) temperatures.
-    This allows to compare how these differ.
+    combined plot with Ka-band microwave temperatures, Vegetation, and Soil temps.
     """
     x = np.arange(len(df))
 
-    plt.figure()
-    plt.plot(x, df["tsurf_ka"], label='Ka TSURF', color='red', linewidth=2)
+    plt.figure(figsize=(12, 10))
 
-    plt.plot(x, df["veg_mean"], label='Vegetation Mean', color='forestgreen', linewidth=2)
-    plt.fill_between(x,
+    ax1 = plt.subplot(2, 2, (1, 2))
+    ax1.plot(x, df["veg_mean"], label='Vegetation Mean', color='forestgreen', linewidth=2)
+    ax1.fill_between(x,
                      np.array(df["veg_mean"]) - np.array(df["veg_std"]),
                      np.array(df["veg_mean"]) + np.array(df["veg_std"]),
-                     color='forestgreen', alpha=0.2,)
+                     color='forestgreen', alpha=0.2)
 
-    plt.plot(x, df["soil_mean"], label='Soil Mean', color='saddlebrown', linewidth=2)
-    plt.fill_between(x,
+    ax1.plot(x, df["soil_mean"], label='Soil Mean', color='saddlebrown', linewidth=2)
+    ax1.fill_between(x,
                      np.array(df["soil_mean"]) - np.array(df["soil_std"]),
                      np.array(df["soil_mean"]) + np.array(df["soil_std"]),
-                     color='saddlebrown', alpha=0.2, )
+                     color='saddlebrown', alpha=0.2)
+    ax1.plot(x, df["tsurf_ka"], label='Ka TSURF', color='red', linewidth=2)
 
-    plt.ylabel('Surface Temperature [K]')
-    plt.title('Sub-pixel LST Statistics per  AMSR2 pixel')
-    plt.legend(loc='upper left', frameon=True)
+    ax1.set_ylabel(r'Surface Temperature $[K]$')
+    ax1.set_xlabel(r'# of AMSR2 pixels')
+    ax1.set_title('Sub-pixel LST Statistics per AMSR2 pixel')
+    ax1.legend(loc='upper left', frameon=True)
+
+    ax2 = plt.subplot(2, 2, 3)
+    ax2.scatter(df["tsurf_ka"], df["veg_mean"],)
+    ax2.set_xlim([270, 320])
+    ax2.set_ylim([270, 320])
+    ax2.set_xlabel(r'AMSR2 Ka $T$ $[K]$')
+    ax2.set_ylabel(r'Veg. $T$ $[K]$')
+    ax2.set_title('Temperatures: Ka - Vegetation')
+
+    ax3 = plt.subplot(2, 2, 4)
+    ax3.scatter(df["tsurf_ka"], df["soil_mean"],)
+    ax3.set_xlim([270, 320])
+    ax3.set_ylim([270, 320])
+    ax3.set_xlabel(r'AMSR2 Ka $T$ $[K]$')
+    ax3.set_ylabel(r'Soil $T$ $[K]$')
+    ax3.set_title('Temperatures: Ka - Soil')
 
     plt.tight_layout()
-
     plt.show()
-    plt.figure()
-    plt.scatter(df["tsurf_ka"], df["veg_mean"])
-    plt.xlim([300,320])
-    plt.ylim([300,320])
-    plt.xlabel("AMSR2 Ka T [K]")
-    plt.ylabel("Veg. T [K]")
-    plt.title("Temperatures: Ka - Vegetation")
-    plt.show()
-
-    plt.figure()
-    plt.scatter(df["tsurf_ka"], df["soil_mean"])
-    plt.xlim([300,320])
-    plt.ylim([300,320])
-    plt.xlabel("AMSR2 Ka T [K]")
-    plt.ylabel("Soil T [K]")
-    plt.title("Temperatures: Ka - Soil")
-
-    plt.show()
-
