@@ -163,6 +163,7 @@ def open_sltsr(path,
 
         print(f"Loading dataset finished ({variable_file})")
 
+    dataset = dataset.sortby("time")
     return dataset
 
 
