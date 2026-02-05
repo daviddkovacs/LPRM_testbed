@@ -13,6 +13,7 @@ from plot_functions import (
     LST_plot_params,
     NDVI_plot_params,
     AMSR2_plot_params,
+    plot_scatter,
     plot_amsr2,combined_dashboard,
 )
 import matplotlib
@@ -27,18 +28,18 @@ matplotlib.use("TkAgg")
 if __name__=="__main__":
     DATACUBES_L1 = SLSTR_AMSR2_datacubes(region="midwest")
 ##
-    date = "2024-02-19"
+    date = "2024-5-10"
 
-    bbox =[
-    -94.7316211058726,
-    30.419537516476126,
-    -92.53775776141882,
-    33.274211442582015
+    bbox =  [
+    -106.52863315037617,
+    31.21352318057589,
+    -102.27725648659131,
+    32.632490903517066
   ]
     # Soil and Vegetation masks based on NDVI
-    soil_range = [0, 0.4]
+    soil_range = [0, 0.2]
     veg_range = [0.5, 1]
-    mpdi_band = "C1"
+    mpdi_band = "c1"
 
     # get the nearest date observation for SLSTR, select this date for AMSR2
     DATACUBES_L1B = temporal_subset_dc(SLSTR=DATACUBES_L1["SLSTR"],
@@ -52,10 +53,10 @@ if __name__=="__main__":
     SLSTR_LST = DATACUBES_L2["SLSTR"]["LST"]
     SLSTR_NDVI = DATACUBES_L2["SLSTR"]["NDVI"]
 
-    AMSR2_LST = calc_Holmes_temp(DATACUBES_L2["AMSR2"]["bt_36.5V"])
-    AMSR2_LST_theor = calc_adjusted_temp(DATACUBES_L2["AMSR2"], bandH= "ku", mpdi_band=mpdi_band)
-    AMSR2_MPDI = mpdi(DATACUBES_L2["AMSR2"],mpdi_band)
-    AMSR2_KUKA = KuKa(DATACUBES_L2["AMSR2"], num="ku", denom="ka")
+    AMSR2_LST = calc_Holmes_temp(DATACUBES_L2["AMSR2"])
+    AMSR2_LST_theor = calc_adjusted_temp(DATACUBES_L2["AMSR2"], factor=0.5 , bandH= "ku", mpdi_band=mpdi_band)
+    AMSR2_MPDI = mpdi(DATACUBES_L2["AMSR2"], mpdi_band)
+    # AMSR2_KUKA = KuKa(DATACUBES_L2["AMSR2"], num="ku", denom="ka")
 
     soil_temp, veg_temp = threshold_ndvi(lst = SLSTR_LST,
                                          ndvi = SLSTR_NDVI,
@@ -66,7 +67,7 @@ if __name__=="__main__":
     # plot_amsr2(AMSR2_LST,AMSR2_plot_params)
 
     df = compare_temperatures(soil_temp, veg_temp, AMSR2_LST, MPDI=AMSR2_MPDI, KUKA=AMSR2_KUKA, TSURFadj=AMSR2_LST_theor)
-    _df = df.sort_values(by="tsurf_ka")
+    _df = df.sort_values(by="mpdi")
 
     combined_dashboard(LST_L1=DATACUBES_L1B["SLSTR"]["LST"],
                        NDVI_L1=DATACUBES_L1B["SLSTR"]["NDVI"],
@@ -76,3 +77,7 @@ if __name__=="__main__":
                        bbox=bbox,
                        plot_mpdi=True,
                        mpdi_band = mpdi_band)
+
+
+    plot_scatter(_df,  x_col="soil_temp", y_col="tsurf_ka")
+    plot_scatter(_df,  x_col="soil_temp", y_col="tsurf_adj")

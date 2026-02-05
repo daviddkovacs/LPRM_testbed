@@ -235,14 +235,21 @@ def calc_Holmes_temp(KaV):
     """
     Surface temperature from Ka-band observations according to Holmes et al. 2008
     """
-    return KaV * 0.893 + 44.8
+    return KaV["bt_36.5V"] * 0.893 + 44.8
 
 
-def calc_adjusted_temp(AMSR2, bandH = "Ka", mpdi_band = "C1"):
+def calc_adjusted_temp(AMSR2, factor = 0.6, bandH = "Ka", mpdi_band = "C1"):
     """
     Theoretical MPDI adjusted temperature. Allows for free frequency selection.
     """
-    Teff = ((0.893 * AMSR2[f"bt_{frequencies[bandH.upper()]}H"]) / (1 - mpdi(AMSR2,mpdi_band)/-1)) + 44.8
+    _mpdi = xr.where(
+        (mpdi(AMSR2, mpdi_band)<=0.05) & (mpdi(AMSR2, mpdi_band)>=0), # Apply only where MPDI is lte 0.05
+        mpdi(AMSR2, mpdi_band),
+        0.05)
+
+    print(_mpdi)
+    Teff = ((0.893 * AMSR2[f"bt_{frequencies[bandH.upper()]}H"]) /
+            (1 - _mpdi / factor)) + 44.8
     return Teff
 
 

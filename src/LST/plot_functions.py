@@ -207,3 +207,26 @@ def combined_dashboard(LST_L1,
     plt.suptitle(f"Sentinel-3 SLSTR and AMSR2 comparison | {obs_date}", fontsize=18, y=0.98)
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.show()
+
+
+def plot_scatter(df, x_col="soil_temp", y_col="tsurf_adj"):
+
+    r = df[x_col].corr(df[y_col])
+    error = df[y_col] - df[x_col]
+    bias = error.mean()
+    rmse = np.sqrt((error ** 2).mean())
+
+    plt.figure(figsize=(6, 5))
+    plt.scatter(df[x_col], df[y_col], alpha=0.8, s=15)
+
+    lims = [df[[x_col, y_col]].min().min(), df[[x_col, y_col]].max().max()]
+    plt.plot(lims, lims, 'r--', label="1:1 Line")
+
+    stats_str = f"r: {r:.3f}\nRMSE: {rmse:.3f}\nBias: {bias:.3f}"
+    plt.text(0.05, 0.85, stats_str, transform=plt.gca().transAxes,
+             bbox=dict(boxstyle='round', facecolor='white')
+             )
+    plt.title(f"x: {x_col}   y: {y_col}")
+    plt.xlabel(x_col)
+    plt.ylabel(y_col)
+    plt.show()
