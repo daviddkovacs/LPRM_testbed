@@ -13,9 +13,7 @@ from plot_functions import (
     LST_plot_params,
     NDVI_plot_params,
     AMSR2_plot_params,
-    # plot_scatter,
     plot_amsr2,
-    # combined_dashboard,
     combined_validation_dashboard
 )
 import matplotlib
@@ -28,19 +26,19 @@ matplotlib.use("TkAgg")
 #     L2: AMSR2 TSURF calculated, both cropped to ROI.
 
 if __name__=="__main__":
-    DATACUBES_L1 = SLSTR_AMSR2_datacubes(region="midwest")
+    DATACUBES_L1 = SLSTR_AMSR2_datacubes(region="sahel")
 ##
-    date = "2024-08-20"
+    date = "2024-10-20"
 
     bbox =  [
-    -107.27265267657093,
-    35.09547816059177,
-    -101.46902036619569,
-    38.95305963692633
+    -3.5530521367710435,
+    13.840776476333943,
+    2.7279040178611353,
+    17.52977087031826
   ]
     # Soil and Vegetation masks based on NDVI
-    soil_range = [0, 0.3]
-    veg_range = [0.3, 1]
+    soil_range = [0, 0.2]
+    veg_range = [0.5, 1]
     mpdi_band = "x"
 
     # get the nearest date observation for SLSTR, select this date for AMSR2
@@ -69,7 +67,7 @@ if __name__=="__main__":
     # plot_amsr2(AMSR2_LST,AMSR2_plot_params)
 
     df = compare_temperatures(soil_temp, veg_temp, AMSR2_LST, MPDI=AMSR2_MPDI, KUKA=AMSR2_KUKA, TSURFadj=AMSR2_LST_theor)
-    _df = df.sort_values(by="mpdi")
+    _df = df.sort_values(by="kuka")
 
     combined_validation_dashboard(LST_L1=DATACUBES_L1B["SLSTR"]["LST"],
                                    NDVI_L1=DATACUBES_L1B["SLSTR"]["NDVI"],
@@ -77,7 +75,9 @@ if __name__=="__main__":
                                    NDVI_params=NDVI_plot_params,
                                    df_S3_pixels_in_AMSR2=_df,
                                    bbox=bbox,
-                                   plot_mpdi=True,
+                                   plot_mpdi=False,
+                                   plot_kuka=True,
+                                  plot_tsurf_adjust=True,
                                    mpdi_band = mpdi_band,
-                                  scatter_x = 'veg_temp'
+                                  scatter_x = 'soil_temp'
                                   )

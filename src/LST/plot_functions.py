@@ -107,7 +107,10 @@ def combined_validation_dashboard(LST_L1,
                                   NDVI_params,
                                   df_S3_pixels_in_AMSR2,
                                   bbox=None,
-                                  plot_mpdi=False, mpdi_band=None,
+                                  plot_mpdi=False,
+                                  plot_tsurf_adjust = False,
+                                  plot_kuka=False,
+                                  mpdi_band=None,
                                   scatter_x = None,
                                   ):
     """
@@ -165,18 +168,26 @@ def combined_validation_dashboard(LST_L1,
     ax1.plot(x_idx, df_S3_pixels_in_AMSR2["tsurf_ka"],
              label=f'Ka TSURF ({tka_s["mean"]:.1f}±{tka_s["std"]:.1f}K)',
              color='red', lw=2)
-    ax1.plot(x_idx, df_S3_pixels_in_AMSR2["tsurf_adj"],
-             label=f'Adj TSURF ({tadj_s["mean"]:.1f}±{tadj_s["std"]:.1f}K)',
-             color='magenta', lw=1.5)
-    ax1.set_ylabel('Temperature [K]')
-    ax1.set_title('Sub-pixel LST per AMSR2 pixel')
-    ax1.legend(loc='upper left')
 
+
+    if plot_tsurf_adjust:
+        ax1.plot(x_idx, df_S3_pixels_in_AMSR2["tsurf_adj"],
+                 label=f'Adj TSURF ({tadj_s["mean"]:.1f}±{tadj_s["std"]:.1f}K)',
+                 color='magenta', lw=1.5)
     if plot_mpdi:
         ax_mpdi = ax1.twinx()
         ax_mpdi.plot(x_idx, df_S3_pixels_in_AMSR2["mpdi"], color='blue', alpha=0.6)
         ax_mpdi.tick_params(axis='y', labelcolor='blue')
         ax_mpdi.set_ylabel(f'MPDI {mpdi_band}', color='blue')
+    if plot_kuka:
+        ax_mpdi = ax1.twinx()
+        ax_mpdi.plot(x_idx, df_S3_pixels_in_AMSR2["kuka"], color='royalblue', alpha=0.6)
+        ax_mpdi.tick_params(axis='y', labelcolor='royalblue')
+        ax_mpdi.set_ylabel(f'KuH / KaH', color='royalblue')
+
+    ax1.set_ylabel('Temperature [K]')
+    ax1.set_title('Sub-pixel LST per AMSR2 pixel')
+    ax1.legend(loc='upper left')
 
     if not scatter_x: raise ValueError(f"Define x data for scatterplot --> scatter_x = 'veg_temp' or 'soil_temp'" )
     # Left scatter
