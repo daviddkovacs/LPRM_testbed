@@ -168,10 +168,10 @@ def open_sltsr(path,
 
 def cloud_filtering(dataset,
                     cloud_path=SLSTR_path,
-                    cloud_subdir_pattern=f"S3A_SL_2_LST____*",
+                    cloud_subdir_pattern=f"S3?_SL_2_LST____*",
                     cloud_date_pattern=r'___(\d{8})T(\d{4})',
                     cloud_variable_file="flags_in.nc",
-                    threshold = 2):
+                    mask_value = 2):
     """
     Optional cloud masking, with default path and variable parameters to SLSTR cloud flags.
     Strict threshold of 1, filters ALL clouds.
@@ -183,14 +183,14 @@ def cloud_filtering(dataset,
                    variable_file=cloud_variable_file,
                         )
 
-    cloudy = xr.where(CLOUD["bayes_in"]==threshold,True,False )
+    cloudy = xr.where(CLOUD["bayes_in"]==mask_value,True,False )
 
     return xr.where(cloudy, np.nan, dataset)
 
 
 def snow_filtering(dataset,
                     cloud_path=SLSTR_path,
-                    cloud_subdir_pattern=f"S3A_SL_2_LST____*",
+                    cloud_subdir_pattern=f"S3?_SL_2_LST____*",
                     cloud_date_pattern=r'___(\d{8})T(\d{4})',
                     cloud_variable_file="LST_ancillary_ds.nc",
                     snow_and_ice_flag = 27):
