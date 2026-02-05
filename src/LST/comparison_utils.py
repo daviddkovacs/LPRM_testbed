@@ -8,8 +8,6 @@ import xarray as xr
 import os
 from typing import Literal
 import pandas as pd
-from plot_functions import (plot_lst,
-                            LST_plot_params, NDVI_plot_params,)
 from config.paths import SLSTR_path, path_bt
 
 # ---------------------------------------
@@ -58,12 +56,12 @@ def SLSTR_AMSR2_datacubes( region : Literal["sahel", "siberia", "midwest"],
     SLSTR_path_region = os.path.join(SLSTR_path,region)
 
     NDVI = open_sltsr(path=SLSTR_path_region,
-                   subdir_pattern=f"S3A_SL_2_LST____*",
+                   subdir_pattern=f"S3?_SL_2_LST____*",
                    date_pattern=r'___(\d{8})T(\d{4})',
                    variable_file="LST_ancillary_ds.nc",
                         )
     LST= open_sltsr(path=SLSTR_path_region,
-                   subdir_pattern=f"S3A_SL_2_LST____*",
+                   subdir_pattern=f"S3?_SL_2_LST____*",
                    date_pattern=r'___(\d{8})T(\d{4})',
                    variable_file="LST_in.nc",
                         )
