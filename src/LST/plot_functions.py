@@ -101,6 +101,44 @@ def usual_stats(x,y):
     return {"r" : r , "bias" : bias , "rmse" : rmse}
 
 
+def plot_hexbin(df, x_col, y_col, title=None, gridsize=50, cmap='inferno'):
+    x = df[x_col]
+    y = df[y_col]
+    stats = usual_stats(x, y)
+
+    # Slight increase in height to accommodate title/labels cleanly
+    fig, ax = plt.subplots(figsize=(6, 5))
+
+    # 1. Hexbin Plot
+    hb = ax.hexbin(x, y, gridsize=gridsize, cmap=cmap, mincnt=1)
+
+    lims = [273, 325]
+    ax.plot(lims, lims, 'k--', alpha=0.8, linewidth=1, zorder=10)  # 'k--' is black dashed
+
+    textstr = '\n'.join((
+        f'$R = {stats["r"]:.2f}$',
+        f'$Bias = {stats["bias"]:.2f}$ K',
+        f'$RMSE = {stats["rmse"]:.2f}$ K'
+    ))
+
+    props = dict(boxstyle='round', facecolor='white', alpha=0.8)
+
+    ax.text(0.05, 0.95, textstr, transform=ax.transAxes, fontsize=11,
+            verticalalignment='top', bbox=props)
+
+    cb = fig.colorbar(hb, ax=ax)
+    cb.set_label('Count')
+
+    ax.set_xlim(lims)
+    ax.set_ylim(lims)
+    ax.set_xlabel(x_col)
+    ax.set_ylabel(y_col)
+    ax.set_title(title if title else f'{x_col} vs {y_col}')
+
+
+    plt.show()
+
+
 def combined_validation_dashboard(LST_L1,
                                   NDVI_L1,
                                   LST_params,
