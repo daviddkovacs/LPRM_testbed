@@ -74,7 +74,7 @@ def SLSTR_AMSR2_datacubes( region : Literal["sahel", "siberia", "midwest","ceu"]
                        file_pattern="amsr2_l1bt_*.nc",
                        date_pattern=r"_(\d{8})_",
                        time_start="2024-01-01",
-                       time_stop="2025-01-01",
+                       time_stop="2024-12-31",
                        resolution = "coarse_resolution",
                        )
 

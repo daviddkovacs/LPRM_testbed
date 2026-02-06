@@ -101,16 +101,14 @@ def usual_stats(x,y):
     return {"r" : r , "bias" : bias , "rmse" : rmse}
 
 
-def plot_hexbin(df, x_col, y_col, title=None, gridsize=50, cmap='inferno'):
+def plot_hexbin(df, x_col, y_col, title=None, gridsize=100, cmap='inferno'):
     x = df[x_col]
     y = df[y_col]
     stats = usual_stats(x, y)
 
-    # Slight increase in height to accommodate title/labels cleanly
     fig, ax = plt.subplots(figsize=(6, 5))
 
-    # 1. Hexbin Plot
-    hb = ax.hexbin(x, y, gridsize=gridsize, cmap=cmap, mincnt=1)
+    hb = ax.hexbin(x, y, bins="log", gridsize=gridsize, cmap=cmap, mincnt=1)
 
     lims = [273, 325]
     ax.plot(lims, lims, 'k--', alpha=0.8, linewidth=1, zorder=10)  # 'k--' is black dashed

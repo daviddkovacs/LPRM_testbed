@@ -1,3 +1,4 @@
+from typing import  Literal
 from LST.comparison_utils import (
     SLSTR_AMSR2_datacubes,
     spatial_subset_dc,
@@ -18,18 +19,18 @@ from LST.comparison_utils import (
 class SLSTR_AMSR2_DC:
 
     def __init__(self,
-                 region,
-                 bbox):
+                 region:Literal["sahel", "siberia", "midwest","ceu"],
+                 ):
         """
         Class to store Level-1 data from SLSTR and AMSR2. Stroing in a class avoids reloading every iteration.
         :param region: Literal["sahel", "siberia", "midwest","ceu"]
-        :param bbox: List["lonmin", "latmin", "lonmax", "latmax"]
         """
 
         self.DATACUBES_L1 = SLSTR_AMSR2_datacubes(region=region)
-        self.bbox = bbox
+        print("loading finished")
 
     def process_date(self,
+                     bbox,
                      date,
                      soil_range=[0, 0.2],
                      veg_range=[0.5, 1],
@@ -39,6 +40,7 @@ class SLSTR_AMSR2_DC:
         Processes Soil and Vegetation temperatures for a date, and compares it to overlying AMSR2 pixels.
 
         :param date: Date
+        :param bbox: List["lonmin", "latmin", "lonmax", "latmax"]
         :param soil_range: NDVI range in which SLSTR pixel is considered as soil.
         :param veg_range: NDVI range in which SLSTR pixel is considered as vegetation.
         :param mpdi_band: IEEE nomenclature band to calculate the Microwave Polarisation Difference Index
@@ -51,7 +53,7 @@ class SLSTR_AMSR2_DC:
         # Cropping to bbox coords.
         DATACUBES_L2 = spatial_subset_dc(SLSTR=DATACUBES_L1B["SLSTR"],
                                          AMSR2=DATACUBES_L1B["AMSR2"],
-                                         bbox=self.bbox)
+                                         bbox=bbox)
 
         SLSTR_LST = DATACUBES_L2["SLSTR"]["LST"]
         SLSTR_NDVI = DATACUBES_L2["SLSTR"]["NDVI"]
