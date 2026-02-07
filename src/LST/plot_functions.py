@@ -101,22 +101,24 @@ def usual_stats(x,y):
     return {"r" : r , "bias" : bias , "rmse" : rmse}
 
 
-def plot_hexbin(df, x_col, y_col, title=None, gridsize=100, cmap='inferno'):
+def plot_hexbin(df, x_col, y_col, title=None, gridsize=30, cmap='inferno'):
     x = df[x_col]
     y = df[y_col]
     stats = usual_stats(x, y)
 
     fig, ax = plt.subplots(figsize=(6, 5))
 
-    hb = ax.hexbin(x, y, bins="log", gridsize=gridsize, cmap=cmap, mincnt=1)
+    hb = ax.hexbin(x, y,
+                   gridsize=gridsize, cmap=cmap, mincnt=1)
 
     lims = [273, 325]
     ax.plot(lims, lims, 'k--', alpha=0.8, linewidth=1, zorder=10)  # 'k--' is black dashed
 
     textstr = '\n'.join((
         f'$R = {stats["r"]:.2f}$',
+        f'$RMSE = {stats["rmse"]:.2f}$ K',
         f'$Bias = {stats["bias"]:.2f}$ K',
-        f'$RMSE = {stats["rmse"]:.2f}$ K'
+        f'$N = {len(x)}$'
     ))
 
     props = dict(boxstyle='round', facecolor='white', alpha=0.8)
