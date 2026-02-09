@@ -80,7 +80,7 @@ def plot_lst(left_da,
     plt.show()
 
 
-def plot_amsr2(ds,
+def amsr2_lst_figure(ds,
                plot_params):
 
     plt.figure()
@@ -90,7 +90,7 @@ def plot_amsr2(ds,
         vmin=plot_params["vmin"],
         vmax=plot_params["vmax"]
     )
-    plt.title(f"AMSR2 LST\n{ds.time.dt.strftime("%Y-%m-%d").item()}")
+    plt.title(f"AMSR2 LST in bounding box\n{ds.time.dt.strftime("%Y-%m-%d").item()}")
     plt.show()
 
 
@@ -139,10 +139,8 @@ def plot_hexbin(df, x_col, y_col, title=None, gridsize=30, cmap='inferno'):
     plt.show()
 
 
-def combined_validation_dashboard(LST_L1,
-                                  NDVI_L1,
-                                  LST_params,
-                                  NDVI_params,
+def combined_validation_dashboard(LST_L1B,
+                                  NDVI_L1B,
                                   df_S3_pixels_in_AMSR2,
                                   bbox=None,
                                   plot_mpdi=False,
@@ -150,25 +148,27 @@ def combined_validation_dashboard(LST_L1,
                                   plot_kuka=False,
                                   mpdi_band=None,
                                   scatter_x = None,
+                                  LST_params = LST_plot_params,
+                                  NDVI_params = NDVI_plot_params,
                                   ):
     """
     Combines spatial plots, pixel-wise time series, and 1:1 scatter validation.
     """
-    LST_L1 = LST_L1.isel(time=0) if 'time' in LST_L1.dims and LST_L1.sizes['time'] > 1 else LST_L1.squeeze()
-    NDVI_L1 = NDVI_L1.isel(time=0) if 'time' in NDVI_L1.dims and NDVI_L1.sizes['time'] > 1 else NDVI_L1.squeeze()
-    obs_date = pd.to_datetime(LST_L1.time.values).strftime('%Y-%m-%d')
+    LST_L1B = LST_L1B.isel(time=0) if 'time' in LST_L1B.dims and LST_L1B.sizes['time'] > 1 else LST_L1B.squeeze()
+    NDVI_L1B = NDVI_L1B.isel(time=0) if 'time' in NDVI_L1B.dims and NDVI_L1B.sizes['time'] > 1 else NDVI_L1B.squeeze()
+    obs_date = pd.to_datetime(LST_L1B.time.values).strftime('%Y-%m-%d')
 
     fig = plt.figure(figsize=(14, 15))
     gs = fig.add_gridspec(3, 2)
 
     ax_lst = fig.add_subplot(gs[0, 0])
-    LST_L1.plot.pcolormesh(x=LST_params["x"], y=LST_params["y"], ax=ax_lst, cmap=LST_params["cmap"],
-                           vmin=LST_params["vmin"], add_colorbar=True, cbar_kwargs=LST_params["cbar_kwargs"])
+    LST_L1B.plot.pcolormesh(x=LST_params["x"], y=LST_params["y"], ax=ax_lst, cmap=LST_params["cmap"],
+                            vmin=LST_params["vmin"], add_colorbar=True, cbar_kwargs=LST_params["cbar_kwargs"])
     ax_lst.set_title(LST_params["title"])
 
     ax_ndvi = fig.add_subplot(gs[0, 1])
-    NDVI_L1.plot.pcolormesh(x=NDVI_params["x"], y=NDVI_params["y"], ax=ax_ndvi, cmap=NDVI_params["cmap"],
-                            vmin=NDVI_params.get("vmin"), vmax=NDVI_params.get("vmax"), add_colorbar=True)
+    NDVI_L1B.plot.pcolormesh(x=NDVI_params["x"], y=NDVI_params["y"], ax=ax_ndvi, cmap=NDVI_params["cmap"],
+                             vmin=NDVI_params.get("vmin"), vmax=NDVI_params.get("vmax"), add_colorbar=True)
     ax_ndvi.set_title(NDVI_params["title"])
 
     if bbox:

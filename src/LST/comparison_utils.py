@@ -414,8 +414,8 @@ def compare_temperatures(soil_temp, veg_temp, TSURF, TSURFadj = None, MPDI =None
                     KUKA_subset = KUKA.isel(lat=targetlat, lon=targetlon)
                     KUKA_list.append(KUKA_subset.values.item())
 
-                    # TSURFadj_subset = TSURFadj.isel(lat=targetlat, lon=targetlon)
-                    # TSURFadj_list.append(TSURFadj_subset.values.item())
+                    TSURFadj_subset = TSURFadj.isel(lat=targetlat, lon=targetlon)
+                    TSURFadj_list.append(TSURFadj_subset.values.item())
 
                 except Exception as e:
                     print(e)
@@ -424,7 +424,7 @@ def compare_temperatures(soil_temp, veg_temp, TSURF, TSURFadj = None, MPDI =None
                              "soil_temp": soil_mean_list,
                              "soil_std": soil_std_list,
                              "tsurf_ka": TSURF_list,
-                             # "tsurf_adj": TSURFadj_list,
+                             "tsurf_adj": TSURFadj_list,
                              "mpdi": MPDI_list,
                              "kuka": KUKA_list,
                              })
