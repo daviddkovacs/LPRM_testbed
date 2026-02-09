@@ -1,6 +1,6 @@
 import pandas as pd
 from LST.plot_functions import plot_hexbin
-from LST.Datacube import SLSTR_AMSR2_DC
+from LST.SLSTR_AMSR2_reader import SLSTR_AMSR2_DC
 import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
@@ -38,7 +38,7 @@ if __name__=="__main__":
     plot_hexbin(complete_df,"veg_temp", "tsurf_ka")
 
 ##
-    #
+
     # parstart = datetime.now()
     # def worker(date_str):
     #     try:

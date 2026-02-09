@@ -10,6 +10,7 @@ from LST.comparison_utils import (
     calc_adjusted_temp,
     temporal_subset_dc,
 )
+from plot_functions import combined_validation_dashboard
 
 # Levels guide:
 #     L1: All observations stacked in on xarray dataset,  Cloud, snow filtered SLSTR.
@@ -28,6 +29,7 @@ class SLSTR_AMSR2_DC:
 
         self.DATACUBES_L1 = SLSTR_AMSR2_datacubes(region=region)
         print("loading finished")
+
 
     def process_date(self,
                      bbox,
@@ -77,3 +79,11 @@ class SLSTR_AMSR2_DC:
 
         return _df
 
+
+    # def temperatures_dashboard(self,
+    #                            bbox,
+    #                            date):
+    #
+    #     df = self.process_date(bbox,date)
+    #     combined_validation_dashboard()
+    #
