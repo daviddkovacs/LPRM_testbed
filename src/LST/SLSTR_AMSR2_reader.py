@@ -104,9 +104,14 @@ class SLSTR_AMSR2_DC:
 
 
 
-        df = compare_temperatures(soil_temp, veg_temp, AMSR2_LST, MPDI=AMSR2_MPDI, KUKA=AMSR2_KUKA,
+        df = compare_temperatures(soil_temp,
+                                  veg_temp,
+                                  AMSR2_LST,
+                                  MPDI=AMSR2_MPDI,
+                                  KUKA=AMSR2_KUKA,
                                   TSURFadj=AMSR2_LST_theor
                                   )
+        df["time"] = soil_temp.time.values
         _df = df.sort_values(by="kuka")
 
         return _df

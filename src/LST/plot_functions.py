@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.patches as patches
 import matplotlib
+import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 from comparison_utils import subset_statistics
 matplotlib.use("TkAgg")
@@ -101,7 +102,93 @@ def usual_stats(x,y):
     return {"r" : r , "bias" : bias , "rmse" : rmse}
 
 
-def plot_hexbin(df, x_col, y_col, title=None, gridsize=30, cmap='inferno'):
+def boxplot_timeseries(df):
+    df = df.copy()
+    df['time'] = pd.to_datetime(df['time'])
+    df = df.sort_values('time')
+
+    unique_dates = df['time'].unique()
+    date_nums = mdates.date2num(unique_dates)
+
+    # Helper to group data by date
+    def get_grouped_data(col_name):
+        return [df.loc[df['time'] == d, col_name].dropna().values for d in unique_dates]
+
+    # 2. Setup Figure
+    # 3 rows: Temps, KuKa, MPDI (Splitting indices is cleaner than twin-axis boxplots)
+    fig, (ax1, ax2, ax3) = plt.subplots(nrows=3, ncols=1, figsize=(14, 12), sharex=True)
+
+    # Define Width of boxes (in days).
+    # Adjust 'width' depending on your zoom level. 0.5 = half a day width.
+    box_width = 1.0
+
+    # --- PANEL 1: Temperatures ---
+    # We plot them slightly offset so they don't overlap perfectly
+
+    # Soil (Brown)
+    soil_data = get_grouped_data('soil_temp')
+    bp_soil = ax1.boxplot(soil_data, positions=date_nums, widths=box_width,
+                          patch_artist=True, boxprops=dict(facecolor='#8c564b', alpha=0.6),
+                          medianprops=dict(color='black'), showfliers=False)  # Hide outliers for cleanliness
+
+    # Veg (Green)
+    veg_data = get_grouped_data('veg_temp')
+    bp_veg = ax1.boxplot(veg_data, positions=date_nums, widths=box_width,
+                         patch_artist=True, boxprops=dict(facecolor='#2ca02c', alpha=0.6),
+                         medianprops=dict(color='black'), showfliers=False)
+
+    # Ka Temp (Red)
+    ka_data = get_grouped_data('tsurf_ka')
+    bp_ka = ax1.boxplot(ka_data, positions=date_nums, widths=box_width,
+                        patch_artist=True, boxprops=dict(facecolor='red', alpha=0.4),
+                        medianprops=dict(color='darkred'), showfliers=False)
+
+    # Fake legend handles
+    ax1.legend([bp_soil["boxes"][0], bp_veg["boxes"][0], bp_ka["boxes"][0]],
+               ['Soil Temp', 'Veg Temp', 'Ka Temp'], loc='upper right')
+
+    ax1.set_ylabel("T [K]", fontweight='bold')
+    ax1.set_title("Temperatures", loc='left', fontweight='bold')
+    ax1.grid(True, linestyle='--', alpha=0.5)
+
+    # --- PANEL 2: KuKa (Purple) ---
+    kuka_data = get_grouped_data('kuka')
+    ax2.boxplot(kuka_data, positions=date_nums, widths=box_width,
+                patch_artist=True, boxprops=dict(facecolor='#9467bd', alpha=0.7),
+                medianprops=dict(color='black'), showfliers=False)
+
+    ax2.set_ylabel("Index", color='#9467bd', fontweight='bold')
+    ax2.tick_params(axis='y', labelcolor='#9467bd')
+    ax2.set_title("KuKa", loc='left', fontweight='bold')
+    ax2.grid(True, linestyle='--', alpha=0.5)
+
+    # --- PANEL 3: MPDI (Blue) ---
+    mpdi_data = get_grouped_data('mpdi')
+    ax3.boxplot(mpdi_data, positions=date_nums, widths=box_width,
+                patch_artist=True, boxprops=dict(facecolor='#1f77b4', alpha=0.7),
+                medianprops=dict(color='black'), showfliers=False)
+
+    ax3.set_ylabel("MPDI", color='#1f77b4', fontweight='bold')
+    ax3.tick_params(axis='y', labelcolor='#1f77b4')
+    ax3.set_title("Microwave Index: MPDI", loc='left', fontweight='bold')
+    ax3.grid(True, linestyle='--', alpha=0.5)
+
+    # --- Formatting X-Axis ---
+    ax3.xaxis.set_major_locator(mdates.AutoDateLocator())
+    ax3.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+    plt.setp(ax3.xaxis.get_majorticklabels(), rotation=45, ha='right')
+
+    # Remove x-axis gap padding to make it tight
+    ax3.set_xlim(df['time'].min() - pd.Timedelta(days=5), df['time'].max() + pd.Timedelta(days=5))
+
+    plt.tight_layout()
+    return fig
+
+
+
+
+def plot_hexbin(df, x_col, y_col, xlim = [273, 325], ylim=[273, 325]):
+
     x = df[x_col]
     y = df[y_col]
     stats = usual_stats(x, y)
@@ -109,10 +196,9 @@ def plot_hexbin(df, x_col, y_col, title=None, gridsize=30, cmap='inferno'):
     fig, ax = plt.subplots(figsize=(6, 5))
 
     hb = ax.hexbin(x, y,
-                   gridsize=gridsize, cmap=cmap, mincnt=1)
+                   gridsize=100, cmap='inferno', mincnt=1)
 
-    lims = [273, 325]
-    ax.plot(lims, lims, 'k--', alpha=0.8, linewidth=1, zorder=10)  # 'k--' is black dashed
+    ax.plot(xlim, ylim, 'k--', alpha=0.8, linewidth=1, zorder=10)
 
     textstr = '\n'.join((
         f'$R = {stats["r"]:.2f}$',
@@ -129,11 +215,11 @@ def plot_hexbin(df, x_col, y_col, title=None, gridsize=30, cmap='inferno'):
     cb = fig.colorbar(hb, ax=ax)
     cb.set_label('Count')
 
-    ax.set_xlim(lims)
-    ax.set_ylim(lims)
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
     ax.set_xlabel(x_col)
     ax.set_ylabel(y_col)
-    ax.set_title(title if title else f'{x_col} vs {y_col}')
+    ax.set_title(f'{x_col} vs {y_col}')
 
 
     plt.show()

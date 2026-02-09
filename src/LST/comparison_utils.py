@@ -16,6 +16,7 @@ def temporal_subset_dc(SLSTR, AMSR2, date):
     """
     Select the closest date to SLSTR, and thus select this date to access AMSR2
     """
+    SLSTR = SLSTR.drop_duplicates(dim="time")
     SLSTR_obs = SLSTR.sel(time=date, method="nearest")
 
     # We select SLSTR's observation to get AMSR2. the frequency of obs for AMSR2 is higher.
@@ -73,7 +74,9 @@ def SLSTR_AMSR2_datacubes(region : Literal["sahel", "siberia", "midwest","ceu"],
                     time_stop=time_stop,
                         )
 
-    SLSTR = preprocess_slstr(NDVI, LST, SLSTR_path_region)
+    SLSTR = preprocess_slstr(NDVI, LST, SLSTR_path_region,
+                             time_start=time_start,
+                             time_stop=time_stop,)
 
     AMSR2 = open_amsr2(path=AMSR2_path,
                        sensor="AMSR2",
@@ -188,16 +191,21 @@ def cloud_filtering(dataset,
                     cloud_subdir_pattern=f"S3?_SL_2_LST____*",
                     cloud_date_pattern=r'___(\d{8})T(\d{4})',
                     cloud_variable_file="flags_in.nc",
-                    mask_value = 2):
+                    mask_value = 2,
+                    time_start = None,
+                    time_stop = None,
+                    ):
     """
     Optional cloud masking, with default path and variable parameters to SLSTR cloud flags.
     Strict threshold of 1, filters ALL clouds.
     """
 
     CLOUD= open_sltsr(path=cloud_path,
-                   subdir_pattern=cloud_subdir_pattern,
-                   date_pattern=cloud_date_pattern,
-                   variable_file=cloud_variable_file,
+                      subdir_pattern=cloud_subdir_pattern,
+                      date_pattern=cloud_date_pattern,
+                      variable_file=cloud_variable_file,
+                      time_start= time_start,
+                      time_stop= time_stop
                         )
 
     cloudy = xr.where(CLOUD["bayes_in"]==mask_value,True,False )
@@ -206,32 +214,37 @@ def cloud_filtering(dataset,
 
 
 def snow_filtering(dataset,
-                    cloud_path=SLSTR_path,
-                    cloud_subdir_pattern=f"S3?_SL_2_LST____*",
-                    cloud_date_pattern=r'___(\d{8})T(\d{4})',
-                    cloud_variable_file="LST_ancillary_ds.nc",
-                    snow_and_ice_flag = 27):
+                   cloud_path=SLSTR_path,
+                   cloud_subdir_pattern=f"S3?_SL_2_LST____*",
+                   cloud_date_pattern=r'___(\d{8})T(\d{4})',
+                   cloud_variable_file="LST_ancillary_ds.nc",
+                   snow_and_ice_flag = 27,
+                   time_start=None,
+                   time_stop=None,
+                   ):
     """
     Optional snow and ice masking, with default path and variable parameters to SLSTR cloud flags.
     """
 
     SNOWICE= open_sltsr(path=cloud_path,
-                   subdir_pattern=cloud_subdir_pattern,
-                   date_pattern=cloud_date_pattern,
-                   variable_file=cloud_variable_file,
+                        subdir_pattern=cloud_subdir_pattern,
+                        date_pattern=cloud_date_pattern,
+                        variable_file=cloud_variable_file,
+                        time_start=time_start,
+                        time_stop=time_stop
                         )
-    snowy = xr.where(SNOWICE["biome"]==27, True, False)
+    snowy = xr.where(SNOWICE["biome"]==snow_and_ice_flag, True, False)
 
     return xr.where(snowy, np.nan, dataset)
 
 
-def preprocess_slstr(NDVI,LST, SLSTR_path_region):
+def preprocess_slstr(NDVI,LST, SLSTR_path_region, time_start, time_stop):
     """
     Merge LST and NDVI, then Cloud, snow filtering and clearing possibly empty NDVI observations
     """
     _SLSTR = xr.merge([NDVI,LST])[["LST","NDVI"]]
-    _SLSTR = cloud_filtering(_SLSTR, cloud_path=SLSTR_path_region) # Mask clouds (strict)
-    _SLSTR = snow_filtering(_SLSTR, cloud_path=SLSTR_path_region) # Mask clouds (strict)
+    _SLSTR = cloud_filtering(_SLSTR, cloud_path=SLSTR_path_region, time_start=time_start, time_stop=time_stop) # Mask clouds (strict)
+    _SLSTR = snow_filtering(_SLSTR, cloud_path=SLSTR_path_region, time_start=time_start, time_stop=time_stop)  # Mask snow&ice (strict)
 
     return filter_empty_var(_SLSTR, "NDVI") # Filter empty NDVI obs
 

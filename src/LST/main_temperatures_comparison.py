@@ -1,5 +1,5 @@
 import pandas as pd
-from LST.plot_functions import plot_hexbin
+from LST.plot_functions import plot_hexbin, boxplot_timeseries
 from LST.SLSTR_AMSR2_reader import SLSTR_AMSR2_DC
 import matplotlib
 matplotlib.use('TkAgg')
@@ -8,39 +8,51 @@ from datetime import datetime
 
 if __name__=="__main__":
 
+    time_start = "2024-01-01"
+    time_stop = "2025-01-01"
+
     Data = SLSTR_AMSR2_DC(
         region="ceu",
-        time_start="2024-01-01",
-        time_stop="2025-01-01",
+        time_start=time_start,
+        time_stop=time_stop,
     )
 ##
-
     bbox =  [
-    21.518989522702412,
-    45.97810952647487,
-    23.077199533734955,
-    46.912737555251965
+    18.972706968269307,
+    46.72846154668119,
+    19.583395148733615,
+    47.18153831189926
   ]
+    soil_range = [0, 0.2]
+    veg_range = [0.5, 1]
 
-    loopstart =datetime.now()
     dflist = []
-    months = pd.date_range("2024-01-01","2024-12-31",freq="ME")
-    for d in months:
+    months = pd.date_range(time_start,time_stop,freq="ME")
+    timesteps = Data.DATACUBES_L1["SLSTR"].time
+
+    for d in timesteps:
         try:
-            print(d)
-            dflist.append(Data.process_date(date = d,  bbox= bbox))
+            dflist.append(Data.process_date(date = d,  bbox= bbox,
+                                            soil_range=soil_range,
+                                            veg_range=veg_range))
         except Exception as e:
             print(e)
-    loopend = datetime.now()
-    print(f"loop: {loopend - loopstart}")
+
     complete_df = pd.concat(dflist)
 
     plt.close("all")
     plot_hexbin(complete_df,"soil_temp", "tsurf_ka")
-    plot_hexbin(complete_df,"veg_temp", "tsurf_ka")
+    plot_hexbin(complete_df,"kuka", "veg_temp", xlim= [0.9,1], ylim = [273,320])
 
 ##
     date = "2024-06-01"
 
     Data.temperatures_dashboard(bbox=bbox,date=date, scatter_x= "soil_temp")
     Data.plot_AMSR2(bbox=bbox,date=date)
+
+
+    ##
+
+
+fig = boxplot_timeseries(complete_df)
+plt.show()
