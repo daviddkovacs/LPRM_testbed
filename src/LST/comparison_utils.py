@@ -41,9 +41,12 @@ def spatial_subset_dc(SLSTR, AMSR2,  bbox):
     return {"SLSTR": SLSTR_roi, "AMSR2": AMSR2}
 
 
-def SLSTR_AMSR2_datacubes( region : Literal["sahel", "siberia", "midwest","ceu"],
+def SLSTR_AMSR2_datacubes(region : Literal["sahel", "siberia", "midwest","ceu"],
                            SLSTR_path = SLSTR_path,
-                           AMSR2_path = path_bt,):
+                           AMSR2_path = path_bt,
+                           time_start = "2024-01-01",
+                           time_stop = "2025-01-01",
+                           ):
     """
     Main function to obtain SLSTR and AMSR2 observations, cut to the ROI.
     :param date: Date
@@ -59,12 +62,17 @@ def SLSTR_AMSR2_datacubes( region : Literal["sahel", "siberia", "midwest","ceu"]
                    subdir_pattern=f"S3?_SL_2_LST____*",
                    date_pattern=r'___(\d{8})T(\d{4})',
                    variable_file="LST_ancillary_ds.nc",
+                      time_start=time_start,
+                      time_stop=time_stop,
                         )
     LST= open_sltsr(path=SLSTR_path_region,
                    subdir_pattern=f"S3?_SL_2_LST____*",
                    date_pattern=r'___(\d{8})T(\d{4})',
                    variable_file="LST_in.nc",
+                    time_start=time_start,
+                    time_stop=time_stop,
                         )
+
     SLSTR = preprocess_slstr(NDVI, LST, SLSTR_path_region)
 
     AMSR2 = open_amsr2(path=AMSR2_path,
@@ -73,8 +81,8 @@ def SLSTR_AMSR2_datacubes( region : Literal["sahel", "siberia", "midwest","ceu"]
                        subdir_pattern=f"20*",
                        file_pattern="amsr2_l1bt_*.nc",
                        date_pattern=r"_(\d{8})_",
-                       time_start="2024-01-01",
-                       time_stop="2024-12-31",
+                       time_start=time_start,
+                       time_stop=time_stop,
                        resolution = "coarse_resolution",
                        )
 
@@ -125,7 +133,9 @@ def open_sltsr(path,
                subdir_pattern,
                date_pattern,
                variable_file,
-               georeference_file = "geodetic_in.nc"
+               georeference_file = "geodetic_in.nc",
+               time_start="2024-01-01",
+               time_stop="2025-01-01",
                ):
 
     folder = os.path.join(path,subdir_pattern,variable_file)
@@ -133,30 +143,34 @@ def open_sltsr(path,
     dates_string =  [(re.search(date_pattern, p).group(1),
                       re.search(date_pattern, p).group(2))for p in files]
 
-    dates_dt = [pd.to_datetime(f"{dt[0]} {dt[1]}") for dt in dates_string]
+    _dates = pd.to_datetime([f"{dt[0]} {dt[1]}" for dt in dates_string])
 
-    dataset = xr.open_mfdataset(files,
+    date_mask  = (pd.to_datetime(time_start) < _dates) & (_dates < pd.to_datetime(time_stop))
+    files_valid = np.array(files)[date_mask]
+
+    dataset = xr.open_mfdataset(files_valid,
                                 preprocess =clip_swath,
                                 combine ="nested",
                                 join = "outer",
                                 concat_dim = "time",
                                 chunks = "auto",
                                 decode_timedelta=False,
-                                ).assign_coords(time = dates_dt)
+                                ).assign_coords(time = _dates[date_mask])
 
     if georeference_file: # L1 and L2 SLSTR data isnt gridded. lat, lon from external file!
 
         coord_path = os.path.join(path,subdir_pattern,georeference_file)
         geo_files = glob.glob(coord_path)
+        geo_files_valid = np.array(geo_files)[date_mask]
 
-        geo = xr.open_mfdataset(geo_files,
+        geo = xr.open_mfdataset(geo_files_valid,
                                 preprocess =clip_swath,
                                 combine="nested",
                                 join="outer",
                                 concat_dim="time",
                                 chunks="auto",
                                 decode_timedelta=False,
-                                ).assign_coords(time = dates_dt)
+                                ).assign_coords(time =  _dates[date_mask])
 
         dataset = dataset.assign_coords(
             lat=(("time", "rows", "columns"), geo.latitude_in.data),

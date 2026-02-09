@@ -10,16 +10,17 @@ if __name__=="__main__":
 
     Data = SLSTR_AMSR2_DC(
         region="ceu",
+        time_start="2024-01-01",
+        time_stop="2025-01-01",
     )
 ##
 
-    bbox = [
-    21.55840069258295,
-    46.09277553088265,
-    21.996961171622758,
-    46.3148971976035
+    bbox =  [
+    21.518989522702412,
+    45.97810952647487,
+    23.077199533734955,
+    46.912737555251965
   ]
-    date = "2024-05-01"
 
     loopstart =datetime.now()
     dflist = []
@@ -39,6 +40,7 @@ if __name__=="__main__":
     plot_hexbin(complete_df,"veg_temp", "tsurf_ka")
 
 ##
+    date = "2024-06-01"
 
     Data.temperatures_dashboard(bbox=bbox,date=date, scatter_x= "soil_temp")
     Data.plot_AMSR2(bbox=bbox,date=date)
