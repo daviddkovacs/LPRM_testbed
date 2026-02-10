@@ -168,5 +168,5 @@ class SLSTR_AMSR2_DC:
         :return:
         """
         self.spatio_temporal_subset(bbox,date)
-        amsr2_lst=  calc_Holmes_temp(self.DATACUBES_L2["AMSR2"])
+        amsr2_lst = calc_Holmes_temp(self.DATACUBES_L2["AMSR2"])
         amsr2_lst_figure(amsr2_lst, AMSR2_plot_params)

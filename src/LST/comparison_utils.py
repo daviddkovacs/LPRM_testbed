@@ -10,6 +10,7 @@ from typing import Literal
 import pandas as pd
 from config.paths import SLSTR_path, path_bt
 
+
 # ---------------------------------------
 # DATACUBE PROCESSORS
 def temporal_subset_dc(SLSTR, AMSR2, date):
@@ -31,11 +32,12 @@ def spatial_subset_dc(SLSTR, AMSR2,  bbox):
     Both AMSR2 and SLSTR cropped to bbox
     """
     AMSR2 = crop2roi(AMSR2.compute(), bbox)
+    res = AMSR2.attrs["resolution"]
 
-    AMSR2_bbox = [get_edges(AMSR2.lon.values).min(),
-                  get_edges(AMSR2.lat.values).min(),
-                  get_edges(AMSR2.lon.values).max(),
-                  get_edges(AMSR2.lat.values).max()]
+    AMSR2_bbox = [get_edges(AMSR2.lon.values,res).min(),
+                  get_edges(AMSR2.lat.values,res).min(),
+                  get_edges(AMSR2.lon.values,res).max(),
+                  get_edges(AMSR2.lat.values,res).max()]
 
     SLSTR_roi = crop2roi(SLSTR.compute(), AMSR2_bbox)
 
@@ -127,6 +129,9 @@ def open_amsr2(path,
                                 chunks = "auto",
                                 decode_timedelta = False).assign_coords(time = _dates[date_mask])
 
+    res_dict = {"coarse_resolution" : 0.25,
+                "medium_resolution":  0.1}
+    dataset = dataset.assign_attrs(resolution = res_dict[resolution])
     print(f"Loading dataset finished (AMSR2)")
 
     return dataset
@@ -263,7 +268,9 @@ def calc_Holmes_temp(KaV):
     """
     Surface temperature from Ka-band observations according to Holmes et al. 2008
     """
-    return KaV["bt_36.5V"] * 0.893 + 44.8
+    TSURF = KaV["bt_36.5V"] * 0.893 + 44.8
+    TSURF.attrs = KaV.attrs
+    return TSURF
 
 
 def calc_adjusted_temp(AMSR2, factor = 0.6, bandH = "Ka", mpdi_band = "C1"):
@@ -359,20 +366,20 @@ def subset_statistics(array):
 
 
 
-def get_edges(centers):
+def get_edges(centers, res):
     """
     Calculate the spacing between pixels, to properly handle np.digitize. Otherwise offset.
     """
-    res = np.abs(np.diff(centers)[0])
 
     edges = np.append(np.sort(centers) - res / 2, np.sort(centers)[-1] + res / 2)
+
     return np.sort(edges)
 
 
-def binning_smaller_pixels(slstr_da,amsr2_da):
-
-    lat_edges = get_edges(amsr2_da.lat.values)
-    lon_edges = get_edges(amsr2_da.lon.values)
+def binning_smaller_pixels(slstr_da, amsr2_da):
+    res = amsr2_da.attrs["resolution"]
+    lat_edges = get_edges(amsr2_da.lat.values, res)
+    lon_edges = get_edges(amsr2_da.lon.values, res)
 
     iterables = {}
 
@@ -395,13 +402,17 @@ def slstr_pixels_in_amsr2(slstr_da,
 
 def compare_temperatures(soil_temp, veg_temp, TSURF, TSURFadj = None, MPDI =None, KUKA = None):
     """
-    Gets the underlying SLSTR pixels for every AMSR2 Ka-LST pixel. Then calculates the mean and std for these, and plots
+    Gets the underlying SLSTR array of pixels for every AMSR2 Ka-LST pixel. Then calculates the mean and std for these, and plots
     """
-    veg_mean_list = []
-    veg_std_list = []
+    soil_array =  [] # Soil SLSTR pixels within AMSR2 pixel
+    veg_array =  [] # Veg. SLSTR pixels within AMSR2 pixel
+
+    veg_mean_list = []  # Mean of soil SLSTR pixels within AMSR2 pixel
+    veg_std_list = [] # std of veg. SLSTR pixels within AMSR2 pixel
 
     soil_mean_list = []
     soil_std_list = []
+
     TSURF_list = []
     TSURFadj_list = []
     MPDI_list = []
@@ -422,6 +433,9 @@ def compare_temperatures(soil_temp, veg_temp, TSURF, TSURFadj = None, MPDI =None
                                                targetlat,
                                                targetlon)
 
+            soil_array.append(subset_statistics(soil_subset)[0])
+            veg_array.append(subset_statistics(veg_subset)[0])
+
             soil_mean_list.append(subset_statistics(soil_subset)[1]["mean"])
             soil_std_list.append(subset_statistics(soil_subset)[1]["std"])
 
@@ -430,8 +444,6 @@ def compare_temperatures(soil_temp, veg_temp, TSURF, TSURFadj = None, MPDI =None
 
             TSURF_subset = TSURF.isel(lat=targetlat, lon=targetlon)
             TSURF_list.append(TSURF_subset.values.item())
-
-
 
             if MPDI is not None:
                 try:
@@ -446,15 +458,19 @@ def compare_temperatures(soil_temp, veg_temp, TSURF, TSURFadj = None, MPDI =None
 
                 except Exception as e:
                     print(e)
-    df =  pd.DataFrame({"veg_temp": veg_mean_list,
-                             "veg_std": veg_std_list,
-                             "soil_temp": soil_mean_list,
-                             "soil_std": soil_std_list,
-                             "tsurf_ka": TSURF_list,
-                             "tsurf_adj": TSURFadj_list,
-                             "mpdi": MPDI_list,
-                             "kuka": KUKA_list,
-                             })
+
+    df =  pd.DataFrame({
+        "soil_array": soil_array,
+        "veg_array": veg_array,
+        "veg_temp": veg_mean_list,
+        "veg_std": veg_std_list,
+        "soil_temp": soil_mean_list,
+        "soil_std": soil_std_list,
+        "tsurf_ka": TSURF_list,
+        "tsurf_adj": TSURFadj_list,
+        "mpdi": MPDI_list,
+        "kuka": KUKA_list,
+    })
 
     return df
 

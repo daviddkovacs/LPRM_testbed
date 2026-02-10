@@ -84,14 +84,23 @@ def plot_lst(left_da,
 def amsr2_lst_figure(ds,
                plot_params):
 
+    res = ds.attrs["resolution"]
+    lon = ds.lon.item()
+    lat = ds.lat.item()
+
+    extent = [lon - res / 2, lon + res / 2, lat - res / 2, lat + res / 2]
+
     plt.figure()
-    ds.plot(
-        cmap= plot_params["cmap"],
-        cbar_kwargs=plot_params["cbar_kwargs"],
+
+    ds.plot.imshow(
+        cmap=plot_params["cmap"],
         vmin=plot_params["vmin"],
-        vmax=plot_params["vmax"]
+        vmax=plot_params["vmax"],
+        extent=extent
     )
-    plt.title(f"AMSR2 LST in bounding box\n{ds.time.dt.strftime("%Y-%m-%d").item()}")
+
+    date_str = ds.time.dt.strftime('%Y-%m-%d').item()
+    plt.title(f"AMSR2 LST in bounding box\n{date_str}")
     plt.show()
 
 
@@ -110,76 +119,81 @@ def boxplot_timeseries(df):
     unique_dates = df['time'].unique()
     date_nums = mdates.date2num(unique_dates)
 
-    # Helper to group data by date
     def get_grouped_data(col_name):
-        return [df.loc[df['time'] == d, col_name].dropna().values for d in unique_dates]
+        grouped_data = []
+        for d in unique_dates:
+            day_data = df.loc[df['time'] == d, col_name].dropna().values
 
-    # 2. Setup Figure
-    # 3 rows: Temps, KuKa, MPDI (Splitting indices is cleaner than twin-axis boxplots)
+            if len(day_data) > 0 and isinstance(day_data[0], (list, np.ndarray)):
+                merged_pixels = np.hstack(day_data)
+                grouped_data.append(merged_pixels)
+            else:
+                grouped_data.append(day_data)
+        return grouped_data
+
     fig, (ax1, ax2, ax3) = plt.subplots(nrows=3, ncols=1, figsize=(14, 12), sharex=True)
 
-    # Define Width of boxes (in days).
-    # Adjust 'width' depending on your zoom level. 0.5 = half a day width.
-    box_width = 1.0
+    # offset of bars
+    width = 1.0
 
-    # --- PANEL 1: Temperatures ---
-    # We plot them slightly offset so they don't overlap perfectly
+    # Soil (Left)
+    soil_data = get_grouped_data('soil_array')
+    bp_soil = ax1.boxplot(soil_data,
+                          positions=date_nums ,
+                          widths=width,
+                          patch_artist=True, boxprops=dict(facecolor='#8c564b', alpha=0.8),
+                          medianprops=dict(color='black'), showfliers=False)
 
-    # Soil (Brown)
-    soil_data = get_grouped_data('soil_temp')
-    bp_soil = ax1.boxplot(soil_data, positions=date_nums, widths=box_width,
-                          patch_artist=True, boxprops=dict(facecolor='#8c564b', alpha=0.6),
-                          medianprops=dict(color='black'), showfliers=False)  # Hide outliers for cleanliness
-
-    # Veg (Green)
-    veg_data = get_grouped_data('veg_temp')
-    bp_veg = ax1.boxplot(veg_data, positions=date_nums, widths=box_width,
-                         patch_artist=True, boxprops=dict(facecolor='#2ca02c', alpha=0.6),
+    # Veg (Center)
+    veg_data = get_grouped_data('veg_array')
+    bp_veg = ax1.boxplot(veg_data,
+                         positions=date_nums,
+                         widths=width,
+                         patch_artist=True, boxprops=dict(facecolor='#2ca02c', alpha=0.8),
                          medianprops=dict(color='black'), showfliers=False)
 
-    # Ka Temp (Red)
+    # Ka Temp (Right)
     ka_data = get_grouped_data('tsurf_ka')
-    bp_ka = ax1.boxplot(ka_data, positions=date_nums, widths=box_width,
-                        patch_artist=True, boxprops=dict(facecolor='red', alpha=0.4),
-                        medianprops=dict(color='darkred'), showfliers=False)
+    bp_ka = ax1.boxplot(ka_data,
+                        positions=date_nums,
+                        widths=3,
+                        patch_artist=True, boxprops=dict(facecolor='red', alpha=0.8),
+                        medianprops=dict(color='darkred',linewidth=3), showfliers=False)
 
-    # Fake legend handles
-    ax1.legend([bp_soil["boxes"][0], bp_veg["boxes"][0], bp_ka["boxes"][0]],
-               ['Soil Temp', 'Veg Temp', 'Ka Temp'], loc='upper right')
+    try:
+        ax1.legend([bp_soil["boxes"][0], bp_veg["boxes"][0], bp_ka["boxes"][0]],
+                   ['Soil Temp', 'Veg Temp', 'Ka Temp'], loc='upper right')
+    except IndexError:
+        pass
 
     ax1.set_ylabel("T [K]", fontweight='bold')
-    ax1.set_title("Temperatures", loc='left', fontweight='bold')
+    ax1.set_title("Temperatures (Boxplot)", loc='left', fontweight='bold')
     ax1.grid(True, linestyle='--', alpha=0.5)
 
-    # --- PANEL 2: KuKa (Purple) ---
     kuka_data = get_grouped_data('kuka')
-    ax2.boxplot(kuka_data, positions=date_nums, widths=box_width,
+    ax2.boxplot(kuka_data, positions=date_nums, widths=0.6,  # Wider since it's alone
                 patch_artist=True, boxprops=dict(facecolor='#9467bd', alpha=0.7),
                 medianprops=dict(color='black'), showfliers=False)
 
     ax2.set_ylabel("Index", color='#9467bd', fontweight='bold')
-    ax2.tick_params(axis='y', labelcolor='#9467bd')
     ax2.set_title("KuKa", loc='left', fontweight='bold')
     ax2.grid(True, linestyle='--', alpha=0.5)
 
-    # --- PANEL 3: MPDI (Blue) ---
     mpdi_data = get_grouped_data('mpdi')
-    ax3.boxplot(mpdi_data, positions=date_nums, widths=box_width,
+    ax3.boxplot(mpdi_data, positions=date_nums, widths=0.6,
                 patch_artist=True, boxprops=dict(facecolor='#1f77b4', alpha=0.7),
                 medianprops=dict(color='black'), showfliers=False)
 
     ax3.set_ylabel("MPDI", color='#1f77b4', fontweight='bold')
-    ax3.tick_params(axis='y', labelcolor='#1f77b4')
     ax3.set_title("Microwave Index: MPDI", loc='left', fontweight='bold')
     ax3.grid(True, linestyle='--', alpha=0.5)
 
-    # --- Formatting X-Axis ---
     ax3.xaxis.set_major_locator(mdates.AutoDateLocator())
     ax3.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
     plt.setp(ax3.xaxis.get_majorticklabels(), rotation=45, ha='right')
 
-    # Remove x-axis gap padding to make it tight
-    ax3.set_xlim(df['time'].min() - pd.Timedelta(days=5), df['time'].max() + pd.Timedelta(days=5))
+    pad = pd.Timedelta(days=1)
+    ax3.set_xlim(df['time'].min() - pad, df['time'].max() + pad)
 
     plt.tight_layout()
     return fig
