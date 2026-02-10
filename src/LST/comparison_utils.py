@@ -460,8 +460,6 @@ def compare_temperatures(soil_temp, veg_temp, TSURF, TSURFadj = None, MPDI =None
                     print(e)
 
     df =  pd.DataFrame({
-        "soil_array": soil_array,
-        "veg_array": veg_array,
         "veg_temp": veg_mean_list,
         "veg_std": veg_std_list,
         "soil_temp": soil_mean_list,
@@ -470,6 +468,8 @@ def compare_temperatures(soil_temp, veg_temp, TSURF, TSURFadj = None, MPDI =None
         "tsurf_adj": TSURFadj_list,
         "mpdi": MPDI_list,
         "kuka": KUKA_list,
+        "soil_array": soil_array,
+        "veg_array": veg_array,
     })
 
     return df

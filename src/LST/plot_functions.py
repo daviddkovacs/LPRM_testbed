@@ -84,11 +84,13 @@ def plot_lst(left_da,
 def amsr2_lst_figure(ds,
                plot_params):
 
-    res = ds.attrs["resolution"]
-    lon = ds.lon.item()
-    lat = ds.lat.item()
+    lon_min = np.min(ds.lon.values)
+    lon_max = np.max(ds.lon.values)
+    lat_min = np.min(ds.lat.values)
+    lat_max = np.max(ds.lat.values)
 
-    extent = [lon - res / 2, lon + res / 2, lat - res / 2, lat + res / 2]
+    res = ds.attrs.get("resolution", 0.25)
+    extent = [lon_min - res / 2, lon_max + res / 2, lat_min - res / 2, lat_max + res / 2]
 
     plt.figure()
 
@@ -157,7 +159,7 @@ def boxplot_timeseries(df):
     bp_ka = ax1.boxplot(ka_data,
                         positions=date_nums,
                         widths=3,
-                        patch_artist=True, boxprops=dict(facecolor='red', alpha=0.8),
+                        patch_artist=True, boxprops=dict(facecolor='red', alpha=0.6),
                         medianprops=dict(color='darkred',linewidth=3), showfliers=False)
 
     try:
