@@ -67,13 +67,15 @@ def SLSTR_AMSR2_datacubes(region : Literal["sahel", "siberia", "midwest","ceu"],
                    variable_file="LST_ancillary_ds.nc",
                       time_start=time_start,
                       time_stop=time_stop,
-                        )
+                      variable="NDVI",
+                      )
     LST= open_sltsr(path=SLSTR_path_region,
                    subdir_pattern=f"S3?_SL_2_LST____*",
                    date_pattern=r'___(\d{8})T(\d{4})',
                    variable_file="LST_in.nc",
                     time_start=time_start,
                     time_stop=time_stop,
+                    variable="LST",
                         )
 
     SLSTR = preprocess_slstr(NDVI, LST, SLSTR_path_region,
@@ -144,6 +146,7 @@ def open_sltsr(path,
                georeference_file = "geodetic_in.nc",
                time_start="2024-01-01",
                time_stop="2025-01-01",
+               variable = "all",
                ):
 
     folder = os.path.join(path,subdir_pattern,variable_file)
@@ -161,8 +164,9 @@ def open_sltsr(path,
                                 combine ="nested",
                                 join = "outer",
                                 concat_dim = "time",
-                                chunks = "auto",
                                 decode_timedelta=False,
+                                chunks="auto",
+                                parallel=True,
                                 ).assign_coords(time = _dates[date_mask])
 
     if georeference_file: # L1 and L2 SLSTR data isnt gridded. lat, lon from external file!
@@ -176,19 +180,28 @@ def open_sltsr(path,
                                 combine="nested",
                                 join="outer",
                                 concat_dim="time",
-                                chunks="auto",
                                 decode_timedelta=False,
+                                parallel=True,
+                                chunks="auto",
                                 ).assign_coords(time =  _dates[date_mask])
+
+        geo = geo[["latitude_in","longitude_in"]]
 
         dataset = dataset.assign_coords(
             lat=(("time", "rows", "columns"), geo.latitude_in.data),
             lon=(("time", "rows", "columns"), geo.longitude_in.data)
         )
-
+        del geo
         print(f"Loading dataset finished ({variable_file})")
 
     dataset = dataset.sortby("time")
-    return dataset
+
+    if variable == "all":
+        _dataset = dataset
+    elif variable != "all":
+        _dataset = dataset[variable]
+
+    return _dataset
 
 
 def cloud_filtering(dataset,
@@ -210,11 +223,13 @@ def cloud_filtering(dataset,
                       date_pattern=cloud_date_pattern,
                       variable_file=cloud_variable_file,
                       time_start= time_start,
-                      time_stop= time_stop
+                      time_stop= time_stop,
+                      georeference_file = None,
+                      variable="bayes_in"
                         )
 
-    cloudy = xr.where(CLOUD["bayes_in"]==mask_value,True,False )
-
+    cloudy = xr.where(CLOUD==mask_value,True,False )
+    del CLOUD
     return xr.where(cloudy, np.nan, dataset)
 
 
@@ -236,10 +251,12 @@ def snow_filtering(dataset,
                         date_pattern=cloud_date_pattern,
                         variable_file=cloud_variable_file,
                         time_start=time_start,
-                        time_stop=time_stop
+                        time_stop=time_stop,
+                        georeference_file = None,
+                        variable="biome"
                         )
-    snowy = xr.where(SNOWICE["biome"]==snow_and_ice_flag, True, False)
-
+    snowy = xr.where(SNOWICE==snow_and_ice_flag, True, False)
+    del SNOWICE
     return xr.where(snowy, np.nan, dataset)
 
 
