@@ -38,7 +38,7 @@ class SLSTR_AMSR2_DC:
                                                   time_start = time_start,
                                                   time_stop = time_stop,
                                                   )
-        print("Data loaded.")
+        print("Data loading finished.")
 
         self.DATACUBES_L1B = None
         self.DATACUBES_L2 = None
@@ -69,7 +69,7 @@ class SLSTR_AMSR2_DC:
             SLSTR=self.DATACUBES_L1B["SLSTR"],
             AMSR2=self.DATACUBES_L1B["AMSR2"],
             bbox=bbox)
-        X = 1
+
 
     def process_date(self,
                      bbox,
@@ -135,16 +135,6 @@ class SLSTR_AMSR2_DC:
         A plot is also created which shows the SLSTR soil and vegetation temperatures per AMSR2 pixel.
         Two scatter plots show the relationship b/w AMSR2 LST and theretical LST calculated from the MPDI adjusted
         formula.
-        :param bbox:
-        :param date:
-        :param plot_mpdi:
-        :param plot_tsurf_adjust:
-        :param plot_kuka:
-        :param mpdi_band:
-        :param scatter_x:
-        :param LST_params:
-        :param NDVI_params:
-        :return:
         """
         df = self.process_date(bbox,date)
 

@@ -258,6 +258,9 @@ def combined_validation_dashboard(LST_L1B,
     """
     LST_L1B = LST_L1B.isel(time=0) if 'time' in LST_L1B.dims and LST_L1B.sizes['time'] > 1 else LST_L1B.squeeze()
     NDVI_L1B = NDVI_L1B.isel(time=0) if 'time' in NDVI_L1B.dims and NDVI_L1B.sizes['time'] > 1 else NDVI_L1B.squeeze()
+    LST_L1B = LST_L1B.dropna(dim='rows', how='all').dropna(dim='columns', how='all')
+    NDVI_L1B = NDVI_L1B.dropna(dim='rows', how='all').dropna(dim='columns', how='all')
+    # --- NEW FIX ENDS HERE ---
     obs_date = pd.to_datetime(LST_L1B.time.values).strftime('%Y-%m-%d')
 
     fig = plt.figure(figsize=(14, 15))
