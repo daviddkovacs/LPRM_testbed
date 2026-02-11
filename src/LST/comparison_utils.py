@@ -17,6 +17,7 @@ def temporal_subset_dc(SLSTR, AMSR2, date):
     """
     Select the closest date to SLSTR, and thus select this date to access AMSR2
     """
+    # SLSTR["time"] = SLSTR.time.sortby("time")
     SLSTR = SLSTR.drop_duplicates(dim="time")
     SLSTR_obs = SLSTR.sel(time=date, method="nearest")
 
@@ -177,12 +178,14 @@ def open_date(lst,
     )
 
 
-    cloudy = xr.where(CLOUD == 2, True, False)
+    cloudy = xr.where(CLOUD == 2, True, False) # TODO
     CLOUD_FILTERED = xr.where(cloudy, np.nan, DATA)
 
     snowy = xr.where(SNOWICE==27, True, False)
     CLOUD_SNOW_FILTERED = xr.where(snowy, np.nan, CLOUD_FILTERED)
-    print(day)
+
+    print(f"Succesfully read SLSTR: {day}")
+
     return CLOUD_SNOW_FILTERED
 
 
@@ -211,7 +214,7 @@ def clean_pad_data(list_of_da):
         )
         padded_data.append(ds_padded)
 
-        return padded_data
+    return padded_data
 
 
 def open_sltsr(path,

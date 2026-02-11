@@ -34,6 +34,7 @@ if __name__=="__main__":
 
     for d in timesteps:
         # try:
+        print(f"processing: {d.values}")
         dflist.append(Data.process_date(date = d,  bbox= bbox,
                                         soil_range=soil_range,
                                         veg_range=veg_range))
