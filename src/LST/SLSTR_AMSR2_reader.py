@@ -22,6 +22,7 @@ class SLSTR_AMSR2_DC:
 
     def __init__(self,
                  region:Literal["sahel", "siberia", "midwest","ceu"],
+                 bbox:List[float],
                  time_start: str,
                  time_stop: str,
                  ):
@@ -33,6 +34,7 @@ class SLSTR_AMSR2_DC:
         """
 
         self.DATACUBES_L1 = SLSTR_AMSR2_datacubes(region=region,
+                                                  bbox = bbox,
                                                   time_start = time_start,
                                                   time_stop = time_stop,
                                                   )
@@ -67,7 +69,7 @@ class SLSTR_AMSR2_DC:
             SLSTR=self.DATACUBES_L1B["SLSTR"],
             AMSR2=self.DATACUBES_L1B["AMSR2"],
             bbox=bbox)
-
+        X = 1
 
     def process_date(self,
                      bbox,

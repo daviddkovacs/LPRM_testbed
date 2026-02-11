@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 import os
-from typing import Literal
+from typing import Literal, List
 import pandas as pd
 from config.paths import SLSTR_path, path_bt
 
@@ -45,6 +45,7 @@ def spatial_subset_dc(SLSTR, AMSR2,  bbox):
 
 
 def SLSTR_AMSR2_datacubes(region : Literal["sahel", "siberia", "midwest","ceu"],
+                          bbox= List[float],
                            SLSTR_path = SLSTR_path,
                            AMSR2_path = path_bt,
                            time_start = "2024-01-01",
@@ -61,28 +62,15 @@ def SLSTR_AMSR2_datacubes(region : Literal["sahel", "siberia", "midwest","ceu"],
     """
     SLSTR_path_region = os.path.join(SLSTR_path,region)
 
-    NDVI = open_sltsr(path=SLSTR_path_region,
-                   subdir_pattern=f"S3?_SL_2_LST____*",
-                   date_pattern=r'___(\d{8})T(\d{4})',
-                   variable_file="LST_ancillary_ds.nc",
-                      time_start=time_start,
-                      time_stop=time_stop,
-                      variable="NDVI",
-                      )
-    LST= open_sltsr(path=SLSTR_path_region,
-                   subdir_pattern=f"S3?_SL_2_LST____*",
-                   date_pattern=r'___(\d{8})T(\d{4})',
-                   variable_file="LST_in.nc",
-                    time_start=time_start,
-                    time_stop=time_stop,
-                    variable="LST",
-                        )
+    SLSTR_cropped_stack = open_sltsr(SLSTR_path_region,
+                             subdir_pattern = f"S3?_SL_2_LST____*",
+                             date_pattern = r'___(\d{8})T(\d{4})',
+                             time_start = time_start,
+                             time_stop = time_stop,
+                             bbox=bbox
+                             )
 
-    SLSTR = preprocess_slstr(NDVI, LST, SLSTR_path_region,
-                             time_start=time_start,
-                             time_stop=time_stop,)
-
-    AMSR2 = open_amsr2(path=AMSR2_path,
+    AMSR2_cropped_stack = open_amsr2(path=AMSR2_path,
                        sensor="AMSR2",
                        overpass="day",
                        subdir_pattern=f"20*",
@@ -91,10 +79,11 @@ def SLSTR_AMSR2_datacubes(region : Literal["sahel", "siberia", "midwest","ceu"],
                        time_start=time_start,
                        time_stop=time_stop,
                        resolution = "coarse_resolution",
+                       bbox=bbox
                        )
 
 
-    return  {"SLSTR" : SLSTR, "AMSR2" : AMSR2,}
+    return  {"SLSTR" : SLSTR_cropped_stack, "AMSR2" : AMSR2_cropped_stack,}
 
 
 
@@ -111,6 +100,7 @@ def open_amsr2(path,
                resolution: Literal["coarse_resolution","medium_resolution"],
                time_start = "2024-01-01",
                time_stop = "2025-01-01",
+               bbox = List[float]
                ):
 
     folder = os.path.join(path,resolution,sensor,overpass,subdir_pattern,file_pattern)
@@ -136,143 +126,146 @@ def open_amsr2(path,
     dataset = dataset.assign_attrs(resolution = res_dict[resolution])
     print(f"Loading dataset finished (AMSR2)")
 
-    return dataset
+    return crop2roi(dataset,bbox)
+
+
+def open_date(lst,
+              anc,
+              cloud, # "bayes_in"
+              coord,
+              day):
+
+    LST = xr.open_mfdataset(lst,
+                            chunks="auto",
+                            decode_timedelta = False,
+                            join= "outer",
+                            combine="nested",
+                            preprocess=clip_swath,
+                            ).assign_coords(time = day)[["LST"]]
+
+    ANC = xr.open_mfdataset(anc,
+                            chunks="auto",
+                            decode_timedelta = False,
+                            join= "outer",
+                            combine="nested",
+                            preprocess=clip_swath,
+                            ).assign_coords(time = day)[["NDVI","biome"]]
+    NDVI = ANC["NDVI"]
+
+    SNOWICE = ANC["biome"]
+    CLOUD = xr.open_mfdataset(cloud,
+                            chunks="auto",
+                            decode_timedelta = False,
+                            join= "outer",
+                            combine="nested",
+                            preprocess=clip_swath,
+                            ).assign_coords(time = day)["bayes_in"]
+
+    COORDS = xr.open_mfdataset(coord,
+                            chunks="auto",
+                            decode_timedelta = False,
+                            join= "outer",
+                            combine="nested",
+                            preprocess=clip_swath,
+                            ).assign_coords(time = day)[["latitude_in","longitude_in"]]
+
+    DATA = xr.merge([NDVI,LST])[["LST","NDVI"]]
+
+    DATA = DATA.assign_coords(
+        lat=(( "rows", "columns"), COORDS.latitude_in.values),
+        lon=(( "rows", "columns"), COORDS.longitude_in.values)
+    )
+
+
+    cloudy = xr.where(CLOUD == 2, True, False)
+    CLOUD_FILTERED = xr.where(cloudy, np.nan, DATA)
+
+    snowy = xr.where(SNOWICE==27, True, False)
+    CLOUD_SNOW_FILTERED = xr.where(snowy, np.nan, CLOUD_FILTERED)
+    print(day)
+    return CLOUD_SNOW_FILTERED
+
+
+def clean_pad_data(list_of_da):
+    """
+    filters empy cropped data from SLSTR as well as pads data so each cropped ROI is the same dm
+    :param list_of_da: list of dataarrays to be concatenated.
+    :return: list of nicely cropped dataarrays
+    """
+    cleaned_data = [
+        ds for ds in list_of_da
+        if ds.sizes['rows'] > 0 and ds.sizes['columns'] > 0
+    ]
+    max_rows = max(ds.sizes['rows'] for ds in cleaned_data)
+    max_cols = max(ds.sizes['columns'] for ds in cleaned_data)
+
+    padded_data = []
+    for ds in cleaned_data:
+        pad_rows = max_rows - ds.sizes['rows']
+        pad_cols = max_cols - ds.sizes['columns']
+
+        ds_padded = ds.pad(
+            rows=(0, pad_rows),
+            columns=(0, pad_cols),
+            constant_values=np.nan
+        )
+        padded_data.append(ds_padded)
+
+        return padded_data
 
 
 def open_sltsr(path,
                subdir_pattern,
                date_pattern,
-               variable_file,
-               georeference_file = "geodetic_in.nc",
+               bbox,
                time_start="2024-01-01",
                time_stop="2025-01-01",
-               variable = "all",
                ):
+    """
+    Sorry to all my colleauges and to people who like elegant code, I also do.
+    However, reading SLSTR files, with multi-year timespan in an elegant way, did not work.
+    """
+    folder_lst = os.path.join(path,subdir_pattern,"LST_in.nc")
+    folder_anc = os.path.join(path,subdir_pattern,"LST_ancillary_ds.nc")
+    folder_cloud = os.path.join(path,subdir_pattern,"flags_in.nc")
+    coord_path = os.path.join(path,subdir_pattern,"geodetic_in.nc")
 
-    folder = os.path.join(path,subdir_pattern,variable_file)
-    files = glob.glob(folder)
+    files_lst = glob.glob(folder_lst)
+    files_anc = glob.glob(folder_anc)
+    files_cloud = glob.glob(folder_cloud)
+    geo_files = glob.glob(coord_path)
+
     dates_string =  [(re.search(date_pattern, p).group(1),
-                      re.search(date_pattern, p).group(2))for p in files]
+                      re.search(date_pattern, p).group(2))for p in files_lst] # could be also files_ndvi (date comes from fname)
 
     _dates = pd.to_datetime([f"{dt[0]} {dt[1]}" for dt in dates_string])
 
     date_mask  = (pd.to_datetime(time_start) < _dates) & (_dates < pd.to_datetime(time_stop))
-    files_valid = np.array(files)[date_mask]
 
-    dataset = xr.open_mfdataset(files_valid,
-                                preprocess =clip_swath,
-                                combine ="nested",
-                                join = "outer",
-                                concat_dim = "time",
-                                decode_timedelta=False,
-                                chunks="auto",
-                                parallel=True,
-                                ).assign_coords(time = _dates[date_mask])
+    files_valid_lst = np.array(files_lst)[date_mask]  # LST
+    files_valid_anc = np.array(files_anc)[date_mask]  # Ancillary (NDVI, Snow and Ice flags)
+    files_valid_cloud = np.array(files_cloud)[date_mask]  # Cloud classification
+    geo_files_valid = np.array(geo_files)[date_mask] # COORDS
+    dates_valid = np.array(_dates)[date_mask] # days
 
-    if georeference_file: # L1 and L2 SLSTR data isnt gridded. lat, lon from external file!
+    big_data = []
 
-        coord_path = os.path.join(path,subdir_pattern,georeference_file)
-        geo_files = glob.glob(coord_path)
-        geo_files_valid = np.array(geo_files)[date_mask]
+    for lst, anc, cloud, coord, day in zip(files_valid_lst,
+                                           files_valid_anc,
+                                           files_valid_cloud,
+                                           geo_files_valid,
+                                           dates_valid):
 
-        geo = xr.open_mfdataset(geo_files_valid,
-                                preprocess =clip_swath,
-                                combine="nested",
-                                join="outer",
-                                concat_dim="time",
-                                decode_timedelta=False,
-                                parallel=True,
-                                chunks="auto",
-                                ).assign_coords(time =  _dates[date_mask])
+        daily_da = open_date(lst, anc, cloud, coord, day)
+        cropped_daily_da=  crop2roi(daily_da, bbox=bbox)
+        big_data.append(cropped_daily_da)
 
-        geo = geo[["latitude_in","longitude_in"]]
+    padded_data = clean_pad_data(big_data)
 
-        dataset = dataset.assign_coords(
-            lat=(("time", "rows", "columns"), geo.latitude_in.data),
-            lon=(("time", "rows", "columns"), geo.longitude_in.data)
-        )
-        del geo
-        print(f"Loading dataset finished ({variable_file})")
+    _dataset = xr.concat(padded_data, dim = "time")
+    _dataset = filter_empty_var(_dataset)
 
-    dataset = dataset.sortby("time")
-
-    if variable == "all":
-        _dataset = dataset
-    elif variable != "all":
-        _dataset = dataset[variable]
-
-    return _dataset
-
-
-def cloud_filtering(dataset,
-                    cloud_path=SLSTR_path,
-                    cloud_subdir_pattern=f"S3?_SL_2_LST____*",
-                    cloud_date_pattern=r'___(\d{8})T(\d{4})',
-                    cloud_variable_file="flags_in.nc",
-                    mask_value = 2,
-                    time_start = None,
-                    time_stop = None,
-                    ):
-    """
-    Optional cloud masking, with default path and variable parameters to SLSTR cloud flags.
-    Strict threshold of 1, filters ALL clouds.
-    """
-
-    CLOUD= open_sltsr(path=cloud_path,
-                      subdir_pattern=cloud_subdir_pattern,
-                      date_pattern=cloud_date_pattern,
-                      variable_file=cloud_variable_file,
-                      time_start= time_start,
-                      time_stop= time_stop,
-                      georeference_file = None,
-                      variable="bayes_in"
-                        )
-
-    cloudy = xr.where(CLOUD==mask_value,True,False )
-    del CLOUD
-    return xr.where(cloudy, np.nan, dataset)
-
-
-def snow_filtering(dataset,
-                   cloud_path=SLSTR_path,
-                   cloud_subdir_pattern=f"S3?_SL_2_LST____*",
-                   cloud_date_pattern=r'___(\d{8})T(\d{4})',
-                   cloud_variable_file="LST_ancillary_ds.nc",
-                   snow_and_ice_flag = 27,
-                   time_start=None,
-                   time_stop=None,
-                   ):
-    """
-    Optional snow and ice masking, with default path and variable parameters to SLSTR cloud flags.
-    """
-
-    SNOWICE= open_sltsr(path=cloud_path,
-                        subdir_pattern=cloud_subdir_pattern,
-                        date_pattern=cloud_date_pattern,
-                        variable_file=cloud_variable_file,
-                        time_start=time_start,
-                        time_stop=time_stop,
-                        georeference_file = None,
-                        variable="biome"
-                        )
-    snowy = xr.where(SNOWICE==snow_and_ice_flag, True, False)
-    del SNOWICE
-    return xr.where(snowy, np.nan, dataset)
-
-
-def preprocess_slstr(NDVI,LST, SLSTR_path_region, time_start, time_stop):
-    """
-    Merge LST and NDVI, then Cloud, snow filtering and clearing possibly empty NDVI observations
-    """
-    _SLSTR = xr.merge([NDVI,LST])[["LST","NDVI"]]
-    _SLSTR = cloud_filtering(_SLSTR, cloud_path=SLSTR_path_region, time_start=time_start, time_stop=time_stop) # Mask clouds (strict)
-    _SLSTR = snow_filtering(_SLSTR, cloud_path=SLSTR_path_region, time_start=time_start, time_stop=time_stop)  # Mask snow&ice (strict)
-
-    return filter_empty_var(_SLSTR, "NDVI") # Filter empty NDVI obs
-
-
-
-
+    return _dataset.sortby("time")
 
 
 

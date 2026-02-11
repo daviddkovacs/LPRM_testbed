@@ -10,32 +10,35 @@ if __name__=="__main__":
     time_start = "2024-01-01"
     time_stop = "2025-01-01"
 
+    bbox = [
+        21.40498391147844,
+        46.112238019247,
+        21.975365148504864,
+        46.504322391308165
+    ]
+
     Data = SLSTR_AMSR2_DC(
         region="ceu",
+        bbox= bbox,
         time_start=time_start,
         time_stop=time_stop,
     )
+
 ##
-    bbox =   [
-    21.40498391147844,
-    46.112238019247,
-    21.975365148504864,
-    46.504322391308165
-  ]
+
     soil_range = [0, 0.2]
     veg_range = [0.5, 1]
 
     dflist = []
-    months = pd.date_range(time_start,time_stop,freq="ME")
     timesteps = Data.DATACUBES_L1["SLSTR"].time
 
     for d in timesteps:
-        try:
-            dflist.append(Data.process_date(date = d,  bbox= bbox,
-                                            soil_range=soil_range,
-                                            veg_range=veg_range))
-        except Exception as e:
-            print(e)
+        # try:
+        dflist.append(Data.process_date(date = d,  bbox= bbox,
+                                        soil_range=soil_range,
+                                        veg_range=veg_range))
+        # except Exception as e:
+        #     print(e)
 
     complete_df = pd.concat(dflist)
 
