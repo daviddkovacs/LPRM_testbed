@@ -6,9 +6,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 import os
-from typing import Literal
+from typing import Literal, List
 import pandas as pd
 from config.paths import SLSTR_path, path_bt
+
 
 # ---------------------------------------
 # DATACUBE PROCESSORS
@@ -16,6 +17,8 @@ def temporal_subset_dc(SLSTR, AMSR2, date):
     """
     Select the closest date to SLSTR, and thus select this date to access AMSR2
     """
+    # SLSTR["time"] = SLSTR.time.sortby("time")
+    SLSTR = SLSTR.drop_duplicates(dim="time")
     SLSTR_obs = SLSTR.sel(time=date, method="nearest")
 
     # We select SLSTR's observation to get AMSR2. the frequency of obs for AMSR2 is higher.
@@ -29,21 +32,26 @@ def spatial_subset_dc(SLSTR, AMSR2,  bbox):
     SLSTR is cut to the full spatial extent of AMSR2.
     Both AMSR2 and SLSTR cropped to bbox
     """
-    AMSR2 = crop2roi(AMSR2.compute(), bbox)
+    AMSR2 = crop2roi(AMSR2, bbox)
+    res = AMSR2.attrs["resolution"]
 
-    AMSR2_bbox = [get_edges(AMSR2.lon.values).min(),
-                  get_edges(AMSR2.lat.values).min(),
-                  get_edges(AMSR2.lon.values).max(),
-                  get_edges(AMSR2.lat.values).max()]
+    AMSR2_bbox = [get_edges(AMSR2.lon.values,res).min(),
+                  get_edges(AMSR2.lat.values,res).min(),
+                  get_edges(AMSR2.lon.values,res).max(),
+                  get_edges(AMSR2.lat.values,res).max()]
 
-    SLSTR_roi = crop2roi(SLSTR.compute(), AMSR2_bbox)
+    SLSTR_roi = crop2roi(SLSTR, AMSR2_bbox)
 
     return {"SLSTR": SLSTR_roi, "AMSR2": AMSR2}
 
 
-def SLSTR_AMSR2_datacubes( region : Literal["sahel", "siberia", "midwest","ceu"],
+def SLSTR_AMSR2_datacubes(region : Literal["sahel", "siberia", "midwest","ceu"],
+                          bbox= List[float],
                            SLSTR_path = SLSTR_path,
-                           AMSR2_path = path_bt,):
+                           AMSR2_path = path_bt,
+                           time_start = "2024-01-01",
+                           time_stop = "2025-01-01",
+                           ):
     """
     Main function to obtain SLSTR and AMSR2 observations, cut to the ROI.
     :param date: Date
@@ -55,31 +63,28 @@ def SLSTR_AMSR2_datacubes( region : Literal["sahel", "siberia", "midwest","ceu"]
     """
     SLSTR_path_region = os.path.join(SLSTR_path,region)
 
-    NDVI = open_sltsr(path=SLSTR_path_region,
-                   subdir_pattern=f"S3?_SL_2_LST____*",
-                   date_pattern=r'___(\d{8})T(\d{4})',
-                   variable_file="LST_ancillary_ds.nc",
-                        )
-    LST= open_sltsr(path=SLSTR_path_region,
-                   subdir_pattern=f"S3?_SL_2_LST____*",
-                   date_pattern=r'___(\d{8})T(\d{4})',
-                   variable_file="LST_in.nc",
-                        )
-    SLSTR = preprocess_slstr(NDVI, LST, SLSTR_path_region)
+    SLSTR_cropped_stack = open_sltsr(SLSTR_path_region,
+                             subdir_pattern = f"S3?_SL_2_LST____*",
+                             date_pattern = r'___(\d{8})T(\d{4})',
+                             time_start = time_start,
+                             time_stop = time_stop,
+                             bbox=bbox
+                             )
 
-    AMSR2 = open_amsr2(path=AMSR2_path,
+    AMSR2_cropped_stack = open_amsr2(path=AMSR2_path,
                        sensor="AMSR2",
                        overpass="day",
                        subdir_pattern=f"20*",
                        file_pattern="amsr2_l1bt_*.nc",
                        date_pattern=r"_(\d{8})_",
-                       time_start="2024-01-01",
-                       time_stop="2024-12-31",
+                       time_start=time_start,
+                       time_stop=time_stop,
                        resolution = "coarse_resolution",
+                       bbox=bbox
                        )
 
 
-    return  {"SLSTR" : SLSTR, "AMSR2" : AMSR2,}
+    return  {"SLSTR" : SLSTR_cropped_stack.compute(), "AMSR2" : AMSR2_cropped_stack.compute(),}
 
 
 
@@ -96,6 +101,7 @@ def open_amsr2(path,
                resolution: Literal["coarse_resolution","medium_resolution"],
                time_start = "2024-01-01",
                time_stop = "2025-01-01",
+               bbox = List[float]
                ):
 
     folder = os.path.join(path,resolution,sensor,overpass,subdir_pattern,file_pattern)
@@ -116,114 +122,153 @@ def open_amsr2(path,
                                 chunks = "auto",
                                 decode_timedelta = False).assign_coords(time = _dates[date_mask])
 
+    res_dict = {"coarse_resolution" : 0.25,
+                "medium_resolution":  0.1}
+    dataset = dataset.assign_attrs(resolution = res_dict[resolution])
     print(f"Loading dataset finished (AMSR2)")
 
-    return dataset
+    return crop2roi(dataset,bbox)
+
+
+def open_date(lst,
+              anc,
+              cloud, # "bayes_in"
+              coord,
+              day):
+
+    LST = xr.open_mfdataset(lst,
+                            chunks="auto",
+                            decode_timedelta = False,
+                            join= "outer",
+                            combine="nested",
+                            preprocess=clip_swath,
+                            ).assign_coords(time = day)[["LST"]]
+
+    ANC = xr.open_mfdataset(anc,
+                            chunks="auto",
+                            decode_timedelta = False,
+                            join= "outer",
+                            combine="nested",
+                            preprocess=clip_swath,
+                            ).assign_coords(time = day)[["NDVI","biome"]]
+    NDVI = ANC["NDVI"]
+
+    SNOWICE = ANC["biome"]
+    CLOUD = xr.open_mfdataset(cloud,
+                            chunks="auto",
+                            decode_timedelta = False,
+                            join= "outer",
+                            combine="nested",
+                            preprocess=clip_swath,
+                            ).assign_coords(time = day)["bayes_in"]
+
+    COORDS = xr.open_mfdataset(coord,
+                            chunks="auto",
+                            decode_timedelta = False,
+                            join= "outer",
+                            combine="nested",
+                            preprocess=clip_swath,
+                            ).assign_coords(time = day)[["latitude_in","longitude_in"]]
+
+    DATA = xr.merge([NDVI,LST])[["LST","NDVI"]]
+
+    DATA = DATA.assign_coords(
+        lat=(( "rows", "columns"), COORDS.latitude_in.values),
+        lon=(( "rows", "columns"), COORDS.longitude_in.values)
+    )
+
+
+    cloudy = xr.where(CLOUD == 2, True, False) # TODO
+    CLOUD_FILTERED = xr.where(cloudy, np.nan, DATA)
+
+    snowy = xr.where(SNOWICE==27, True, False)
+    CLOUD_SNOW_FILTERED = xr.where(snowy, np.nan, CLOUD_FILTERED)
+
+    print(f"Succesfully read SLSTR: {day}")
+
+    return CLOUD_SNOW_FILTERED
+
+
+def clean_pad_data(list_of_da):
+    """
+    filters empy cropped data from SLSTR as well as pads data so each cropped ROI is the same dm
+    :param list_of_da: list of dataarrays to be concatenated.
+    :return: list of nicely cropped dataarrays
+    """
+    cleaned_data = [
+        ds for ds in list_of_da
+        if ds.sizes['rows'] > 0 and ds.sizes['columns'] > 0
+    ]
+    max_rows = max(ds.sizes['rows'] for ds in cleaned_data)
+    max_cols = max(ds.sizes['columns'] for ds in cleaned_data)
+
+    padded_data = []
+    for ds in cleaned_data:
+        pad_rows = max_rows - ds.sizes['rows']
+        pad_cols = max_cols - ds.sizes['columns']
+
+        ds_padded = ds.pad(
+            rows=(0, pad_rows),
+            columns=(0, pad_cols),
+            constant_values=np.nan
+        )
+        padded_data.append(ds_padded)
+
+    return padded_data
 
 
 def open_sltsr(path,
                subdir_pattern,
                date_pattern,
-               variable_file,
-               georeference_file = "geodetic_in.nc"
+               bbox,
+               time_start="2024-01-01",
+               time_stop="2025-01-01",
                ):
+    """
+    Sorry to all my colleauges and to people who like elegant code, I also do.
+    However, reading SLSTR files, with multi-year timespan in an elegant way, did not work.
+    """
+    folder_lst = os.path.join(path,subdir_pattern,"LST_in.nc")
+    folder_anc = os.path.join(path,subdir_pattern,"LST_ancillary_ds.nc")
+    folder_cloud = os.path.join(path,subdir_pattern,"flags_in.nc")
+    coord_path = os.path.join(path,subdir_pattern,"geodetic_in.nc")
 
-    folder = os.path.join(path,subdir_pattern,variable_file)
-    files = glob.glob(folder)
+    files_lst = glob.glob(folder_lst)
+    files_anc = glob.glob(folder_anc)
+    files_cloud = glob.glob(folder_cloud)
+    geo_files = glob.glob(coord_path)
+
     dates_string =  [(re.search(date_pattern, p).group(1),
-                      re.search(date_pattern, p).group(2))for p in files]
+                      re.search(date_pattern, p).group(2))for p in files_lst] # could be also files_ndvi (date comes from fname)
 
-    dates_dt = [pd.to_datetime(f"{dt[0]} {dt[1]}") for dt in dates_string]
+    _dates = pd.to_datetime([f"{dt[0]} {dt[1]}" for dt in dates_string])
 
-    dataset = xr.open_mfdataset(files,
-                                preprocess =clip_swath,
-                                combine ="nested",
-                                join = "outer",
-                                concat_dim = "time",
-                                chunks = "auto",
-                                decode_timedelta=False,
-                                ).assign_coords(time = dates_dt)
+    date_mask  = (pd.to_datetime(time_start) < _dates) & (_dates < pd.to_datetime(time_stop))
 
-    if georeference_file: # L1 and L2 SLSTR data isnt gridded. lat, lon from external file!
+    files_valid_lst = np.array(files_lst)[date_mask]  # LST
+    files_valid_anc = np.array(files_anc)[date_mask]  # Ancillary (NDVI, Snow and Ice flags)
+    files_valid_cloud = np.array(files_cloud)[date_mask]  # Cloud classification
+    geo_files_valid = np.array(geo_files)[date_mask] # COORDS
+    dates_valid = np.array(_dates)[date_mask] # days
 
-        coord_path = os.path.join(path,subdir_pattern,georeference_file)
-        geo_files = glob.glob(coord_path)
+    big_data = []
 
-        geo = xr.open_mfdataset(geo_files,
-                                preprocess =clip_swath,
-                                combine="nested",
-                                join="outer",
-                                concat_dim="time",
-                                chunks="auto",
-                                decode_timedelta=False,
-                                ).assign_coords(time = dates_dt)
+    for lst, anc, cloud, coord, day in zip(files_valid_lst,
+                                           files_valid_anc,
+                                           files_valid_cloud,
+                                           geo_files_valid,
+                                           dates_valid):
 
-        dataset = dataset.assign_coords(
-            lat=(("time", "rows", "columns"), geo.latitude_in.data),
-            lon=(("time", "rows", "columns"), geo.longitude_in.data)
-        )
+        daily_da = open_date(lst, anc, cloud, coord, day)
+        cropped_daily_da=  crop2roi(daily_da, bbox=bbox)
+        big_data.append(cropped_daily_da)
 
-        print(f"Loading dataset finished ({variable_file})")
+    padded_data = clean_pad_data(big_data)
 
-    dataset = dataset.sortby("time")
-    return dataset
+    _dataset = xr.concat(padded_data, dim = "time")
+    _dataset = filter_empty_var(_dataset)
 
-
-def cloud_filtering(dataset,
-                    cloud_path=SLSTR_path,
-                    cloud_subdir_pattern=f"S3?_SL_2_LST____*",
-                    cloud_date_pattern=r'___(\d{8})T(\d{4})',
-                    cloud_variable_file="flags_in.nc",
-                    mask_value = 2):
-    """
-    Optional cloud masking, with default path and variable parameters to SLSTR cloud flags.
-    Strict threshold of 1, filters ALL clouds.
-    """
-
-    CLOUD= open_sltsr(path=cloud_path,
-                   subdir_pattern=cloud_subdir_pattern,
-                   date_pattern=cloud_date_pattern,
-                   variable_file=cloud_variable_file,
-                        )
-
-    cloudy = xr.where(CLOUD["bayes_in"]==mask_value,True,False )
-
-    return xr.where(cloudy, np.nan, dataset)
-
-
-def snow_filtering(dataset,
-                    cloud_path=SLSTR_path,
-                    cloud_subdir_pattern=f"S3?_SL_2_LST____*",
-                    cloud_date_pattern=r'___(\d{8})T(\d{4})',
-                    cloud_variable_file="LST_ancillary_ds.nc",
-                    snow_and_ice_flag = 27):
-    """
-    Optional snow and ice masking, with default path and variable parameters to SLSTR cloud flags.
-    """
-
-    SNOWICE= open_sltsr(path=cloud_path,
-                   subdir_pattern=cloud_subdir_pattern,
-                   date_pattern=cloud_date_pattern,
-                   variable_file=cloud_variable_file,
-                        )
-    snowy = xr.where(SNOWICE["biome"]==27, True, False)
-
-    return xr.where(snowy, np.nan, dataset)
-
-
-def preprocess_slstr(NDVI,LST, SLSTR_path_region):
-    """
-    Merge LST and NDVI, then Cloud, snow filtering and clearing possibly empty NDVI observations
-    """
-    _SLSTR = xr.merge([NDVI,LST])[["LST","NDVI"]]
-    _SLSTR = cloud_filtering(_SLSTR, cloud_path=SLSTR_path_region) # Mask clouds (strict)
-    _SLSTR = snow_filtering(_SLSTR, cloud_path=SLSTR_path_region) # Mask clouds (strict)
-
-    return filter_empty_var(_SLSTR, "NDVI") # Filter empty NDVI obs
-
-
-
-
+    return _dataset.sortby("time")
 
 
 
@@ -236,7 +281,9 @@ def calc_Holmes_temp(KaV):
     """
     Surface temperature from Ka-band observations according to Holmes et al. 2008
     """
-    return KaV["bt_36.5V"] * 0.893 + 44.8
+    TSURF = KaV["bt_36.5V"] * 0.893 + 44.8
+    TSURF.attrs = KaV.attrs
+    return TSURF
 
 
 def calc_adjusted_temp(AMSR2, factor = 0.6, bandH = "Ka", mpdi_band = "C1"):
@@ -332,20 +379,20 @@ def subset_statistics(array):
 
 
 
-def get_edges(centers):
+def get_edges(centers, res):
     """
     Calculate the spacing between pixels, to properly handle np.digitize. Otherwise offset.
     """
-    res = np.abs(np.diff(centers)[0])
 
     edges = np.append(np.sort(centers) - res / 2, np.sort(centers)[-1] + res / 2)
+
     return np.sort(edges)
 
 
-def binning_smaller_pixels(slstr_da,amsr2_da):
-
-    lat_edges = get_edges(amsr2_da.lat.values)
-    lon_edges = get_edges(amsr2_da.lon.values)
+def binning_smaller_pixels(slstr_da, amsr2_da):
+    res = amsr2_da.attrs["resolution"]
+    lat_edges = get_edges(amsr2_da.lat.values, res)
+    lon_edges = get_edges(amsr2_da.lon.values, res)
 
     iterables = {}
 
@@ -368,13 +415,17 @@ def slstr_pixels_in_amsr2(slstr_da,
 
 def compare_temperatures(soil_temp, veg_temp, TSURF, TSURFadj = None, MPDI =None, KUKA = None):
     """
-    Gets the underlying SLSTR pixels for every AMSR2 Ka-LST pixel. Then calculates the mean and std for these, and plots
+    Gets the underlying SLSTR array of pixels for every AMSR2 Ka-LST pixel. Then calculates the mean and std for these, and plots
     """
-    veg_mean_list = []
-    veg_std_list = []
+    soil_array =  [] # Soil SLSTR pixels within AMSR2 pixel
+    veg_array =  [] # Veg. SLSTR pixels within AMSR2 pixel
+
+    veg_mean_list = []  # Mean of soil SLSTR pixels within AMSR2 pixel
+    veg_std_list = [] # std of veg. SLSTR pixels within AMSR2 pixel
 
     soil_mean_list = []
     soil_std_list = []
+
     TSURF_list = []
     TSURFadj_list = []
     MPDI_list = []
@@ -395,6 +446,9 @@ def compare_temperatures(soil_temp, veg_temp, TSURF, TSURFadj = None, MPDI =None
                                                targetlat,
                                                targetlon)
 
+            soil_array.append(subset_statistics(soil_subset)[0])
+            veg_array.append(subset_statistics(veg_subset)[0])
+
             soil_mean_list.append(subset_statistics(soil_subset)[1]["mean"])
             soil_std_list.append(subset_statistics(soil_subset)[1]["std"])
 
@@ -403,8 +457,6 @@ def compare_temperatures(soil_temp, veg_temp, TSURF, TSURFadj = None, MPDI =None
 
             TSURF_subset = TSURF.isel(lat=targetlat, lon=targetlon)
             TSURF_list.append(TSURF_subset.values.item())
-
-
 
             if MPDI is not None:
                 try:
@@ -419,15 +471,19 @@ def compare_temperatures(soil_temp, veg_temp, TSURF, TSURFadj = None, MPDI =None
 
                 except Exception as e:
                     print(e)
-    df =  pd.DataFrame({"veg_temp": veg_mean_list,
-                             "veg_std": veg_std_list,
-                             "soil_temp": soil_mean_list,
-                             "soil_std": soil_std_list,
-                             "tsurf_ka": TSURF_list,
-                             "tsurf_adj": TSURFadj_list,
-                             "mpdi": MPDI_list,
-                             "kuka": KUKA_list,
-                             })
+
+    df =  pd.DataFrame({
+        "veg_temp": veg_mean_list,
+        "veg_std": veg_std_list,
+        "soil_temp": soil_mean_list,
+        "soil_std": soil_std_list,
+        "tsurf_ka": TSURF_list,
+        "tsurf_adj": TSURFadj_list,
+        "mpdi": MPDI_list,
+        "kuka": KUKA_list,
+        "soil_array": soil_array,
+        "veg_array": veg_array,
+    })
 
     return df
 
