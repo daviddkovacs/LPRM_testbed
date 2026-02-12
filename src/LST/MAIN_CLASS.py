@@ -1,15 +1,11 @@
 from typing import  Literal, List
-from LST.comparison_utils import (
-    SLSTR_AMSR2_datacubes,
+from LST.datacube_loader import (
+    OPTI_AMSR2_DATACUBES,
     spatial_subset_dc,
-    threshold_ndvi,
-    compare_temperatures,
-    mpdi,
-    KuKa,
-    calc_Holmes_temp,
-    calc_adjusted_temp,
     temporal_subset_dc,
 )
+from LST.datacube_utilities import calc_Holmes_temp, calc_adjusted_temp, KuKa, mpdi, threshold_ndvi, \
+    compare_temperatures
 from plot_functions import (combined_validation_dashboard,
                             LST_plot_params,
                             AMSR2_plot_params,
@@ -18,13 +14,14 @@ from plot_functions import (combined_validation_dashboard,
 
 
 
-class SLSTR_AMSR2_DC:
+class DATA_READER:
 
     def __init__(self,
-                 region:Literal["sahel", "siberia", "midwest","ceu"],
-                 bbox:List[float],
-                 time_start: str,
-                 time_stop: str,
+                 region=Literal["sahel", "siberia", "midwest","ceu"],
+                 bbox=List[float],
+                 sensor= Literal["MODIS","SLSTR"],
+                 time_start= str,
+                 time_stop= str,
                  ):
         """
         Class to store Level-1 data from SLSTR and AMSR2. Stroing in a class avoids reloading every iteration.
@@ -33,11 +30,8 @@ class SLSTR_AMSR2_DC:
         :param time_stop: String: end date to restrict open_mfdataset to.
         """
 
-        self.DATACUBES_L1 = SLSTR_AMSR2_datacubes(region=region,
-                                                  bbox = bbox,
-                                                  time_start = time_start,
-                                                  time_stop = time_stop,
-                                                  )
+        self.DATACUBES_L1 = OPTI_AMSR2_DATACUBES(region=region,
+                                                 sensor="MODIS", bbox=bbox, time_start=time_start, time_stop=time_stop)
         print("Data loading finished.")
 
         self.DATACUBES_L1B = None

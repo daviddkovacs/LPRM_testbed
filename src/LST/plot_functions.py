@@ -4,7 +4,8 @@ import matplotlib.patches as patches
 import matplotlib
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
-from comparison_utils import subset_statistics
+from LST.datacube_utilities import subset_statistics
+
 matplotlib.use("TkAgg")
 
 LST_plot_params = {"x": "lon",

@@ -1,6 +1,6 @@
 import pandas as pd
 from LST.plot_functions import plot_hexbin, boxplot_timeseries
-from LST.SLSTR_AMSR2_reader import SLSTR_AMSR2_DC
+from LST.MAIN_CLASS import DATA_READER
 import matplotlib
 import matplotlib.pyplot as plt
 matplotlib.use('TkAgg')
@@ -17,7 +17,7 @@ if __name__=="__main__":
     14.676788211060355
   ]
 
-    Data = SLSTR_AMSR2_DC(
+    Data = DATA_READER(
         region="sahel",
         bbox= bbox,
         time_start=time_start,

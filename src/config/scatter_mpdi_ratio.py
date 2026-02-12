@@ -1,5 +1,7 @@
 import os
 import glob
+
+import LST.datacube_utilities
 from config.paths import path_bt, path_lprm
 import pandas as pd
 from sklearn import datasets, linear_model
@@ -208,7 +210,7 @@ def lprm_retrieval(selector):
         params.h2,
         params.vod_Av,
         params.vod_Bv,
-        float(get_specs(sat_sensor.upper()).frequencies[sat_band.upper()]),
+        float(LST.datacube_utilities.frequencies[sat_band.upper()]),
         params.temp_freeze,
         False,
         None,

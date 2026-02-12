@@ -1,5 +1,8 @@
 import os.path
 import matplotlib
+
+import LST.datacube_utilities
+
 matplotlib.use("TkAgg")
 from datetime import datetime
 import xarray as xr
@@ -40,7 +43,7 @@ class BTData:
                  **kwargs):
 
         self.path = path
-        self.sat_freq = get_specs(sat_sensor.upper()).frequencies[sat_freq.upper()]
+        self.sat_freq = LST.datacube_utilities.frequencies[sat_freq.upper()]
         self.sat_sensor = sat_sensor
         self.overpass = overpass
         self.target_res = target_res

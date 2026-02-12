@@ -9,6 +9,8 @@ import rioxarray
 import pandas as pd
 from shapely.geometry.multilinestring import MultiLineString
 from pandas import Timestamp,Timedelta
+
+import LST.datacube_utilities
 from config.paths import path_bt
 from utilities.utils import bbox
 import glob
@@ -119,7 +121,7 @@ def retrieve_LPRM(common_data,
 
     specs = get_specs(sat_sensor.upper())
     params = get_lprm_parameters_for_frequency(sat_band, specs.incidence_angle)
-    freq = get_specs(sat_sensor.upper()).frequencies[sat_band.upper()]
+    freq = LST.datacube_utilities.frequencies[sat_band.upper()]
     if "time" in merged.index.names:
         merged = merged.reset_index(level="time", drop=True)
     merged_geo = merged.to_xarray()
