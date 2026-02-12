@@ -113,7 +113,7 @@ def usual_stats(x,y):
     return {"r" : r , "bias" : bias , "rmse" : rmse}
 
 
-def boxplot_timeseries(df):
+def boxplot_timeseries(df,mpdi_band=""):
     df = df.copy()
     df['time'] = pd.to_datetime(df['time'])
     df = df.sort_values('time')
@@ -169,7 +169,7 @@ def boxplot_timeseries(df):
         pass
 
     ax1.set_ylabel("T [K]", fontweight='bold')
-    ax1.set_title("Temperatures (Boxplot)", loc='left', fontweight='bold')
+    ax1.set_title("Temperatures", loc='left', fontweight='bold')
     ax1.grid(True, linestyle='--', alpha=0.5)
 
     kuka_data = get_grouped_data('kuka')
@@ -187,7 +187,7 @@ def boxplot_timeseries(df):
                 medianprops=dict(color='black'), showfliers=False)
 
     ax3.set_ylabel("MPDI", color='#1f77b4', fontweight='bold')
-    ax3.set_title("Microwave Index: MPDI", loc='left', fontweight='bold')
+    ax3.set_title(f"{mpdi_band.upper()} MPDI", loc='left', fontweight='bold')
     ax3.grid(True, linestyle='--', alpha=0.5)
 
     ax3.xaxis.set_major_locator(mdates.AutoDateLocator())
