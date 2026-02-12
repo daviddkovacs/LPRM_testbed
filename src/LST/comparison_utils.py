@@ -32,7 +32,7 @@ def spatial_subset_dc(SLSTR, AMSR2,  bbox):
     SLSTR is cut to the full spatial extent of AMSR2.
     Both AMSR2 and SLSTR cropped to bbox
     """
-    AMSR2 = crop2roi(AMSR2.compute(), bbox)
+    AMSR2 = crop2roi(AMSR2, bbox)
     res = AMSR2.attrs["resolution"]
 
     AMSR2_bbox = [get_edges(AMSR2.lon.values,res).min(),
@@ -40,7 +40,7 @@ def spatial_subset_dc(SLSTR, AMSR2,  bbox):
                   get_edges(AMSR2.lon.values,res).max(),
                   get_edges(AMSR2.lat.values,res).max()]
 
-    SLSTR_roi = crop2roi(SLSTR.compute(), AMSR2_bbox)
+    SLSTR_roi = crop2roi(SLSTR, AMSR2_bbox)
 
     return {"SLSTR": SLSTR_roi, "AMSR2": AMSR2}
 
@@ -84,7 +84,7 @@ def SLSTR_AMSR2_datacubes(region : Literal["sahel", "siberia", "midwest","ceu"],
                        )
 
 
-    return  {"SLSTR" : SLSTR_cropped_stack, "AMSR2" : AMSR2_cropped_stack,}
+    return  {"SLSTR" : SLSTR_cropped_stack.compute(), "AMSR2" : AMSR2_cropped_stack.compute(),}
 
 
 
