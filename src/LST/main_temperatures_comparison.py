@@ -4,7 +4,6 @@ from LST.MAIN_CLASS import DATA_READER
 import matplotlib
 import matplotlib.pyplot as plt
 matplotlib.use('TkAgg')
-import pickle
 if __name__=="__main__":
 
     time_start = "2023-01-01"
