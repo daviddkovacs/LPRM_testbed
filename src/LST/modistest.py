@@ -64,24 +64,38 @@ def xr_from_arrays(data_dict,lat,lon):
 
     return dataset
 
+def ndvi_calc(red,nir):
+    return ((nir-red)/(nir+red)).rename("NDVI")
+
+
+def merge_datasets(ds_NDVI,ds_LST):
+
+    NDVI_masked = ds_NDVI.where(ds_LST > 0).rename("NDVI")
+    big_ds = xr.merge([NDVI_masked,ds_LST])[["NDVI","LST"]]
+    return big_ds
+
 
 SR_var_list = ['1km Surface Reflectance Band 1', '1km Surface Reflectance Band 5']
 
 SR_dict = open_hdf(path_sr, SR_var_list)
 SR_dict["data"] = pad_array(SR_dict["data"], SR_dict["lat"], SR_dict["lon"])
 ds_SR = xr_from_arrays(SR_dict["data"], SR_dict["lat"], SR_dict["lon"])
+ndvi = ndvi_calc(ds_SR['1km Surface Reflectance Band 1'], ds_SR['1km Surface Reflectance Band 5'])
 
-LST_dict = open_hdf(path_lst, 'LST')
+
+LST_dict = open_hdf(path_lst, ['LST'])
 LST_dict["data"] = pad_array(LST_dict["data"],SR_dict["lat"],SR_dict["lon"])
 ds_LST = xr_from_arrays(LST_dict["data"], SR_dict["lat"], SR_dict["lon"])
 
+big_ds = merge_datasets(ndvi,ds_LST["LST"])
 
 
+
+x =1
+plt.figure()
+big_ds['NDVI'].plot.pcolormesh(x= "lon", y= "lat", vmin =0, vmax =1)
+plt.show(block=True)
 
 plt.figure()
-ds_LST["LST"].plot.pcolormesh(x= "lon", y= "lat")
-plt.show()
-
-plt.figure()
-ds_SR["LST"].plot.pcolormesh(x= "lon", y= "lat")
+big_ds['LST'].plot.pcolormesh(x= "lon", y= "lat")
 plt.show(block=True)
