@@ -1,6 +1,6 @@
 import pandas as pd
 from LST.plot_functions import plot_hexbin, boxplot_timeseries
-from LST.MAIN_CLASS import DATA_READER
+from LST.datacube_class import DATA_READER
 import matplotlib
 import matplotlib.pyplot as plt
 matplotlib.use('TkAgg')

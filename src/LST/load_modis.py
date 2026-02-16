@@ -24,11 +24,11 @@ def ndvi_calc(red,nir):
 def mask_bit_flag(array, bit):
     """
     For the input array, from MYD09 L2 MODIS surface reflectance data, returns a mask where:
-        - Clouds are filtered
-        - Hígh aerosol content is filtered
-        - Internal water are filtered
+        - Clouds are filtered (Bits set: 0,1,2,8,9)
+        - Snow and Ice (Bits set: 12,15)
 
     See Table 13: https://modis-land.gsfc.nasa.gov/pdf/MOD09_UserGuide_v1.4.pdf
+
     :param array: Input L2 Swath from MODIS
     :return: Boolean mask
     """
@@ -84,19 +84,33 @@ def xr_from_arrays(data_dict,lat,lon,time, bbox):
 
     return dataset
 
+
 def open_hdf(path, var: List):
     data = SD(path)
     var_data_dict = {}
 
+    qa_array = data.select("1km Reflectance Data State QA")[:].astype(np.float64)
+    qa_mask = (mask_bit_flag(qa_array,0) |
+               mask_bit_flag(qa_array,1) |
+               mask_bit_flag(qa_array,2) |
+               mask_bit_flag(qa_array,8) |
+               mask_bit_flag(qa_array,9) |
+               mask_bit_flag(qa_array,12) |
+               mask_bit_flag(qa_array,15)
+               )
+
     for v in var:
         v_data = data.select(v)
-        SD_var_array = v_data[:].astype(np.float64)
+        _SD_var_array = v_data[:].astype(np.float64)
+
+        SD_var_array = np.where(qa_mask,np.nan,_SD_var_array) # QA masking
+
         attrs = v_data.attributes()
         scale = attrs["scale_factor"]
         offset = attrs["add_offset"]
         fillvalue = attrs['_FillValue']
 
-        valid_array = np.where(SD_var_array == fillvalue,np.nan,SD_var_array)
+        valid_array = np.where(SD_var_array == fillvalue, np.nan, SD_var_array)
         scaled_valid_array = (valid_array + offset ) * scale
         var_data_dict[v] = scaled_valid_array
 
@@ -107,6 +121,7 @@ def open_hdf(path, var: List):
 
     return {"data": var_data_dict, "lat": lat_array, "lon" : lon_array}
 
+
 def open_modis_timeseries(path,
                           type_of_product: Literal["reflectance", "lst"],
                           bbox,
@@ -114,6 +129,7 @@ def open_modis_timeseries(path,
                           time_start="2024-01-01",
                           time_stop="2025-01-01",
                           ):
+
     folder_modis = os.path.join(path, type_of_product, "*.hdf")
     files_modis = glob.glob(folder_modis)
 
@@ -147,8 +163,8 @@ def open_modis_timeseries(path,
 
 if __name__== "__main__":
 
-    path_lst = ("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/"
-                "daytime_retrieval/LST/MODIS/midwest/lst/MYD11_L2.A2018003.1930.061.2021316030624.hdf")
+    # path_lst = ("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/"
+    #             "daytime_retrieval/LST/MODIS/midwest/lst/MYD11_L2.A2018003.1930.061.2021316030624.hdf")
     path_sr = "/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/LST/MODIS/midwest/"
 
     bbox = [
