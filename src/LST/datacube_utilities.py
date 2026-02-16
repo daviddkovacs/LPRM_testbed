@@ -114,6 +114,7 @@ def get_edges(centers, res):
     return np.sort(edges)
 
 
+
 def binning_smaller_pixels(slstr_da, amsr2_da):
     res = amsr2_da.attrs["resolution"]
     lat_edges = get_edges(amsr2_da.lat.values, res)
