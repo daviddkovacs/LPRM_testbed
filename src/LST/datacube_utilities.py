@@ -213,29 +213,35 @@ def compare_temperatures(soil_temp, veg_temp, TSURF, TSURFadj = None, MPDI =None
     return df
 
 
-def clean_pad_data(list_of_da):
+def clean_pad_data(list_of_da, x , y):
     """
     filters empy cropped data from SLSTR as well as pads data so each cropped ROI is the same dm
     :param list_of_da: list of dataarrays to be concatenated.
+    :param x: Variable at x diension--> SLSTR: "rows", MODIS : "lon"
+    :param y: Variable at y diension--> SLSTR: "columns", MODIS : "lat"
+
     :return: list of nicely cropped dataarrays
     """
     cleaned_data = [
         ds for ds in list_of_da
-        if ds.sizes['rows'] > 0 and ds.sizes['columns'] > 0
+        if ds.sizes[x] > 0 and ds.sizes[y] > 0
     ]
-    max_rows = max(ds.sizes['rows'] for ds in cleaned_data)
-    max_cols = max(ds.sizes['columns'] for ds in cleaned_data)
+    max_x = max(ds.sizes[x] for ds in cleaned_data)
+    max_y = max(ds.sizes[y] for ds in cleaned_data)
 
     padded_data = []
-    for ds in cleaned_data:
-        pad_rows = max_rows - ds.sizes['rows']
-        pad_cols = max_cols - ds.sizes['columns']
 
-        ds_padded = ds.pad(
-            rows=(0, pad_rows),
-            columns=(0, pad_cols),
-            constant_values=np.nan
-        )
+    for ds in cleaned_data:
+        pad_x = max_x - ds.sizes[x]
+        pad_y = max_y - ds.sizes[y]
+
+        pad_kwargs = {
+            x: (0, pad_x),
+            y: (0, pad_y),
+            "constant_values": np.nan
+        }
+
+        ds_padded = ds.pad(**pad_kwargs)
         padded_data.append(ds_padded)
 
     return padded_data

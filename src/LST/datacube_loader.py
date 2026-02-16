@@ -252,7 +252,7 @@ def open_sltsr(path,
         cropped_daily_da=  crop2roi(daily_da, bbox=bbox)
         big_data.append(cropped_daily_da)
 
-    padded_data = clean_pad_data(big_data)
+    padded_data = clean_pad_data(big_data, x = "rows", y = "columns")
 
     _dataset = xr.concat(padded_data, dim = "time")
     _dataset = filter_empty_var(_dataset)
