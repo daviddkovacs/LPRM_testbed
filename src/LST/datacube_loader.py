@@ -3,6 +3,7 @@ import matplotlib
 from LST.datacube_utilities import crop2roi, get_edges
 from LST.load_amsr2 import open_amsr2
 from LST.load_slstr import open_sltsr
+from LST.load_modis import open_modis
 
 matplotlib.use("TkAgg")
 import os
@@ -44,13 +45,13 @@ def spatial_subset_dc(SLSTR, AMSR2,  bbox):
     return {"SLSTR": SLSTR_roi, "AMSR2": AMSR2}
 
 
-def OPTI_AMSR2_DATACUBES(region :Literal["sahel", "siberia", "midwest", "ceu"],
-                          bbox= List[float],
-                          sensor= Literal["MODIS", "SLSTR"],
-                           AMSR2_path = path_bt,
-                           time_start = "2024-01-01",
-                           time_stop = "2025-01-01",
-                           ):
+def OPTI_AMSR2_DATACUBES(region: Literal["sahel", "siberia", "midwest", "ceu"],
+                         bbox: List[float],
+                         sensor: Literal["MODIS", "SLSTR"],
+                         AMSR2_path = path_bt,
+                         time_start = "2024-01-01",
+                         time_stop = "2025-01-01",
+                         ):
     """
     Main function to obtain SLSTR and AMSR2 observations, cut to the ROI.
     :param date: Date
@@ -61,10 +62,9 @@ def OPTI_AMSR2_DATACUBES(region :Literal["sahel", "siberia", "midwest", "ceu"],
     :return: dictionary with SLSTR and AMSR2 datacubes.
     """
 
-    SLSTR_path_region = os.path.join(S3_SLSTR_path,region)
-
     if sensor.upper() == "SLSTR":
 
+        SLSTR_path_region = os.path.join(S3_SLSTR_path, region)
         optcial_stack = open_sltsr(SLSTR_path_region,
                                    time_start = time_start,
                                    time_stop = time_stop,
@@ -73,12 +73,18 @@ def OPTI_AMSR2_DATACUBES(region :Literal["sahel", "siberia", "midwest", "ceu"],
 
     elif sensor.upper() == "MODIS":
 
-        optical_stack = open_modis(MODIS_path, bbox=bbox, subdir_pattern="reflectance", time_start="2019-01-01",
-                                   time_stop="2020-01-01")
+        modis_reflectance = open_modis(MODIS_path,
+                                   bbox=bbox,
+                                   type_of_product="reflectance",
+                                   time_start=time_start,
+                                   time_stop=time_stop)
 
+        modis_lst = open_modis(MODIS_path,
+                                   bbox=bbox,
+                                   type_of_product="lst",
+                                   time_start=time_start,
+                                   time_stop=time_stop)
         z = 1
-
-
 
     else:
         optcial_stack = None

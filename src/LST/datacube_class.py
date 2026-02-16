@@ -17,9 +17,9 @@ from plot_functions import (combined_validation_dashboard,
 class DATA_READER:
 
     def __init__(self,
-                 region=Literal["sahel", "siberia", "midwest","ceu"],
-                 bbox=List[float],
-                 sensor= Literal["MODIS","SLSTR"],
+                 region:Literal["sahel", "siberia", "midwest","ceu"],
+                 bbox:List[float],
+                 sensor: Literal["MODIS","SLSTR"],
                  time_start= str,
                  time_stop= str,
                  ):
@@ -31,7 +31,10 @@ class DATA_READER:
         """
 
         self.DATACUBES_L1 = OPTI_AMSR2_DATACUBES(region=region,
-                                                 sensor="MODIS", bbox=bbox, time_start=time_start, time_stop=time_stop)
+                                                 sensor=sensor,
+                                                 bbox=bbox,
+                                                 time_start=time_start,
+                                                 time_stop=time_stop)
         print("Data loading finished.")
 
         self.DATACUBES_L1B = None
