@@ -1,16 +1,42 @@
-import rioxarray as rxr
-from osgeo import gdal
 import xarray as xr
-from typing import List
-import rasterio
+from typing import List, Literal
 from pyhdf.SD import SD, SDC
+import os
+import re
+import glob
+import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use("TkAgg")
 import numpy as np
+
 path_lst = ("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/"
         "daytime_retrieval/LST/MODIS/midwest/lst/MYD11_L2.A2018003.1930.061.2021316030624.hdf")
-path_sr = "/home/ddkovacs/Desktop/MYD09.A2018365.2010.061.2021348142533.hdf"
+path_sr = "/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/LST/MODIS/midwest/"
+
+
+bbox = []
+
+def open_modis(path,
+                    bbox,
+                    subdir_pattern: Literal["reflectance","lst"],
+                    date_pattern = r"\d{7}\.\d{4}",
+                    time_start="2024-01-01",
+                    time_stop="2025-01-01",
+                    ):
+
+    folder_modis = os.path.join(path,subdir_pattern,"*.hdf")
+    files_modis = glob.glob(folder_modis)
+
+    dates_string=  [re.search(date_pattern, f).group(0) for f in files_modis]
+    _dates = pd.to_datetime(dates_string,format =  "%Y%j.%H%M")
+    date_mask  = (pd.to_datetime(time_start) < _dates) & (_dates < pd.to_datetime(time_stop))
+
+    files_valid_modis = np.array(files_modis)[date_mask]
+
+open_modis(path_sr,bbox,subdir_pattern="reflectance", time_stop="2019-01-01", time_start="2018-01-01")
+
+
 
 def open_hdf(path, var: List):
     data = SD(path)

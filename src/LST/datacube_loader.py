@@ -260,21 +260,7 @@ def open_sltsr(path,
     return _dataset.sortby("time")
 
 
-def open_modis(path,
-                    bbox,
-                    subdir_pattern: Literal["reflectance","lst"],
-                    date_pattern = r"A(\d{7})",
-                    time_start="2024-01-01",
-                    time_stop="2025-01-01",
-                    ):
 
-    folder_modis = os.path.join(path,subdir_pattern,"*.hdf")
-    files_modis = glob.glob(folder_modis)
-    dates_string=  [re.search(date_pattern, f).group(1) for f in files_modis]
-    _dates = pd.to_datetime(dates_string,format =  "%Y%j")
-    date_mask  = (pd.to_datetime(time_start) < _dates) & (_dates < pd.to_datetime(time_stop))
-
-    files_valid_modis = np.array(files_modis)[date_mask]
 
 
 
