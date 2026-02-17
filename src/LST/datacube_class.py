@@ -1,6 +1,6 @@
 from typing import  Literal, List
 from LST.datacube_loader import (
-    OPTI_AMSR2_DATACUBES,
+    OPTICAL_datacube,
     spatial_subset_dc,
     temporal_subset_dc,
 )
@@ -29,12 +29,11 @@ class DATA_READER:
         :param time_stop: String: end date to restrict open_mfdataset to.
         """
 
-        self.DATACUBES_L1 = OPTI_AMSR2_DATACUBES(region=region,
+        self.MODIS_NDVI, self.MODIS_LST = OPTICAL_datacube(region=region,
                                                  sensor=sensor,
                                                  bbox=bbox,
                                                  time_start=time_start,
                                                  time_stop=time_stop)
-        print("Data loading finished.")
 
         self.DATACUBES_L1B = None
         self.DATACUBES_L2 = None
@@ -56,13 +55,13 @@ class DATA_READER:
 
         # Selecting closest time of observation
         self.DATACUBES_L1B = temporal_subset_dc(
-            SLSTR=self.DATACUBES_L1["SLSTR"],
+            OPTI=self.DATACUBES_L1["SLSTR"],
             AMSR2=self.DATACUBES_L1["AMSR2"],
             date=date)
 
         # Cropping to bbox coords.
         self.DATACUBES_L2 = spatial_subset_dc(
-            SLSTR=self.DATACUBES_L1B["SLSTR"],
+            OPTI=self.DATACUBES_L1B["SLSTR"],
             AMSR2=self.DATACUBES_L1B["AMSR2"],
             bbox=bbox)
 
