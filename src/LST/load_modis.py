@@ -16,11 +16,13 @@ import datetime
 MODIS_prod_params = {
 
     "lst": {"qa_band_name": "QC",
-            "list_of_flags": [0, 1, 2, 4, 5],
+            # "list_of_flags": [0, 1, 2, 4, 5],
+            "list_of_flags": [0, ],
             "variables" : ["LST"]},
 
     "reflectance" : {"qa_band_name": "1km Reflectance Data State QA",
-                     "list_of_flags": [0, 1, 2, 8, 9, 12, 15],
+                     # "list_of_flags": [0, 1, 2, 8, 9, 12, 15],
+                     "list_of_flags": [0, ],
                      "variables" : ['1km Surface Reflectance Band 1', '1km Surface Reflectance Band 5'],
                      }
 }
@@ -47,7 +49,8 @@ def mask_bit_flag(qa_array, bits=None):
     :return: Boolean mask
     """
     if len(bits) == 1:
-        mask_array = (qa_array.astype(int) & 2 ** bits) == 2 ** bits
+        bit = bits[0]
+        mask_array = (qa_array.astype(int) & 2 ** bit) == 2 ** bit
     elif len(bits) > 1:
         combined_mask = sum(1 << b for b in bits)
         mask_array = (qa_array.astype(int)  & combined_mask) > 0
@@ -76,7 +79,15 @@ def merge_datasets(ds_NDVI,ds_LST):
     return big_ds
 
 def xr_from_arrays(data_dict,lat,lon,time, bbox):
-
+    """
+    Selects coords lying within the bbox.
+    :param data_dict: dictionary having data[var] lat and lon
+    :param lat: lat array
+    :param lon: lon array
+    :param time: timestamp
+    :param bbox: bbox as list
+    :return: xr.DataArray()
+    """
     mask = (
             (lat >= bbox[1]) & (lat <= bbox[3]) &
             (lon >= bbox[0]) & (lon <= bbox[2])
@@ -86,24 +97,25 @@ def xr_from_arrays(data_dict,lat,lon,time, bbox):
         rows, cols = np.where(mask)
         row_slice = slice(rows.min(), rows.max() + 1)
         col_slice = slice(cols.min(), cols.max() + 1)
-
-        dataset   = xr.Dataset(
-            {
-                k: (("row", "column"), v[row_slice, col_slice])
-                for k, v in data_dict.items()
-            },
-            coords={
-                "lat": (("row", "column"), lat[row_slice, col_slice]),
-                "lon": (("row", "column"), lon[row_slice, col_slice]),
-            },
-        ).assign_coords(time = time)
         print(f"{time} opened")
     else:
-        dataset = None
-        print(f"{time} has no overlap with bbox")
+        # Create empty slices to generate arrays of shape (0, 0)
+        row_slice = slice(0, 0)
+        col_slice = slice(0, 0)
+        print(f"{time} has no overlap with bbox, returning empty Dataset")
+
+    dataset = xr.Dataset(
+        {
+            k: (("row", "column"), v[row_slice, col_slice])
+            for k, v in data_dict.items()
+        },
+        coords={
+            "lat": (("row", "column"), lat[row_slice, col_slice]),
+            "lon": (("row", "column"), lon[row_slice, col_slice]),
+        },
+    ).assign_coords(time=time)
 
     return dataset
-
 
 def apply_attributes(array,attrs):
     """
@@ -121,7 +133,6 @@ def apply_attributes(array,attrs):
     scaled_valid_array = (valid_array + offset) * scale
 
     return scaled_valid_array
-
 
 def geolocation_file(datestring: str = None,
                      path = MODIS_geo_path,
@@ -142,13 +153,15 @@ def geolocation_file(datestring: str = None,
     geo_data = SD(corresponding_geo_file)
     lat = geo_data.select("Latitude")
     lon = geo_data.select("Longitude")
-    _lat_array = lat[:].astype(np.uint16)
-    _lon_array = lon[:].astype(np.uint16)
+    _lat_array = lat[:].astype(np.float64)
+    _lon_array = lon[:].astype(np.float64)
 
     lat_array = apply_attributes(_lat_array, lat.attributes())
     lon_array = apply_attributes(_lon_array, lon.attributes())
 
-    return lat_array,lon_array
+    return lat_array, lon_array
+
+
 def open_hdf(path,
              type_of_product: Literal["reflectance", "lst"],
              datestring: str = None  # Format: YYYYDOY.HHMM
@@ -168,20 +181,20 @@ def open_hdf(path,
 
         v_data = data.select(v)
         _SD_var_array = v_data[:].astype(np.float64)
-
         SD_var_array = np.where(qa_mask,np.nan,_SD_var_array) # QA masking
-        attrs = v_data.attributes()
-
-        var_data_dict[v] = apply_attributes(SD_var_array,attrs)
-
+        var_attrs = v_data.attributes()
+        var_data_dict[v] = apply_attributes(SD_var_array, var_attrs)
 
     if type_of_product == "lst":
-        geolocation_file(datestring=datestring)
+        # MYD11 LST data has no pixel-wise geolocation data! Needs to be read from MYD03
+        lat_array, lon_array = geolocation_file(datestring=datestring)
 
-    lat_var = data.select("Latitude")
-    lat_array = lat_var[:].astype(np.float64)
-    lon_var = data.select("Longitude")
-    lon_array = lon_var[:].astype(np.float64)
+    elif type_of_product == "reflectance":
+        # MYD09 Does have geolocation within the same file.
+        lat_var = data.select("Latitude")
+        lat_array = lat_var[:].astype(np.float64)
+        lon_var = data.select("Longitude")
+        lon_array = lon_var[:].astype(np.float64)
 
     return {"data": var_data_dict, "lat": lat_array, "lon" : lon_array}
 

@@ -1,11 +1,13 @@
 import matplotlib
-
+import matplotlib.pyplot as plt
+import bottleneck
 from LST.datacube_utilities import crop2roi, get_edges
 from LST.load_amsr2 import open_amsr2
 from LST.load_slstr import open_sltsr
 from LST.load_modis import open_modis,ndvi_calc
-
+from LST.plot_functions import plot_modis_comparison
 matplotlib.use("TkAgg")
+
 import os
 from typing import Literal, List
 from config.paths import S3_SLSTR_path, path_bt, MODIS_path
@@ -74,21 +76,24 @@ def OPTI_AMSR2_DATACUBES(region: Literal["sahel", "siberia", "midwest", "ceu"],
     elif sensor.upper() == "MODIS":
         MODIS_path_region = os.path.join(MODIS_path, region)
 
-        # MODIS_reflectance = open_modis(MODIS_path_region,
-        #                            bbox=bbox,
-        #                            type_of_product="reflectance",
-        #                            time_start=time_start,
-        #                            time_stop=time_stop)
-        #
-        # MODIS_NDVI = ndvi_calc(MODIS_reflectance["1km Surface Reflectance Band 1"],
-        #                        MODIS_reflectance["1km Surface Reflectance Band 5"])
-        #
-        MODIS_lst = open_modis(MODIS_path_region,
+        MODIS_reflectance = open_modis(MODIS_path_region,
+                                   bbox=bbox,
+                                   type_of_product="reflectance",
+                                   time_start=time_start,
+                                   time_stop=time_stop)
+
+        MODIS_NDVI = ndvi_calc(MODIS_reflectance["1km Surface Reflectance Band 1"],
+                               MODIS_reflectance["1km Surface Reflectance Band 5"])
+
+        MODIS_LST = open_modis(MODIS_path_region,
                                    bbox=bbox,
                                    type_of_product="lst",
                                    time_start=time_start,
                                    time_stop=time_stop)
-        z = 1
+
+        plotdate = "2018-01-14T16:00"
+        plot_modis_comparison(MODIS_NDVI, MODIS_LST["LST"], ndvi_time=plotdate,
+                              lst_time=plotdate)
 
     else:
         optcial_stack = None

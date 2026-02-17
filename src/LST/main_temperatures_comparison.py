@@ -8,7 +8,7 @@ matplotlib.use('TkAgg')
 if __name__=="__main__":
 
     time_start = "2018-01-01"
-    time_stop = "2018-02-01"
+    time_stop = "2018-01-08"
 
     bbox =  [
         -104.47526565142171,

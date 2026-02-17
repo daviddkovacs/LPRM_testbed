@@ -483,3 +483,28 @@ def combined_dashboard(LST_L1,
     plt.suptitle(f"Sentinel-3 SLSTR and AMSR2 comparison | {obs_date}", fontsize=18, y=0.98)
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.show()
+
+
+
+def fill_plot_coords(ds_slice):
+    """Forward and backward fills lat/lon NaNs to prevent pcolormesh errors."""
+    for coord in ["lat", "lon"]:
+        ds_slice[coord] = (ds_slice[coord]
+                           .ffill(dim="column").bfill(dim="column")
+                           .ffill(dim="row").bfill(dim="row"))
+    return ds_slice
+
+def plot_modis_comparison(ndvi_da, lst_da, ndvi_time=4, lst_time=8):
+    """Slices, fixes coordinates, and plots NDVI and LST side-by-side."""
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+
+    ndvi_slice = fill_plot_coords(ndvi_da.sel(time=ndvi_time, method="nearest").copy())
+    ndvi_slice.plot(ax=ax1, cmap="RdYlGn", x="lon", y="lat")
+    ax1.set_title(f"MODIS NDVI (Time Index: {ndvi_slice.time.values})")
+
+    lst_slice = fill_plot_coords(lst_da.sel(time=lst_time, method="nearest").copy())
+    lst_slice.plot(ax=ax2, cmap="inferno", x="lon", y="lat")
+    ax2.set_title(f"MODIS LST (Time Index: {lst_slice.time.values})")
+
+    plt.tight_layout()
+    plt.show(block=True)

@@ -216,7 +216,7 @@ def compare_temperatures(soil_temp, veg_temp, TSURF, TSURFadj = None, MPDI =None
 
 def clean_pad_data(list_of_da, x , y):
     """
-    filters empy cropped data from SLSTR as well as pads data so each cropped ROI is the same dm
+    filters empy cropped data from SLSTR/MODIS as well as pads data so each cropped ROI is the same dm
     :param list_of_da: list of dataarrays to be concatenated.
     :param x: Variable at x diension--> SLSTR: "rows", MODIS : "lon"
     :param y: Variable at y diension--> SLSTR: "columns", MODIS : "lat"
