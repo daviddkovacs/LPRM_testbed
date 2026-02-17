@@ -10,11 +10,8 @@ import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use("TkAgg")
 import numpy as np
-import cProfile, pstats, io
-from pstats import SortKey
-pr = cProfile.Profile()
-pr.enable()
-
+from config.paths import MODIS_geo_path
+import datetime
 
 MODIS_prod_params = {
 
@@ -105,12 +102,56 @@ def xr_from_arrays(data_dict,lat,lon,time, bbox):
         dataset = None
         print(f"{time} has no overlap with bbox")
 
-
     return dataset
 
 
+def apply_attributes(array,attrs):
+    """
+    Function to apply, scaling, offset and NaN values from HDF-EOS format. note, this is taken care of automatically
+    in xarray
+    :param array: array to manipulate
+    :param attrs: attributes usually obtained by: SD(path).select(var).attributes()
+    :return: scaled_valid_array
+    """
+    scale = attrs["scale_factor"] if "scale_factor" in attrs.keys() else 1
+    offset = attrs["add_offset"] if "add_offset" in attrs.keys() else 0
+    fillvalue = attrs['_FillValue']
+
+    valid_array = np.where(array == fillvalue, np.nan, array)
+    scaled_valid_array = (valid_array + offset) * scale
+
+    return scaled_valid_array
+
+
+def geolocation_file(datestring: str = None,
+                     path = MODIS_geo_path,
+                     ):
+    """
+    MODIS LST does NOT have pixel-wise georeferencing, because they wanted to save memory. Thus it is supplied by the
+    MYD03 Geolocation product.
+    This function accepts the usual datestring from the LST filename, and searches for it in the geolocation file list.
+    :param datestring: MODIS file pattern referring for date.hour
+    :param path: Path where MYD03 geolocation files are stored
+    :return:
+    """
+
+    geo_files = glob.glob(os.path.join(path,"MYD03*.hdf"))
+    corresponding_geo_file_index = next((i for i, f in enumerate(geo_files) if datestring in f), None)
+    corresponding_geo_file = geo_files[corresponding_geo_file_index]
+
+    geo_data = SD(corresponding_geo_file)
+    lat = geo_data.select("Latitude")
+    lon = geo_data.select("Longitude")
+    _lat_array = lat[:].astype(np.uint16)
+    _lon_array = lon[:].astype(np.uint16)
+
+    lat_array = apply_attributes(_lat_array, lat.attributes())
+    lon_array = apply_attributes(_lon_array, lon.attributes())
+
+    return lat_array,lon_array
 def open_hdf(path,
              type_of_product: Literal["reflectance", "lst"],
+             datestring: str = None  # Format: YYYYDOY.HHMM
              ):
 
     data = SD(path)
@@ -124,19 +165,18 @@ def open_hdf(path,
 
     vars = MODIS_prod_params[type_of_product]["variables"]
     for v in vars:
+
         v_data = data.select(v)
         _SD_var_array = v_data[:].astype(np.float64)
 
         SD_var_array = np.where(qa_mask,np.nan,_SD_var_array) # QA masking
-
         attrs = v_data.attributes()
-        scale = attrs["scale_factor"]
-        offset = attrs["add_offset"]
-        fillvalue = attrs['_FillValue']
 
-        valid_array = np.where(SD_var_array == fillvalue, np.nan, SD_var_array)
-        scaled_valid_array = (valid_array + offset ) * scale
-        var_data_dict[v] = scaled_valid_array
+        var_data_dict[v] = apply_attributes(SD_var_array,attrs)
+
+
+    if type_of_product == "lst":
+        geolocation_file(datestring=datestring)
 
     lat_var = data.select("Latitude")
     lat_array = lat_var[:].astype(np.float64)
@@ -161,16 +201,17 @@ def open_modis(path,
     _dates = pd.to_datetime(dates_string, format="%Y%j.%H%M")
     date_mask = (pd.to_datetime(time_start) < _dates) & (_dates < pd.to_datetime(time_stop))
 
+    dates_string_valid =  np.array(dates_string)[date_mask]
     dates_valid_modis = np.array(_dates)[date_mask]
     files_valid_modis = np.array(files_modis)[date_mask]
     MODIS_timeseries = []
 
-    for f, d in zip(files_valid_modis, dates_valid_modis):
+    for file, date, datestring in zip(files_valid_modis, dates_valid_modis, dates_string_valid):
 
-        day_data_dict = open_hdf(f, type_of_product= type_of_product)
+        day_data_dict = open_hdf(file, type_of_product= type_of_product,datestring= datestring)
         day_data_dict["data"] = pad_array(day_data_dict["data"], day_data_dict["lat"], day_data_dict["lon"])
         da_MODIS_day = xr_from_arrays(day_data_dict["data"], day_data_dict["lat"], day_data_dict["lon"],
-                                      time=d, bbox=bbox)
+                                      time=date, bbox=bbox)
         MODIS_timeseries.append(da_MODIS_day)
 
     padded_data = clean_pad_data(MODIS_timeseries, x="row", y="column")
