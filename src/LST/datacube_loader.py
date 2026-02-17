@@ -26,7 +26,7 @@ def temporal_subset_dc(OPTI, AMSR2, date):
     # We select OPTI's observation to get AMSR2. the frequency of obs for AMSR2 is higher.
     AMSR2_obs = AMSR2.sortby('time').sel(time=OPTI_obs.time.dt.floor("d"), method="nearest")
 
-    return {"OPTI": OPTI_obs, "AMSR2": AMSR2_obs}
+    return OPTI_obs, AMSR2_obs
 
 
 def spatial_subset_dc(OPTI, AMSR2,  bbox):
@@ -34,17 +34,17 @@ def spatial_subset_dc(OPTI, AMSR2,  bbox):
     SLSTR is cut to the full spatial extent of AMSR2.
     Both AMSR2 and SLSTR cropped to bbox
     """
-    AMSR2 = crop2roi(AMSR2, bbox)
-    res = AMSR2.attrs["resolution"]
+    AMSR2_roi = crop2roi(AMSR2, bbox)
+    res = AMSR2_roi.attrs["resolution"]
 
-    AMSR2_bbox = [get_edges(AMSR2.lon.values, res).min(),
-                  get_edges(AMSR2.lat.values, res).min(),
-                  get_edges(AMSR2.lon.values, res).max(),
-                  get_edges(AMSR2.lat.values, res).max()]
+    AMSR2_bbox = [get_edges(AMSR2_roi.lon.values, res).min(),
+                  get_edges(AMSR2_roi.lat.values, res).min(),
+                  get_edges(AMSR2_roi.lon.values, res).max(),
+                  get_edges(AMSR2_roi.lat.values, res).max()]
 
     OPTI_roi = crop2roi(OPTI, AMSR2_bbox)
 
-    return {"OPTI": OPTI_roi, "AMSR2": AMSR2}
+    return  OPTI_roi, AMSR2_roi
 
 
 def OPTICAL_datacube(region: Literal["sahel", "siberia", "midwest", "ceu"],
@@ -96,7 +96,7 @@ def OPTICAL_datacube(region: Literal["sahel", "siberia", "midwest", "ceu"],
         return MODIS_NDVI, MODIS_LST
 
 
-def MICRWOWAVE_datacube(
+def MICROWAVE_datacube(
         bbox: List[float],
         path=path_bt,
         sensor="AMSR2",

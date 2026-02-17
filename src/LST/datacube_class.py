@@ -2,7 +2,7 @@ from typing import  Literal, List
 from LST.datacube_loader import (
     OPTICAL_datacube,
     spatial_subset_dc,
-    temporal_subset_dc,
+    temporal_subset_dc, MICROWAVE_datacube,
 )
 from LST.datacube_utilities import calc_Holmes_temp, calc_adjusted_temp, KuKa, mpdi, threshold_ndvi, \
     compare_temperatures
@@ -19,8 +19,8 @@ class DATA_READER:
                  region: Literal["sahel", "siberia", "midwest","ceu"],
                  bbox: List[float],
                  sensor: Literal["MODIS","SLSTR"],
-                 time_start=str,
-                 time_stop=str,
+                 time_start:str,
+                 time_stop:str,
                  ):
         """
         Class to store Level-1 data from SLSTR and AMSR2. Stroing in a class avoids reloading every iteration.
@@ -33,10 +33,13 @@ class DATA_READER:
                                                  sensor=sensor,
                                                  bbox=bbox,
                                                  time_start=time_start,
-                                                 time_stop=time_stop)
+                                                 time_stop=time_stop
+                                                           )
 
-        self.DATACUBES_L1B = None
-        self.DATACUBES_L2 = None
+        self.AMSR2 = MICROWAVE_datacube(bbox=bbox, time_start=time_start, time_stop=time_stop)
+
+        self.LST_temp, self.NDVI_temp, self.AMSR2_temp = None, None, None # Temporal matches
+        self.LST_crop, self.NDVI_crop, self.AMSR2_crop = None, None, None # Spatial matches (crop to AMSR2 extent)
 
 
     def spatio_temporal_subset(self,
@@ -54,15 +57,26 @@ class DATA_READER:
         """
 
         # Selecting closest time of observation
-        self.DATACUBES_L1B = temporal_subset_dc(
-            OPTI=self.DATACUBES_L1["SLSTR"],
-            AMSR2=self.DATACUBES_L1["AMSR2"],
+        self.LST_temp, self.AMSR2_temp = temporal_subset_dc(
+            OPTI=self.MODIS_LST,
+            AMSR2=self.AMSR2,
             date=date)
 
-        # Cropping to bbox coords.
-        self.DATACUBES_L2 = spatial_subset_dc(
-            OPTI=self.DATACUBES_L1B["SLSTR"],
-            AMSR2=self.DATACUBES_L1B["AMSR2"],
+        self.NDVI_temp, self.AMSR2_temp = temporal_subset_dc(
+            OPTI=self.MODIS_NDVI,
+            AMSR2=self.AMSR2,
+            date=date)
+
+
+        # Cropping closest time of observation to AMSR2 extents
+        self.LST_crop, self.AMSR2_crop = spatial_subset_dc(
+            OPTI=self.LST_temp,
+            AMSR2=self.AMSR2_temp,
+            bbox=bbox)
+
+        self.NDVI_crop, _ = spatial_subset_dc(
+            OPTI=self.NDVI_temp,
+            AMSR2=self.AMSR2_temp,
             bbox=bbox)
 
 
@@ -84,15 +98,15 @@ class DATA_READER:
         :return: pd.Dataframe containing soil, veg. temperatures as well as AMSR2 retrievals.
         """
 
-        self.spatio_temporal_subset(bbox,date)
+        # self.spatio_temporal_subset(bbox,date)
 
-        SLSTR_LST = self.DATACUBES_L2["SLSTR"]["LST"]
-        SLSTR_NDVI = self.DATACUBES_L2["SLSTR"]["NDVI"]
+        SLSTR_LST = self.LST_crop
+        SLSTR_NDVI = self.NDVI_crop
 
-        AMSR2_LST = calc_Holmes_temp(self.DATACUBES_L2["AMSR2"])
-        AMSR2_LST_theor = calc_adjusted_temp(self.DATACUBES_L2["AMSR2"], factor= 0.8, bandH= "ku", mpdi_band=mpdi_band)
-        AMSR2_MPDI = mpdi(self.DATACUBES_L2["AMSR2"], mpdi_band)
-        AMSR2_KUKA = KuKa(self.DATACUBES_L2["AMSR2"], num="ku", denom="ka")
+        AMSR2_LST = calc_Holmes_temp(self.AMSR2_crop)
+        AMSR2_LST_theor = calc_adjusted_temp(self.AMSR2_crop, factor= 0.8, bandH= "ku", mpdi_band=mpdi_band)
+        AMSR2_MPDI = mpdi(self.AMSR2_crop, mpdi_band)
+        AMSR2_KUKA = KuKa(self.AMSR2_crop, num="ku", denom="ka")
 
         soil_temp, veg_temp = threshold_ndvi(lst=SLSTR_LST,
                                              ndvi=SLSTR_NDVI,
@@ -133,8 +147,8 @@ class DATA_READER:
         """
         df = self.process_date(bbox,date)
 
-        combined_validation_dashboard(LST_L1B=self.DATACUBES_L1B["SLSTR"]["LST"],
-                                      NDVI_L1B=self.DATACUBES_L1B["SLSTR"]["NDVI"],
+        combined_validation_dashboard(LST_L1B=self.LST_temp,
+                                      NDVI_L1B=self.NDVI_temp,
                                       df_S3_pixels_in_AMSR2=df,
                                       bbox=bbox,
                                       plot_mpdi=plot_mpdi,
@@ -155,5 +169,5 @@ class DATA_READER:
         :return:
         """
         self.spatio_temporal_subset(bbox,date)
-        amsr2_lst = calc_Holmes_temp(self.DATACUBES_L2["AMSR2"])
+        amsr2_lst = calc_Holmes_temp(self.AMSR2_crop)
         amsr2_lst_figure(amsr2_lst, AMSR2_plot_params)

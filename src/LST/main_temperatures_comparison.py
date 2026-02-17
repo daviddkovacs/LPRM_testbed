@@ -8,7 +8,7 @@ matplotlib.use('TkAgg')
 if __name__=="__main__":
 
     time_start = "2018-01-01"
-    time_stop = "2018-01-20"
+    time_stop = "2018-01-10"
 
     bbox =  [
         -104.47526565142171,
@@ -31,7 +31,7 @@ if __name__=="__main__":
     veg_range = [0.5, 1]
     mpdi_band = "x"
     dflist = []
-    timesteps = Data.DATACUBES_L1["SLSTR"].time
+    timesteps = Data.MODIS_LST.time
 
     for d in timesteps:
         # try:
