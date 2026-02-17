@@ -3,7 +3,7 @@ import matplotlib
 from LST.datacube_utilities import crop2roi, get_edges
 from LST.load_amsr2 import open_amsr2
 from LST.load_slstr import open_sltsr
-from LST.load_modis import open_modis
+from LST.load_modis import open_modis,ndvi_calc
 
 matplotlib.use("TkAgg")
 import os
@@ -72,14 +72,18 @@ def OPTI_AMSR2_DATACUBES(region: Literal["sahel", "siberia", "midwest", "ceu"],
                                    )
 
     elif sensor.upper() == "MODIS":
+        MODIS_path_region = os.path.join(MODIS_path, region)
 
-        modis_reflectance = open_modis(MODIS_path,
-                                   bbox=bbox,
-                                   type_of_product="reflectance",
-                                   time_start=time_start,
-                                   time_stop=time_stop)
-
-        modis_lst = open_modis(MODIS_path,
+        # MODIS_reflectance = open_modis(MODIS_path_region,
+        #                            bbox=bbox,
+        #                            type_of_product="reflectance",
+        #                            time_start=time_start,
+        #                            time_stop=time_stop)
+        #
+        # MODIS_NDVI = ndvi_calc(MODIS_reflectance["1km Surface Reflectance Band 1"],
+        #                        MODIS_reflectance["1km Surface Reflectance Band 5"])
+        #
+        MODIS_lst = open_modis(MODIS_path_region,
                                    bbox=bbox,
                                    type_of_product="lst",
                                    time_start=time_start,

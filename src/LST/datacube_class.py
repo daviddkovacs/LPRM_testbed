@@ -17,11 +17,11 @@ from plot_functions import (combined_validation_dashboard,
 class DATA_READER:
 
     def __init__(self,
-                 region:Literal["sahel", "siberia", "midwest","ceu"],
-                 bbox:List[float],
+                 region: Literal["sahel", "siberia", "midwest","ceu"],
+                 bbox: List[float],
                  sensor: Literal["MODIS","SLSTR"],
-                 time_start= str,
-                 time_stop= str,
+                 time_start=str,
+                 time_stop=str,
                  ):
         """
         Class to store Level-1 data from SLSTR and AMSR2. Stroing in a class avoids reloading every iteration.

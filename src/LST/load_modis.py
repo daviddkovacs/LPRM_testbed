@@ -16,24 +16,48 @@ pr = cProfile.Profile()
 pr.enable()
 
 
+MODIS_prod_params = {
+
+    "lst": {"qa_band_name": "QC",
+            "list_of_flags": [0, 1, 2, 4, 5],
+            "variables" : ["LST"]},
+
+    "reflectance" : {"qa_band_name": "1km Reflectance Data State QA",
+                     "list_of_flags": [0, 1, 2, 8, 9, 12, 15],
+                     "variables" : ['1km Surface Reflectance Band 1', '1km Surface Reflectance Band 5'],
+                     }
+}
 
 
 def ndvi_calc(red,nir):
     return ((nir-red)/(nir+red)).rename("NDVI")
 
-def mask_bit_flag(array, bit):
+def mask_bit_flag(qa_array, bits=None):
     """
-    For the input array, from MYD09 L2 MODIS surface reflectance data, returns a mask where:
-        - Clouds are filtered (Bits set: 0,1,2,8,9)
-        - Snow and Ice (Bits set: 12,15)
+    For MYD09 Surface Reflectance see:
+        See Table 13: https://modis-land.gsfc.nasa.gov/pdf/MOD09_UserGuide_v1.4.pdf
+        For the input array, from MYD09 L2 MODIS surface reflectance data, returns a mask where:
+            - Clouds are filtered (Bits set: 0,1,2,8,9)
+            - Snow and Ice (Bits set: 12,15)
 
-    See Table 13: https://modis-land.gsfc.nasa.gov/pdf/MOD09_UserGuide_v1.4.pdf
+    For MYD11 LST see:
+        See Table 9: https://www.earthdata.nasa.gov/s3fs-public/2025-04/MOD11_User_Guide_V5.pdf?VersionId=DWqcQ5V29aHlBv0O6Ef1_1xNffsdfXqy
+        For the input array, from MYD09 L2 MODIS surface reflectance data, returns a mask where:
+            - Clouds are filtered (Bits set: 0,1,2,8,9)
+            - Snow and Ice (Bits set: 12,15)
 
-    :param array: Input L2 Swath from MODIS
+    :param array: Input L2 Swath from MODIS QA band!!
     :return: Boolean mask
     """
-    mask = (array.astype(int) & 2 ** bit) == 2 ** bit
-    return mask
+    if len(bits) == 1:
+        mask_array = (qa_array.astype(int) & 2 ** bits) == 2 ** bits
+    elif len(bits) > 1:
+        combined_mask = sum(1 << b for b in bits)
+        mask_array = (qa_array.astype(int)  & combined_mask) > 0
+    else:
+        mask_array = np.full(shape=qa_array.shape, fill_value = False)
+
+    return mask_array
 
 def pad_array(array_dict, lat, lon):
     array_padded = {}
@@ -85,21 +109,21 @@ def xr_from_arrays(data_dict,lat,lon,time, bbox):
     return dataset
 
 
-def open_hdf(path, var: List):
+def open_hdf(path,
+             type_of_product: Literal["reflectance", "lst"],
+             ):
+
     data = SD(path)
     var_data_dict = {}
 
-    qa_array = data.select("1km Reflectance Data State QA")[:].astype(np.float64)
-    qa_mask = (mask_bit_flag(qa_array,0) |
-               mask_bit_flag(qa_array,1) |
-               mask_bit_flag(qa_array,2) |
-               mask_bit_flag(qa_array,8) |
-               mask_bit_flag(qa_array,9) |
-               mask_bit_flag(qa_array,12) |
-               mask_bit_flag(qa_array,15)
-               )
+    qa_band_name = MODIS_prod_params[type_of_product]["qa_band_name"]
+    qa_array = data.select(qa_band_name)[:].astype(np.uint16)
 
-    for v in var:
+    flag_bits =  MODIS_prod_params[type_of_product]["list_of_flags"]
+    qa_mask = mask_bit_flag(qa_array, flag_bits)
+
+    vars = MODIS_prod_params[type_of_product]["variables"]
+    for v in vars:
         v_data = data.select(v)
         _SD_var_array = v_data[:].astype(np.float64)
 
@@ -122,13 +146,13 @@ def open_hdf(path, var: List):
     return {"data": var_data_dict, "lat": lat_array, "lon" : lon_array}
 
 
-def open_modis_timeseries(path,
-                          type_of_product: Literal["reflectance", "lst"],
-                          bbox,
-                          date_pattern=r"\d{7}\.\d{4}",
-                          time_start="2024-01-01",
-                          time_stop="2025-01-01",
-                          ):
+def open_modis(path,
+               type_of_product: Literal["reflectance", "lst"],
+               bbox,
+               date_pattern=r"\d{7}\.\d{4}",
+               time_start="2024-01-01",
+               time_stop="2025-01-01",
+               ):
 
     folder_modis = os.path.join(path, type_of_product, "*.hdf")
     files_modis = glob.glob(folder_modis)
@@ -143,13 +167,7 @@ def open_modis_timeseries(path,
 
     for f, d in zip(files_valid_modis, dates_valid_modis):
 
-        if type_of_product.lower() == "reflectance":
-            variables = ['1km Surface Reflectance Band 1', '1km Surface Reflectance Band 5']
-        elif type_of_product.lower() == "lst":
-            variables = ["LST"]
-
-        day_data_dict = open_hdf(f, variables)
-
+        day_data_dict = open_hdf(f, type_of_product= type_of_product)
         day_data_dict["data"] = pad_array(day_data_dict["data"], day_data_dict["lat"], day_data_dict["lon"])
         da_MODIS_day = xr_from_arrays(day_data_dict["data"], day_data_dict["lat"], day_data_dict["lon"],
                                       time=d, bbox=bbox)
@@ -163,26 +181,14 @@ def open_modis_timeseries(path,
 
 if __name__== "__main__":
 
-    # path_lst = ("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/"
-    #             "daytime_retrieval/LST/MODIS/midwest/lst/MYD11_L2.A2018003.1930.061.2021316030624.hdf")
-    path_sr = "/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/LST/MODIS/midwest/"
+    myd3_path = "/home/ddkovacs/Downloads/MYD03.A2018001.1945.061.2018002153806.hdf"
+    myd9_path =  "/home/ddkovacs/Desktop/modis/midwest/reflectance/MYD09.A2018001.1945.061.2021294135456.hdf"
 
-    bbox = [
-        -104.47526565142171,
-        36.88112420551842,
-        -103.97963676129571,
-        37.16747407362031
-    ]
+    myd3_hdf = SD(myd3_path)
+    myd9_hdf = SD(myd9_path)
 
-    ds  = open_modis_timeseries(path_sr, type_of_product="reflectance", bbox=bbox, time_start="2018-01-01",
-                          time_stop="2018-02-01")
-    ds_ndvi = ndvi_calc(ds["1km Surface Reflectance Band 1"],
-                        ds["1km Surface Reflectance Band 5"],)
+    myd3 = myd3_hdf.datasets()
+    myd9 = myd9_hdf.datasets()
 
-
-    # pr.disable()
-    # s = io.StringIO()
-    # sortby = SortKey.TIME
-    # ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
-    # ps.print_stats()
-    # print(s.getvalue())
+    myd3_lat = myd3_hdf.select("Latitude")[:]
+    myd9_lat = myd9_hdf.select("Latitude")[:]

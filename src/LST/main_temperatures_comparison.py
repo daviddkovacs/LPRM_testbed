@@ -4,20 +4,22 @@ from LST.datacube_class import DATA_READER
 import matplotlib
 import matplotlib.pyplot as plt
 matplotlib.use('TkAgg')
+
 if __name__=="__main__":
 
-    time_start = "2023-01-01"
-    time_stop = "2026-01-01"
+    time_start = "2018-01-01"
+    time_stop = "2018-02-01"
 
     bbox =  [
-    -2.94988870276606,
-    14.13623145787058,
-    -2.237090476608074,
-    14.676788211060355
-  ]
+        -104.47526565142171,
+        36.88112420551842,
+        -103.97963676129571,
+        37.16747407362031
+    ]
 
     Data = DATA_READER(
-        region="sahel",
+        region="midwest",
+        sensor="MODIS",
         bbox= bbox,
         time_start=time_start,
         time_stop=time_stop,
