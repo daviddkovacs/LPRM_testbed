@@ -16,7 +16,7 @@ import datetime
 MODIS_prod_params = {
 
     "lst": {"qa_band_name": "QC",
-            # "list_of_flags": [0, 1, 2, 4, 5],
+            # "list_of_flags": [0, 1, 2, 4, 5], #TODO: REVISE!!!!!!!!
             "list_of_flags": [0, ],
             "variables" : ["LST"]},
 

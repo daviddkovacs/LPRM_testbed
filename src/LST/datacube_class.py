@@ -13,7 +13,6 @@ from plot_functions import (combined_validation_dashboard,
                             amsr2_lst_figure)
 
 
-
 class DATA_READER:
 
     def __init__(self,

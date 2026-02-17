@@ -1,6 +1,6 @@
 import matplotlib
 import matplotlib.pyplot as plt
-import bottleneck
+import xarray as xr
 from LST.datacube_utilities import crop2roi, get_edges
 from LST.load_amsr2 import open_amsr2
 from LST.load_slstr import open_sltsr
@@ -94,7 +94,6 @@ def OPTI_AMSR2_DATACUBES(region: Literal["sahel", "siberia", "midwest", "ceu"],
         plotdate = "2018-01-14T16:00"
         plot_modis_comparison(MODIS_NDVI, MODIS_LST["LST"], ndvi_time=plotdate,
                               lst_time=plotdate)
-
     else:
         optcial_stack = None
 
