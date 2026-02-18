@@ -210,7 +210,7 @@ def open_modis(path,
                ):
 
     folder_modis = os.path.join(path, type_of_product, "*.hdf")
-    files_modis = glob.glob(folder_modis)
+    files_modis = sorted(glob.glob(folder_modis))
 
     dates_string = [re.search(date_pattern, f).group(0) for f in files_modis]
     _dates = pd.to_datetime(dates_string, format="%Y%j.%H%M")

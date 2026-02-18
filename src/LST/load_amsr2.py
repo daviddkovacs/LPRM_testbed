@@ -41,7 +41,7 @@ def open_amsr2(path,
 
     folder = os.path.join(path,resolution,sensor,overpass,subdir_pattern,file_pattern)
 
-    files = glob.glob(folder)
+    files = sorted(glob.glob(folder))
 
     dates_string =  [re.search(date_pattern, p).group(1) for p in files]
 
