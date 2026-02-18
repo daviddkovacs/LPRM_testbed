@@ -17,7 +17,7 @@ MODIS_prod_params = {
 
     "lst": {"qa_band_name": "QC",
             # "list_of_flags": [0, 1, 2, 4, 5], #TODO: REVISE!!!!!!!!
-            "list_of_flags": [0, ],
+            "list_of_flags": [ 15,],
             "variables" : ["LST"]},
 
     "reflectance" : {"qa_band_name": "1km Reflectance Data State QA",
@@ -154,7 +154,7 @@ def geolocation_file(datestring: str = None,
     lat_array = apply_attributes(_lat_array, lat.attributes())
     lon_array = apply_attributes(_lon_array, lon.attributes())
 
-    return lat_array, lon_array
+    return (lat_array), (lon_array)
 
 
 def open_hdf(path,
@@ -191,6 +191,8 @@ def open_hdf(path,
         lat_array = lat_var[:].astype(np.float64)
         lon_var = data.select("Longitude")
         lon_array = lon_var[:].astype(np.float64)
+
+
 
     return {"data": var_data_dict, "lat": lat_array, "lon" : lon_array}
 

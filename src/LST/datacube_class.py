@@ -4,7 +4,7 @@ from LST.datacube_loader import (
     MICROWAVE_datacube,
 )
 from LST.datacube_utilities import calc_Holmes_temp, calc_adjusted_temp, KuKa, mpdi, threshold_ndvi, \
-    compare_temperatures, crop2roi, get_edges
+     crop2roi, get_edges
 from plot_functions import (combined_validation_dashboard,
                             LST_plot_params,
                             AMSR2_plot_params,
