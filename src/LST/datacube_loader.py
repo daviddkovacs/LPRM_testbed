@@ -10,12 +10,12 @@ matplotlib.use("TkAgg")
 
 import os
 from typing import Literal, List
-from config.paths import S3_SLSTR_path, path_bt, MODIS_path
+from config.paths import S3_SLSTR_path, path_bt, MODIS_path, MODIS_path_local, MODIS_geo_path_local
 
 
 # ---------------------------------------
 # DATACUBE PROCESSORS
-def temporal_subset_dc(OPTI, AMSR2, date):
+def match_OPTI_to_AMSR2_date(OPTI, AMSR2, date):
     """
     Select the closest date to SLSTR, and thus select this date to access AMSR2
     """
@@ -62,9 +62,10 @@ def OPTICAL_datacube(region: Literal["sahel", "siberia", "midwest", "ceu"],
     :return: dictionary with SLSTR and AMSR2 datacubes.
     """
 
-    if sensor.upper() == "SLSTR":
 
+    if sensor.upper() == "SLSTR":  # DEPRECATED!
         SLSTR_path_region = os.path.join(S3_SLSTR_path, region)
+
         SLSTR_stack = open_sltsr(SLSTR_path_region,
                                    time_start = time_start,
                                    time_stop = time_stop,
@@ -104,18 +105,44 @@ def MICROWAVE_datacube(
         time_start="2024-01-01",
         time_stop="2025-01-01",
 ):
+    if overpass == "day" or overpass == "night":
+        AMSR2_stack = open_amsr2(path=path,
+                                         sensor=sensor,
+                                         overpass=overpass,
+                                         subdir_pattern=f"20*",
+                                         file_pattern="amsr2_l1bt_*.nc",
+                                         date_pattern=r"_(\d{8})_",
+                                         time_start=time_start,
+                                         time_stop=time_stop,
+                                         resolution = "coarse_resolution",
+                                         bbox=bbox
+                                         )
+    elif overpass == "daynight":
+        day_amsr2 = open_amsr2(path=path,
+                                         sensor=sensor,
+                                         overpass="day",
+                                         subdir_pattern=f"20*",
+                                         file_pattern="amsr2_l1bt_*.nc",
+                                         date_pattern=r"_(\d{8})_",
+                                         time_start=time_start,
+                                         time_stop=time_stop,
+                                         resolution = "coarse_resolution",
+                                         bbox=bbox
+                                         )
 
-    AMSR2_cropped_stack = open_amsr2(path=path,
-                                     sensor=sensor,
-                                     overpass=overpass,
-                                     subdir_pattern=f"20*",
-                                     file_pattern="amsr2_l1bt_*.nc",
-                                     date_pattern=r"_(\d{8})_",
-                                     time_start=time_start,
-                                     time_stop=time_stop,
-                                     resolution = "coarse_resolution",
-                                     bbox=bbox
-                                     )
+        night_amsr2 = open_amsr2(path=path,
+                                         sensor=sensor,
+                                         overpass="night",
+                                         subdir_pattern=f"20*",
+                                         file_pattern="amsr2_l1bt_*.nc",
+                                         date_pattern=r"_(\d{8})_",
+                                         time_start=time_start,
+                                         time_stop=time_stop,
+                                         resolution = "coarse_resolution",
+                                         bbox=bbox
+                                         )
+        AMSR2_stack = xr.concat([day_amsr2, night_amsr2], dim='time').sortby('time')
 
-    return AMSR2_cropped_stack
+
+    return AMSR2_stack
 

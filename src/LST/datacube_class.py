@@ -2,7 +2,7 @@ from typing import  Literal, List
 from LST.datacube_loader import (
     OPTICAL_datacube,
     spatial_subset_dc,
-    temporal_subset_dc, MICROWAVE_datacube,
+    match_OPTI_to_AMSR2_date, MICROWAVE_datacube,
 )
 from LST.datacube_utilities import calc_Holmes_temp, calc_adjusted_temp, KuKa, mpdi, threshold_ndvi, \
     compare_temperatures
@@ -36,15 +36,13 @@ class DATA_READER:
                                                  time_stop=time_stop
                                                            )
 
-        self.AMSR2 = MICROWAVE_datacube(bbox=bbox, time_start=time_start, time_stop=time_stop)
+        self.AMSR2 = MICROWAVE_datacube(bbox=bbox,
+                                        overpass="daynight",
+                                        time_start=time_start, time_stop=time_stop)
 
-        self.LST_temp, self.NDVI_temp, self.AMSR2_temp = None, None, None # Temporal matches
-        self.LST_crop, self.NDVI_crop, self.AMSR2_crop = None, None, None # Spatial matches (crop to AMSR2 extent)
 
-
-    def spatio_temporal_subset(self,
-                               bbox: List[float],
-                               date):
+    def temporal_subset(self,
+                        date):
         """
         Levels guide:
             L1: All observations stacked in on xarray dataset. Instantiated by class. Cloud, snow filtered SLSTR.
@@ -57,27 +55,29 @@ class DATA_READER:
         """
 
         # Selecting closest time of observation
-        self.LST_temp, self.AMSR2_temp = temporal_subset_dc(
-            OPTI=self.MODIS_LST,
-            AMSR2=self.AMSR2,
-            date=date)
+        LST_temp, AMSR2_temp = match_OPTI_to_AMSR2_date(OPTI=self.MODIS_LST, AMSR2=self.AMSR2, date=date)
 
-        self.NDVI_temp, self.AMSR2_temp = temporal_subset_dc(
-            OPTI=self.MODIS_NDVI,
-            AMSR2=self.AMSR2,
-            date=date)
+        NDVI_temp, _ = match_OPTI_to_AMSR2_date(OPTI=self.MODIS_NDVI, AMSR2=self.AMSR2, date=date)
 
+        return LST_temp,NDVI_temp,AMSR2_temp
+
+
+    def spatial_temporal_subset(self, bbox,date):
+
+        LST_temp, NDVI_temp, AMSR2_temp = self.temporal_subset(date)
 
         # Cropping closest time of observation to AMSR2 extents
-        self.LST_crop, self.AMSR2_crop = spatial_subset_dc(
-            OPTI=self.LST_temp,
-            AMSR2=self.AMSR2_temp,
+        LST_crop, AMSR2_crop = spatial_subset_dc(
+            OPTI=LST_temp,
+            AMSR2=AMSR2_temp,
             bbox=bbox)
 
-        self.NDVI_crop, _ = spatial_subset_dc(
-            OPTI=self.NDVI_temp,
-            AMSR2=self.AMSR2_temp,
+        NDVI_crop, _ = spatial_subset_dc(
+            OPTI=NDVI_temp,
+            AMSR2=AMSR2_temp,
             bbox=bbox)
+
+        return LST_crop,NDVI_crop,AMSR2_crop
 
 
     def process_date(self,
@@ -98,18 +98,16 @@ class DATA_READER:
         :return: pd.Dataframe containing soil, veg. temperatures as well as AMSR2 retrievals.
         """
 
-        # self.spatio_temporal_subset(bbox,date)
+        OPTI_LST, OPTI_NDVI, AMSR2_BT = self.spatial_temporal_subset(bbox,date)
 
-        SLSTR_LST = self.LST_crop
-        SLSTR_NDVI = self.NDVI_crop
+        AMSR2_LST = calc_Holmes_temp(AMSR2_BT)
 
-        AMSR2_LST = calc_Holmes_temp(self.AMSR2_crop)
-        AMSR2_LST_theor = calc_adjusted_temp(self.AMSR2_crop, factor= 0.8, bandH= "ku", mpdi_band=mpdi_band)
-        AMSR2_MPDI = mpdi(self.AMSR2_crop, mpdi_band)
-        AMSR2_KUKA = KuKa(self.AMSR2_crop, num="ku", denom="ka")
+        AMSR2_LST_theor = calc_adjusted_temp(AMSR2_BT, factor= 0.8, bandH= "ku", mpdi_band=mpdi_band)
+        AMSR2_MPDI = mpdi(AMSR2_BT, mpdi_band)
+        AMSR2_KUKA = KuKa(AMSR2_BT, num="ku", denom="ka")
 
-        soil_temp, veg_temp = threshold_ndvi(lst=SLSTR_LST,
-                                             ndvi=SLSTR_NDVI,
+        soil_temp, veg_temp = threshold_ndvi(lst=OPTI_LST,
+                                             ndvi=OPTI_NDVI,
                                              soil_range=soil_range,
                                              ndvi_range=veg_range)
 

@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use("TkAgg")
 import numpy as np
-from config.paths import MODIS_geo_path
+from config.paths import MODIS_geo_path, MODIS_geo_path_local
 import datetime
 
 MODIS_prod_params = {
@@ -135,7 +135,7 @@ def apply_attributes(array,attrs):
     return scaled_valid_array
 
 def geolocation_file(datestring: str = None,
-                     path = MODIS_geo_path,
+                     path = MODIS_geo_path_local,
                      ):
     """
     MODIS LST does NOT have pixel-wise georeferencing, because they wanted to save memory. Thus it is supplied by the
