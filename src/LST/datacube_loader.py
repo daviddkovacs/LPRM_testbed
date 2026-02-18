@@ -10,7 +10,7 @@ matplotlib.use("TkAgg")
 
 import os
 from typing import Literal, List
-from config.paths import S3_SLSTR_path, path_bt, MODIS_path, MODIS_path_local, MODIS_geo_path_local
+from config.paths import S3_SLSTR_path, path_bt, MODIS_path, MODIS_geo_path, MODIS_path_local, MODIS_geo_path_local
 
 
 # ---------------------------------------
@@ -73,13 +73,14 @@ def OPTICAL_datacube(region: Literal["sahel", "siberia", "midwest", "ceu"],
                                    ) # Will not work, currently will need to be adjusted!!!
 
     elif sensor.upper() == "MODIS":
-        MODIS_path_region = os.path.join(MODIS_path, region)
+        MODIS_path_region = os.path.join(MODIS_path_local, region)
 
         MODIS_reflectance = open_modis(MODIS_path_region,
                                    bbox=bbox,
                                    type_of_product="reflectance",
                                    time_start=time_start,
-                                   time_stop=time_stop)
+                                   time_stop=time_stop,
+                                       geo_path = MODIS_geo_path_local)
 
         MODIS_NDVI = ndvi_calc(MODIS_reflectance["1km Surface Reflectance Band 1"],
                                MODIS_reflectance["1km Surface Reflectance Band 5"])
@@ -91,7 +92,7 @@ def OPTICAL_datacube(region: Literal["sahel", "siberia", "midwest", "ceu"],
                                    time_stop=time_stop)
 
         plotdate = "2018-01-14T16:00"
-        plot_modis_comparison(MODIS_NDVI, MODIS_LST["LST"], ndvi_time=plotdate,
+        plot_modis_comparison(MODIS_NDVI["NDVI"], MODIS_LST["LST"], ndvi_time=plotdate,
                               lst_time=plotdate)
 
         return MODIS_NDVI, MODIS_LST

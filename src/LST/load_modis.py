@@ -29,7 +29,7 @@ MODIS_prod_params = {
 
 
 def ndvi_calc(red,nir):
-    return ((nir-red)/(nir+red)).rename("NDVI")
+    return ((nir-red)/(nir+red)).to_dataset(name="NDVI")
 
 def mask_bit_flag(qa_array, bits=None):
     """
@@ -164,7 +164,8 @@ def geolocation_file(datestring: str = None,
 
 def open_hdf(path,
              type_of_product: Literal["reflectance", "lst"],
-             datestring: str = None  # Format: YYYYDOY.HHMM
+             datestring: str = None,  # Format: YYYYDOY.HHMM
+             geo_path = MODIS_geo_path
              ):
 
     data = SD(path)
@@ -187,7 +188,7 @@ def open_hdf(path,
 
     if type_of_product == "lst":
         # MYD11 LST data has no pixel-wise geolocation data! Needs to be read from MYD03
-        lat_array, lon_array = geolocation_file(datestring=datestring)
+        lat_array, lon_array = geolocation_file(datestring=datestring, path=geo_path)
 
     elif type_of_product == "reflectance":
         # MYD09 Does have geolocation within the same file.
@@ -205,6 +206,7 @@ def open_modis(path,
                date_pattern=r"\d{7}\.\d{4}",
                time_start="2024-01-01",
                time_stop="2025-01-01",
+               geo_path = MODIS_geo_path
                ):
 
     folder_modis = os.path.join(path, type_of_product, "*.hdf")
@@ -221,7 +223,7 @@ def open_modis(path,
 
     for file, date, datestring in zip(files_valid_modis, dates_valid_modis, dates_string_valid):
 
-        day_data_dict = open_hdf(file, type_of_product= type_of_product,datestring= datestring)
+        day_data_dict = open_hdf(file, type_of_product= type_of_product,datestring= datestring, geo_path = geo_path)
         day_data_dict["data"] = pad_array(day_data_dict["data"], day_data_dict["lat"], day_data_dict["lon"])
         da_MODIS_day = xr_from_arrays(day_data_dict["data"], day_data_dict["lat"], day_data_dict["lon"],
                                       time=date, bbox=bbox)
@@ -231,7 +233,7 @@ def open_modis(path,
 
     MODIS_data = xr.concat(padded_data, dim="time")
 
-    return MODIS_data
+    return MODIS_data.sortby("time")
 
 if __name__== "__main__":
 
