@@ -23,8 +23,12 @@ def assign_time_of_day(dataset, dates):
     base_dates = pd.to_datetime(dates)
     scan_time_deltas = pd.to_timedelta(mean_scantime_over_bbox, unit='s')
     dates_with_scantime = base_dates + scan_time_deltas
+    dataset = dataset.assign_coords(time=dates_with_scantime)
 
-    return dataset.assign_coords(time =dates_with_scantime)
+    dataset_clean = dataset.isel(time=dataset.time.notnull())
+    dataset_clean = dataset_clean.sortby("time")
+
+    return dataset_clean
 
 
 def open_amsr2(path,

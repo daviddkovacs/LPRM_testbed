@@ -1,5 +1,5 @@
 import pandas as pd
-from LST.plot_functions import plot_hexbin, boxplot_timeseries
+from LST.plot_functions import plot_hexbin, boxplot_timeseries, plot_modis_comparison
 from LST.datacube_class import DATA_READER
 import matplotlib
 import matplotlib.pyplot as plt
@@ -10,12 +10,12 @@ if __name__=="__main__":
     time_start = "2018-01-01"
     time_stop = "2018-01-10"
 
-    bbox =  [
-        -104.47526565142171,
-        36.88112420551842,
-        -103.97963676129571,
-        37.16747407362031
-    ]
+    bbox = [
+    -104.89859042693736,
+    36.22330318012534,
+    -103.49362827363801,
+    37.49045690783343
+  ]
 
     Data = DATA_READER(
         region="midwest",
@@ -29,26 +29,17 @@ if __name__=="__main__":
 
     soil_range = [0, 0.2]
     veg_range = [0.5, 1]
+
     mpdi_band = "x"
-    dflist = []
-    timesteps = Data.MODIS_LST.time
 
-    for d in timesteps:
-        # try:
-        print(f"processing: {d.values}")
-        dflist.append(Data.process_date(date = d,  bbox= bbox,
-                                        soil_range=soil_range,
-                                        veg_range=veg_range,
-                                        mpdi_band="x"))
-        # except Exception as e:
-        #     print(e)
+    NDVI_cropped, LST_cropped = Data.match_AMSR2_extent()
 
-    complete_df = pd.concat(dflist)
-
-    # plt.close("all")
-    plot_hexbin(complete_df,"mpdi", "veg_temp",xlim= [0,0.03], ylim = [273,320])
-    plot_hexbin(complete_df,"veg_temp", "tsurf_ka", xlim= [0,0.1], ylim = [273,320])
-    plot_hexbin(complete_df,"kuka","soil_temp", xlim= [0.9,1], ylim = [273,320])
+    plotdate = "2018-01-08T08:43:13"
+    plot_modis_comparison(NDVI_cropped["NDVI"], LST_cropped["LST"], ndvi_time=plotdate,
+                          lst_time=plotdate)
+    plt.figure()
+    Data.AMSR2_LST.sel(time=plotdate, method="nearest").compute().plot.pcolormesh(x="lon", y="lat")
+    plt.show(block=True)
 
 ##
     date = "2024-08-01"

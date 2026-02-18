@@ -78,19 +78,14 @@ def merge_datasets(ds_NDVI,ds_LST):
     big_ds = xr.merge([NDVI_masked,ds_LST])[["NDVI","LST"]]
     return big_ds
 
-def xr_from_arrays(data_dict,lat,lon,time, bbox):
+def xr_from_arrays(data_dict,lat,lon,time, bbox, buffer = 0.1):
     """
     Selects coords lying within the bbox.
-    :param data_dict: dictionary having data[var] lat and lon
-    :param lat: lat array
-    :param lon: lon array
-    :param time: timestamp
-    :param bbox: bbox as list
-    :return: xr.DataArray()
+    buffer: in order to allow for cropping to AMSR2 extent, we first assign a larger ROI than the bbox
     """
     mask = (
-            (lat >= bbox[1]) & (lat <= bbox[3]) &
-            (lon >= bbox[0]) & (lon <= bbox[2])
+            (lat >= bbox[1]-buffer) & (lat <= bbox[3]+buffer) &
+            (lon >= bbox[0]-buffer) & (lon <= bbox[2]+buffer)
     )
 
     if np.any(mask):

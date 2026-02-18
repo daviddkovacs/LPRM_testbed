@@ -1,11 +1,10 @@
 from typing import  Literal, List
 from LST.datacube_loader import (
     OPTICAL_datacube,
-    spatial_subset_dc,
-    match_OPTI_to_AMSR2_date, MICROWAVE_datacube,
+    MICROWAVE_datacube,
 )
 from LST.datacube_utilities import calc_Holmes_temp, calc_adjusted_temp, KuKa, mpdi, threshold_ndvi, \
-    compare_temperatures
+    compare_temperatures, crop2roi, get_edges
 from plot_functions import (combined_validation_dashboard,
                             LST_plot_params,
                             AMSR2_plot_params,
@@ -36,9 +35,30 @@ class DATA_READER:
                                                  time_stop=time_stop
                                                            )
 
-        self.AMSR2 = MICROWAVE_datacube(bbox=bbox,
+        self.AMSR2_BT = MICROWAVE_datacube(bbox=bbox,
                                         overpass="daynight",
                                         time_start=time_start, time_stop=time_stop)
+
+        self.AMSR2_LST = calc_Holmes_temp(self.AMSR2_BT)
+
+
+
+    def match_AMSR2_extent(self):
+        """
+        SLSTR is cut to the full spatial extent of AMSR2.
+        Both AMSR2 and SLSTR cropped to bbox
+        """
+        res = self.AMSR2_BT.attrs["resolution"]
+
+        AMSR2_bbox = [get_edges(self.AMSR2_BT.lon.values, res).min(),
+                      get_edges(self.AMSR2_BT.lat.values, res).min(),
+                      get_edges(self.AMSR2_BT.lon.values, res).max(),
+                      get_edges(self.AMSR2_BT.lat.values, res).max()]
+
+        MODIS_NDVI_c = crop2roi(self.MODIS_NDVI, AMSR2_bbox)
+        MODIS_LST_c = crop2roi(self.MODIS_LST, AMSR2_bbox)
+
+        return MODIS_NDVI_c, MODIS_LST_c
 
 
     def temporal_subset(self,
@@ -55,29 +75,12 @@ class DATA_READER:
         """
 
         # Selecting closest time of observation
-        LST_temp, AMSR2_temp = match_OPTI_to_AMSR2_date(OPTI=self.MODIS_LST, AMSR2=self.AMSR2, date=date)
+        LST_temp, AMSR2_temp = match_AMSR2_date(OPTI=self.MODIS_LST, AMSR2=self.AMSR2, date=date)
 
-        NDVI_temp, _ = match_OPTI_to_AMSR2_date(OPTI=self.MODIS_NDVI, AMSR2=self.AMSR2, date=date)
+        NDVI_temp, _ = match_AMSR2_date(OPTI=self.MODIS_NDVI, AMSR2=self.AMSR2, date=date)
 
         return LST_temp,NDVI_temp,AMSR2_temp
 
-
-    def spatial_temporal_subset(self, bbox,date):
-
-        LST_temp, NDVI_temp, AMSR2_temp = self.temporal_subset(date)
-
-        # Cropping closest time of observation to AMSR2 extents
-        LST_crop, AMSR2_crop = spatial_subset_dc(
-            OPTI=LST_temp,
-            AMSR2=AMSR2_temp,
-            bbox=bbox)
-
-        NDVI_crop, _ = spatial_subset_dc(
-            OPTI=NDVI_temp,
-            AMSR2=AMSR2_temp,
-            bbox=bbox)
-
-        return LST_crop,NDVI_crop,AMSR2_crop
 
 
     def process_date(self,
@@ -158,14 +161,20 @@ class DATA_READER:
                                       NDVI_params=NDVI_params,
                                       )
 
-    def plot_AMSR2(self,bbox,date):
-        """
-        Plot AMSR2 Ka-band LST, within bounding box. This function allows to check, how coarse its resolution is
-        as compared to SLSTR.
-        :param bbox: List["lonmin", "latmin", "lonmax", "latmax"]
-        :param date: Date
-        :return:
-        """
-        self.spatio_temporal_subset(bbox,date)
-        amsr2_lst = calc_Holmes_temp(self.AMSR2_crop)
-        amsr2_lst_figure(amsr2_lst, AMSR2_plot_params)
+
+# DATACUBE PROCESSORS
+def match_AMSR2_date(OPTI, AMSR2, date):
+    """
+    Select the closest date to SLSTR, and thus select this date to access AMSR2
+    """
+    # SLSTR["time"] = SLSTR.time.sortby("time")
+    OPTI = OPTI.drop_duplicates(dim="time")
+    OPTI_obs = OPTI.sel(time=date, method="nearest")
+
+    # We select OPTI's observation to get AMSR2. the frequency of obs for AMSR2 is higher.
+    AMSR2_obs = AMSR2.sortby('time').sel(time=OPTI_obs.time.dt.floor("d"), method="nearest")
+
+    return OPTI_obs, AMSR2_obs
+
+
+

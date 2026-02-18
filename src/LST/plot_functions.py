@@ -507,4 +507,4 @@ def plot_modis_comparison(ndvi_da, lst_da, ndvi_time=4, lst_time=8):
     ax2.set_title(f"MODIS LST (Time Index: {lst_slice.time.values})")
 
     plt.tight_layout()
-    plt.show(block=True)
+    plt.show()
