@@ -1,20 +1,17 @@
 import xarray as xr
-from typing import List, Literal
-from pyhdf.SD import SD, SDC
+from typing import Literal
+from pyhdf.SD import SD
 import os
 import re
 import glob
 import pandas as pd
 from datacube_utilities import clean_pad_data
-import matplotlib.pyplot as plt
 import matplotlib
-matplotlib.use("TkAgg")
 import numpy as np
 from config.paths import MODIS_geo_path, MODIS_geo_path_local
-import datetime
+matplotlib.use("TkAgg")
 
 MODIS_prod_params = {
-
     "lst": {"qa_band_name": "QC",
             # "list_of_flags": [0, 1, 2, 4, 5], #TODO: REVISE!!!!!!!!
             "list_of_flags": [ 15,],
@@ -30,6 +27,7 @@ MODIS_prod_params = {
 
 def ndvi_calc(red,nir):
     return ((nir-red)/(nir+red)).to_dataset(name="NDVI")
+
 
 def mask_bit_flag(qa_array, bits=None):
     """
@@ -59,7 +57,16 @@ def mask_bit_flag(qa_array, bits=None):
 
     return mask_array
 
+
 def pad_array(array_dict, lat, lon):
+    """
+    Sometimes the MODIS L2 Swath needs to be padded, otherwise the datacube will not construct.
+    Unfortunately, this is ugly, but at least it works.
+    :param array_dict: MODIS array to be padded (if needed)
+    :param lat: Latitude array
+    :param lon: Longitude array
+    :return: If needed a padded array to the shape of Lat and Lon
+    """
     array_padded = {}
     for key,array in array_dict.items():
 
@@ -72,11 +79,13 @@ def pad_array(array_dict, lat, lon):
 
     return array_padded
 
+
 def merge_datasets(ds_NDVI,ds_LST):
 
     NDVI_masked = ds_NDVI.where(ds_LST > 0).rename("NDVI")
     big_ds = xr.merge([NDVI_masked,ds_LST])[["NDVI","LST"]]
     return big_ds
+
 
 def xr_from_arrays(data_dict,lat,lon,time, bbox, buffer = 0.1):
     """
@@ -112,6 +121,7 @@ def xr_from_arrays(data_dict,lat,lon,time, bbox, buffer = 0.1):
 
     return dataset
 
+
 def apply_attributes(array,attrs):
     """
     Function to apply, scaling, offset and NaN values from HDF-EOS format. note, this is taken care of automatically
@@ -128,6 +138,7 @@ def apply_attributes(array,attrs):
     scaled_valid_array = (valid_array + offset) * scale
 
     return scaled_valid_array
+
 
 def geolocation_file(datestring: str = None,
                      path = MODIS_geo_path_local,
@@ -231,17 +242,3 @@ def open_modis(path,
     MODIS_data = xr.concat(padded_data, dim="time")
 
     return MODIS_data.sortby("time")
-
-if __name__== "__main__":
-
-    myd3_path = "/home/ddkovacs/Downloads/MYD03.A2018001.1945.061.2018002153806.hdf"
-    myd9_path =  "/home/ddkovacs/Desktop/modis/midwest/reflectance/MYD09.A2018001.1945.061.2021294135456.hdf"
-
-    myd3_hdf = SD(myd3_path)
-    myd9_hdf = SD(myd9_path)
-
-    myd3 = myd3_hdf.datasets()
-    myd9 = myd9_hdf.datasets()
-
-    myd3_lat = myd3_hdf.select("Latitude")[:]
-    myd9_lat = myd9_hdf.select("Latitude")[:]

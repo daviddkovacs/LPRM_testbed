@@ -1,11 +1,10 @@
 import pandas as pd
-from LST.plot_functions import plot_hexbin, boxplot_timeseries, plot_modis_comparison
+from LST.plot_functions import plot_hexbin, plot_modis_comparison
 from LST.datacube_class import DATA_READER
+from datacube_utilities import (morning_evening_passes,coarsen_highres, common_observations)
 import matplotlib
 import matplotlib.pyplot as plt
 matplotlib.use('TkAgg')
-from datacube_utilities import (morning_evening_passes,coarsen_highres, common_observations)
-
 
 
 if __name__=="__main__":
@@ -22,7 +21,6 @@ if __name__=="__main__":
 
     Data = DATA_READER(
         region="midwest",
-        sensor="MODIS",
         bbox= bbox,
         time_start=time_start,
         time_stop=time_stop,
@@ -64,7 +62,7 @@ if __name__=="__main__":
 
 
     data_df_m = pd.DataFrame({
-                            "MODIS_LST_mor": coarse_MODIS_LST.values.ravel(),
-                            "AMSR2_LST_mor": common_AMSR2_LST.values.ravel()},
+                            f"MODIS_LST_{time_of_day}": coarse_MODIS_LST.values.ravel(),
+                            f"AMSR2_LST_{time_of_day}": common_AMSR2_LST.values.ravel()},
                            )
     plot_hexbin(data_df_m,f"MODIS_LST_{time_of_day}", f"AMSR2_LST_{time_of_day}")

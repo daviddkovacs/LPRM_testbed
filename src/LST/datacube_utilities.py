@@ -1,5 +1,5 @@
+from typing import Literal
 import numpy as np
-import pandas as pd
 import xarray as xr
 
 frequencies = {'C1': 6.9, 'C2': 7.3, 'X': 10.7, 'KU': 18.7, 'K': 23.8, 'KA': 36.5}
@@ -12,23 +12,6 @@ def calc_Holmes_temp(KaV):
     TSURF = KaV["bt_36.5V"] * 0.893 + 44.8
     TSURF.attrs = KaV.attrs
     return TSURF
-
-
-def calc_adjusted_temp(AMSR2, factor = 0.6, bandH = "Ka", mpdi_band = "C1"):
-    """
-    Theoretical MPDI adjusted temperature. Allows for free frequency selection.
-    """
-    _mpdi = xr.where(
-        (mpdi(AMSR2, mpdi_band)<=0.05) & (mpdi(AMSR2, mpdi_band)>=0), # Apply only where MPDI is lte 0.05
-        mpdi(AMSR2, mpdi_band),
-        0.05)
-    # _factor = xr.where(
-    #     mpdi(AMSR2, mpdi_band)<=0.01,
-    #     0.8,
-    #     0.05)
-    Teff = ((0.893 * AMSR2[f"bt_{frequencies[bandH.upper()]}H"]) /
-            (1 - _mpdi / factor)) + 44.8
-    return Teff
 
 
 def KuKa(AMSR2, num = "Ku",denom = "Ka"):
@@ -76,21 +59,6 @@ def filternan(array):
     return  array.values.flatten()[~np.isnan(array.values.flatten())]
 
 
-def clip_swath(ds):
-    """
-    Some S3 Tiles have a larger (1-2pix) across-scan dim resulting in errors. Thus we crop it.
-    """
-    return ds.isel(rows=slice(0, 1200))
-
-
-def filter_empty_var(ds, var = "NDVI"):
-    """
-    Sometimes NDVI is empty.. then we filter the whole dataset
-    """
-    valid = ds[var].notnull().any(dim = ["rows","columns"])
-    return ds.sel(time=valid)
-
-
 def subset_statistics(array):
 
     _array = filternan(array)
@@ -114,7 +82,6 @@ def get_edges(centers, res):
     return np.sort(edges)
 
 
-
 def binning_smaller_pixels(high_res, low_res):
     res = low_res.attrs["resolution"]
     lat_edges = get_edges(low_res.lat.values, res)
@@ -126,6 +93,7 @@ def binning_smaller_pixels(high_res, low_res):
     iterables["lons"] = np.digitize(high_res.lon.values, lon_edges)
 
     return iterables
+
 
 def coarsen_highres(highres_da, lowres_da):
     """
@@ -191,87 +159,8 @@ def coarsen_highres(highres_da, lowres_da):
         dims=("time", "lat", "lon")
     )
 
-    plotdate = "2018-02-04T08:43:13"
 
     return bin_da
-
-# def highres_pixels_in_lowres(highres_da,
-#                           bin_dict,
-#                           target_lat_bin,
-#                           target_lon_bin,):
-#     mask_3d = (bin_dict["lats"]  == target_lat_bin) & (bin_dict["lons"]  == target_lon_bin)
-#     mask_da = xr.DataArray(mask_3d, dims=["time", "row", "column"])
-#     pixels_within = highres_da.where(mask_da, drop=False)
-#     return pixels_within.mean()
-
-
-# def compare_temperatures(soil_temp, veg_temp, TSURF, TSURFadj = None, MPDI =None, KUKA = None):
-#     """
-#     Gets the underlying SLSTR array of pixels for every AMSR2 Ka-LST pixel. Then calculates the mean and std for these, and plots
-#     """
-#     soil_array =  [] # Soil SLSTR pixels within AMSR2 pixel
-#     veg_array =  [] # Veg. SLSTR pixels within AMSR2 pixel
-#
-#     veg_mean_list = []  # Mean of soil SLSTR pixels within AMSR2 pixel
-#     veg_std_list = [] # std of veg. SLSTR pixels within AMSR2 pixel
-#
-#     soil_mean_list = []
-#     soil_std_list = []
-#
-#     TSURF_list = []
-#     TSURFadj_list = []
-#     MPDI_list = []
-#     KUKA_list = []
-#
-#     bin_dict = binning_smaller_pixels(soil_temp, TSURF)  # instead of soil_temp, any shoudl be good thats a SLSTR obs
-#
-#     for targetlat in range(0, bin_dict["lats"].max()):
-#         for targetlon in range(0, bin_dict["lons"].max()):
-#
-#             soil_subset = highres_pixels_in_lowres(soil_temp, bin_dict, targetlat, targetlon)
-#
-#             veg_subset = highres_pixels_in_lowres(veg_temp, bin_dict, targetlat, targetlon)
-#
-#             soil_array.append(subset_statistics(soil_subset)[0])
-#             veg_array.append(subset_statistics(veg_subset)[0])
-#
-#             soil_mean_list.append(subset_statistics(soil_subset)[1]["mean"])
-#             soil_std_list.append(subset_statistics(soil_subset)[1]["std"])
-#
-#             veg_mean_list.append(subset_statistics(veg_subset)[1]["mean"])
-#             veg_std_list.append(subset_statistics(veg_subset)[1]["std"])
-#
-#             TSURF_subset = TSURF.isel(lat=targetlat, lon=targetlon)
-#             TSURF_list.append(TSURF_subset.values.item())
-#
-#             if MPDI is not None:
-#                 try:
-#                     MPDI_subset = MPDI.isel(lat=targetlat, lon=targetlon)
-#                     MPDI_list.append(MPDI_subset.values.item())
-#
-#                     KUKA_subset = KUKA.isel(lat=targetlat, lon=targetlon)
-#                     KUKA_list.append(KUKA_subset.values.item())
-#
-#                     TSURFadj_subset = TSURFadj.isel(lat=targetlat, lon=targetlon)
-#                     TSURFadj_list.append(TSURFadj_subset.values.item())
-#
-#                 except Exception as e:
-#                     print(e)
-#
-#     df =  pd.DataFrame({
-#         "veg_temp": veg_mean_list,
-#         "veg_std": veg_std_list,
-#         "soil_temp": soil_mean_list,
-#         "soil_std": soil_std_list,
-#         "tsurf_ka": TSURF_list,
-#         "tsurf_adj": TSURFadj_list,
-#         "mpdi": MPDI_list,
-#         "kuka": KUKA_list,
-#         "soil_array": soil_array,
-#         "veg_array": veg_array,
-#     })
-#
-#     return df
 
 
 def clean_pad_data(list_of_da, x , y):
@@ -307,7 +196,10 @@ def clean_pad_data(list_of_da, x , y):
 
     return padded_data
 
-def morning_evening_passes(dataset, threshold = 14):
+
+def morning_evening_passes(dataset,
+                           time_of_day:Literal["morning","evening"],
+                           threshold = 14):
     """
     We are in Central Standard Time (US Midwest)--> UTC - 6
      e.g.: 20:00 UTC is 14:00 over the Midwest, and an ascending overpass for A-train since crossing time is 13:30
@@ -315,9 +207,15 @@ def morning_evening_passes(dataset, threshold = 14):
     :param threshold: Upon which hour the split happens
     :return: day and nighttime datasets
     """
-    morning_dataset  = dataset.where(dataset.time.dt.hour <= threshold, drop=True)
-    afternoon_dataset = dataset.where(dataset.time.dt.hour >= threshold, drop=True)
-    return morning_dataset, afternoon_dataset
+    if time_of_day == "morning":
+        _dataset  = dataset.where(dataset.time.dt.hour <= threshold, drop=True)
+    elif time_of_day == "evening":
+        _dataset = dataset.where(dataset.time.dt.hour >= threshold, drop=True)
+    else:
+        raise Exception("Please select time of day: 'morning' or 'evening'")
+
+    return _dataset
+
 
 def common_observations(refds, ds2):
     if len(refds.time) > len(ds2.time):
