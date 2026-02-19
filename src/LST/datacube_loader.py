@@ -48,16 +48,16 @@ def OPTICAL_datacube(region: Literal["sahel", "siberia", "midwest", "ceu"],
                                        geo_path = MODIS_geo_path_local)
 
         MODIS_NDVI = ndvi_calc(MODIS_reflectance["1km Surface Reflectance Band 1"],
-                               MODIS_reflectance["1km Surface Reflectance Band 5"])
+                               MODIS_reflectance["1km Surface Reflectance Band 5"])["NDVI"]
 
         MODIS_LST = open_modis(MODIS_path_region,
                                    bbox=bbox,
                                    type_of_product="lst",
                                    time_start=time_start,
-                                   time_stop=time_stop)
+                                   time_stop=time_stop)["LST"]
 
 
-
+        x =1
         return MODIS_NDVI, MODIS_LST
 
 
