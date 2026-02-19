@@ -102,7 +102,6 @@ def plot_hexbin(df, x_col, y_col, xlim = [273, 325], ylim=[273, 325], plot_polyf
             linewidth=2,
             label="RANSAC regressor",
         )
-        fig.suptitle(f"slope: {np.round(m, 2)}, intercept: {np.round(c, 2)}")
 
     textstr = '\n'.join((
         f'$R = {stats["r"]:.2f}$',
