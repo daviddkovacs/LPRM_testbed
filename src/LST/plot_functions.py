@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
+from sklearn.linear_model import HuberRegressor
 matplotlib.use("TkAgg")
 
 LST_plot_params = {"x": "lon",
@@ -60,7 +61,7 @@ def usual_stats(x,y):
 
 
 
-def plot_hexbin(df, x_col, y_col, xlim = [273, 325], ylim=[273, 325]):
+def plot_hexbin(df, x_col, y_col, xlim = [273, 325], ylim=[273, 325], plot_polyfit = True):
 
     x = df[x_col]
     y = df[y_col]
@@ -73,17 +74,7 @@ def plot_hexbin(df, x_col, y_col, xlim = [273, 325], ylim=[273, 325]):
 
     ax.plot(xlim, ylim, 'k--', alpha=0.8, linewidth=1, zorder=10)
 
-    textstr = '\n'.join((
-        f'$R = {stats["r"]:.2f}$',
-        f'$RMSE = {stats["rmse"]:.2f}$ K',
-        f'$Bias = {stats["bias"]:.2f}$ K',
-        f'$N = {len(x)}$'
-    ))
 
-    props = dict(boxstyle='round', facecolor='white', alpha=0.8)
-
-    ax.text(0.05, 0.95, textstr, transform=ax.transAxes, fontsize=11,
-            verticalalignment='top', bbox=props)
 
     cb = fig.colorbar(hb, ax=ax)
     cb.set_label('Count')
@@ -94,7 +85,37 @@ def plot_hexbin(df, x_col, y_col, xlim = [273, 325], ylim=[273, 325]):
     ax.set_ylabel(y_col)
     ax.set_title(f'{x_col} vs {y_col}')
 
+    clean_df = df[[x_col, y_col]].dropna()
+    x = clean_df[x_col].values
+    y = clean_df[y_col].values
+    ransac = HuberRegressor()
+    ransac.fit(x.reshape(-1, 1), y)
+    line_x_ransac = np.arange(x.min(), x.max(), 0.01)[:, np.newaxis]
+    line_y_ransac = ransac.predict(line_x_ransac)
+    m, c = np.polyfit(line_x_ransac.ravel(), line_y_ransac, 1)
 
+    if plot_polyfit:
+        ax.plot(
+            line_x_ransac,
+            line_y_ransac,
+            color="cornflowerblue",
+            linewidth=2,
+            label="RANSAC regressor",
+        )
+        fig.suptitle(f"slope: {np.round(m, 2)}, intercept: {np.round(c, 2)}")
+
+    textstr = '\n'.join((
+        f'$R = {stats["r"]:.2f}$',
+        f'$RMSE = {stats["rmse"]:.2f}$ K',
+        f'$Bias = {stats["bias"]:.2f}$ K',
+        f'$N = {len(x)}$',
+        f"y(x)={np.round(m, 2)}x+{np.round(c, 2)}"
+    ))
+
+    props = dict(boxstyle='round', facecolor='white', alpha=0.8)
+
+    ax.text(0.05, 0.95, textstr, transform=ax.transAxes, fontsize=11,
+            verticalalignment='top', bbox=props)
     plt.show()
 
 
