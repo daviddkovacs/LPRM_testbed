@@ -1,6 +1,8 @@
 import os
 import glob
 from dask.array import block
+
+import LST.datacube_utilities
 from config.paths import path_bt
 import matplotlib
 import numpy as np
@@ -131,7 +133,7 @@ for const_variable_value in sm_cons:
                 params.h2,  # fixed
                 params.vod_Av,  # fixed
                 params.vod_Bv,  # fixed
-                float(get_specs(sat_sensor.upper()).frequencies[sat_band.upper()]),  # fixed
+                float(LST.datacube_utilities.frequencies[sat_band.upper()]),  # fixed
                 params.temp_freeze,  # fixed
                 False,
                 None,

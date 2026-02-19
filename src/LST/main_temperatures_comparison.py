@@ -1,67 +1,60 @@
 import pandas as pd
-from LST.plot_functions import plot_hexbin, boxplot_timeseries
-from LST.SLSTR_AMSR2_reader import SLSTR_AMSR2_DC
+from LST.plot_functions import plot_hexbin, plot_modis_comparison
+from LST.datacube_class import DATA_READER
+from datacube_utilities import (morning_evening_passes,coarsen_highres, common_observations)
 import matplotlib
 import matplotlib.pyplot as plt
 matplotlib.use('TkAgg')
-import pickle
+
+
 if __name__=="__main__":
 
-    time_start = "2023-01-01"
-    time_stop = "2026-01-01"
+    time_start = "2018-01-01"
+    time_stop = "2018-03-01"
 
     bbox =  [
-    -2.94988870276606,
-    14.13623145787058,
-    -2.237090476608074,
-    14.676788211060355
+    -104.7351137559069,
+    35.95693111917318,
+    -103.08335275645139,
+    36.66648495873841
   ]
 
-    Data = SLSTR_AMSR2_DC(
-        region="sahel",
+    Data = DATA_READER(
+        region="midwest",
         bbox= bbox,
         time_start=time_start,
         time_stop=time_stop,
     )
 
 ##
-
     soil_range = [0, 0.2]
     veg_range = [0.5, 1]
+
     mpdi_band = "x"
-    dflist = []
-    timesteps = Data.DATACUBES_L1["SLSTR"].time
+    AMSR2_LST = Data.AMSR2_LST
 
-    for d in timesteps:
-        # try:
-        print(f"processing: {d.values}")
-        dflist.append(Data.process_date(date = d,  bbox= bbox,
-                                        soil_range=soil_range,
-                                        veg_range=veg_range,
-                                        mpdi_band="x"))
-        # except Exception as e:
-        #     print(e)
+    MODIS_NDVI_cropped, MODIS_LST_cropped = Data.match_AMSR2_extent()
 
-    complete_df = pd.concat(dflist)
-
-    # plt.close("all")
-    plot_hexbin(complete_df,"mpdi", "veg_temp",xlim= [0,0.03], ylim = [273,320])
-    plot_hexbin(complete_df,"veg_temp", "tsurf_ka", xlim= [0,0.1], ylim = [273,320])
-    plot_hexbin(complete_df,"kuka","soil_temp", xlim= [0.9,1], ylim = [273,320])
-
-##
-    date = "2024-08-01"
-
-    Data.temperatures_dashboard(bbox=bbox,date=date, scatter_x= "veg_temp", )
-    Data.plot_AMSR2(bbox=bbox,date=date)
-
-
-##
-
-    fig = boxplot_timeseries(complete_df, mpdi_band=mpdi_band)
+    plotdate = "2018-01-01T08:43:13"
+    plot_modis_comparison(MODIS_NDVI_cropped, MODIS_LST_cropped, ndvi_time=plotdate,
+                          lst_time=plotdate)
+    plt.figure()
+    AMSR2_LST.sel(time=plotdate, method="nearest").compute().plot.pcolormesh(x="lon", y="lat")
     plt.show()
 
-    # with open("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/"
-    #                 "LPRM/07_debug/daytime_retrieval/LST/figs/fig1.pkl", "wb") as f:
-    #
-    #     pickle.dump(fig,f)
+##
+    time_of_day = "evening"
+    _MODIS_LST = morning_evening_passes(MODIS_LST_cropped, time_of_day=time_of_day)
+    _AMSR2_LST = morning_evening_passes(AMSR2_LST, time_of_day=time_of_day)
+
+    common_AMSR2_LST, common_MODIS_LST = common_observations(_AMSR2_LST, _MODIS_LST)
+
+    coarse_MODIS_LST = coarsen_highres(highres_da=common_MODIS_LST,
+                    lowres_da=common_AMSR2_LST)
+
+
+    data_df_m = pd.DataFrame({
+                            f"MODIS_LST_{time_of_day}": coarse_MODIS_LST.values.ravel(),
+                            f"AMSR2_LST_{time_of_day}": common_AMSR2_LST.values.ravel()},
+                           )
+    plot_hexbin(data_df_m,f"MODIS_LST_{time_of_day}", f"AMSR2_LST_{time_of_day}")

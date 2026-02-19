@@ -1,6 +1,8 @@
 import sys
 import os
 
+import LST.datacube_utilities
+
 # Get the absolute path of the directory containing this script (src/config)
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -112,7 +114,7 @@ for sat_band in list(frequencies.keys())[0:1]: # Set this to the index which Fre
 
             specs = get_specs(sensor.upper())
             params = get_lprm_parameters_for_frequency(sat_band, specs.incidence_angle)
-            freq = get_specs(sensor.upper()).frequencies[sat_band.upper()]
+            freq = LST.datacube_utilities.frequencies[sat_band.upper()]
 
             sm, vod= par100.run_band(
                 Tbv.values.astype('double'),
