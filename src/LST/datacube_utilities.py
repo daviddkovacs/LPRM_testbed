@@ -1,6 +1,12 @@
 from typing import Literal
 import numpy as np
 import xarray as xr
+import matplotlib
+import matplotlib.pyplot as plt
+from fontTools.unicodedata import block
+
+from LST.plot_functions import plot_hexbin, plot_modis_comparison
+matplotlib.use('TkAgg')
 
 frequencies = {'C1': 6.9, 'C2': 7.3, 'X': 10.7, 'KU': 18.7, 'K': 23.8, 'KA': 36.5}
 
@@ -48,11 +54,11 @@ def crop2roi(ds,bbox):
     :param bbox:
     :return:
     """
-    mask = (
+    valid = (
             (ds.lon >= bbox[0]) & (ds.lon <= bbox[2]) &
             (ds.lat >= bbox[1]) & (ds.lat <= bbox[3])
     )
-    return ds.where(mask, drop=True)
+    return ds.where(valid, drop=True)
 
 
 def filternan(array):
@@ -98,35 +104,38 @@ def binning_smaller_pixels(high_res, low_res):
 def coarsen_highres(highres_da, lowres_da):
     """
     We perfom the binning of the MODIS/SLSTR pixels to the coarse AMSR2 resolution.
+    This is the bread-and-butter of the high-low resolution matching.
     Linear indexing is used for speed.
+    Understanding how binning works: users please visit: https://numpy.org/doc/2.3/reference/generated/numpy.digitize.html
+    We still have outlier pixels from MODIS, has it is an irregular swath data, and these cant be dropped (to withhold nxm structure)
+    This should work on temporal data cubes (3d)
     :param highres_da: SLSTR/MODIS da
     :param lowres_da: AMSR2 data
-    :return:
+    :return: coarsened MODIS to AMSR2 footprint
     """
 
     bin_dict = binning_smaller_pixels(highres_da, lowres_da)
 
-    n_time = bin_dict["lats"].shape[0]  # 44
-    n_lat = lowres_da.sizes['lat']  # 5
-    n_lon = lowres_da.sizes['lon']  # 6
+    n_time = bin_dict["lats"].shape[0]
+    n_lat = lowres_da.sizes['lat']
+    n_lon = lowres_da.sizes['lon']
     spatial_area = n_lat * n_lon
 
-    # 2. Extract indices and flatten them
     lats = bin_dict["lats"].flatten()
     lons = bin_dict["lons"].flatten()
 
-    # Create the time component for every high-res pixel
     t_indices = np.arange(n_time)
     time_mask = np.broadcast_to(t_indices[:, None, None], bin_dict["lats"].shape).flatten()
 
-    # 3. CRITICAL: Filter out indices that are out of bounds
-    # This prevents 'Index 1320 is out of bounds'
-    valid_mask = (lats >= 0) & (lats < n_lat) & (lons >= 0) & (lons < n_lon)
+    # We do not need bins that are 0--> outside of bbox
+    valid_mask = (lats > 0) & (lats <= n_lat) & (lons > 0) & (lons <= n_lon)
 
-    # 4. Calculate 3D Linear ID: (t * spatial_area) + (lat * n_lon) + lon
+    # vectorized bins, each pixel gets one according to where it is in time:
+    # e.g.: bin #3 will not be bin #3 on two diff. days, it might be e.g.: 18 and 34 depending on
+    # how much data there is.
     combined_bins = (time_mask * spatial_area) + (lats * n_lon) + lons
 
-    # 5. Stack highres data and assign the IDs
+    # We stack the MODIS data to have one dim. encapsulating all original ones.
     hr_stacked = highres_da.stack(pixel=("time", "row", "column"))
 
     # We only care about pixels that actually fell inside the lowres grid
@@ -134,21 +143,21 @@ def coarsen_highres(highres_da, lowres_da):
     final_bins = np.where(valid_mask, combined_bins, -1)
     hr_stacked.coords["bin_id"] = ("pixel", final_bins)
 
-    # 6. Groupby and Mean (ignoring the -1 'out of bounds' bin)
+    # Groupby and Mean (ignoring the -1 'out of bounds' bin)
     stats = hr_stacked.where(hr_stacked.bin_id >= 0, drop=True).groupby("bin_id").mean().compute()
 
-    # 7. Map results to the flat output array (size 44 * 5 * 6 = 1320)
+    # Map results to the flat output array (size 44 * 5 * 6 = 1320)
     output_flat = np.full(n_time * spatial_area, np.nan)
 
     # Fill the flat array using the indices we just calculated
-    # stats.bin_id contains the 'address' in the 1320-length array
-    indices = stats.bin_id.values.astype(int)
+    _indices = stats.bin_id.values.astype(int)
+    indices = _indices - _indices.min()
     output_flat[indices] = stats.values
 
-    # 8. Reshape to 3D: (Time, Lat, Lon)
+    # Reshape to 3D: (Time, Lat, Lon)
     reshaped_data = output_flat.reshape((n_time, n_lat, n_lon))
 
-    # 9. Create final DataArray
+    # Create final DataArray
     bin_da = xr.DataArray(
         data=reshaped_data,
         coords={
@@ -158,7 +167,6 @@ def coarsen_highres(highres_da, lowres_da):
         },
         dims=("time", "lat", "lon")
     )
-
 
     return bin_da
 

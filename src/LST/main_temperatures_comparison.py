@@ -10,13 +10,13 @@ matplotlib.use('TkAgg')
 if __name__=="__main__":
 
     time_start = "2018-01-01"
-    time_stop = "2018-01-05"
+    time_stop = "2018-03-01"
 
-    bbox = [
-    -105.51503140246336,
-    36.56150718001447,
-    -104.5885313254013,
-    37.121172994492596
+    bbox =  [
+    -104.7351137559069,
+    35.95693111917318,
+    -103.08335275645139,
+    36.66648495873841
   ]
 
     Data = DATA_READER(
@@ -40,10 +40,10 @@ if __name__=="__main__":
                           lst_time=plotdate)
     plt.figure()
     AMSR2_LST.sel(time=plotdate, method="nearest").compute().plot.pcolormesh(x="lon", y="lat")
-    plt.show(block=True)
+    plt.show()
 
 ##
-    time_of_day = "morning"
+    time_of_day = "evening"
     _MODIS_LST = morning_evening_passes(MODIS_LST_cropped, time_of_day=time_of_day)
     _AMSR2_LST = morning_evening_passes(AMSR2_LST, time_of_day=time_of_day)
 
@@ -51,14 +51,6 @@ if __name__=="__main__":
 
     coarse_MODIS_LST = coarsen_highres(highres_da=common_MODIS_LST,
                     lowres_da=common_AMSR2_LST)
-
-
-    plot_modis_comparison(MODIS_NDVI_cropped, common_MODIS_LST, ndvi_time=plotdate,
-                          lst_time=plotdate)
-
-    plt.figure()
-    coarse_MODIS_LST.sel(time = plotdate,method="nearest").plot(x = "lon",y = "lat")
-    plt.show(block = True)
 
 
     data_df_m = pd.DataFrame({
