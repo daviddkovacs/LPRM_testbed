@@ -6,22 +6,37 @@ import re
 import glob
 import pandas as pd
 from datacube_utilities import clean_pad_data
-import matplotlib
 import numpy as np
 from config.paths import MODIS_geo_path, MODIS_geo_path_local
-matplotlib.use("TkAgg")
+import matplotlib
+import matplotlib.pyplot as plt
+matplotlib.use('TkAgg')
+plt.ion()
 
 MODIS_prod_params = {
-    "lst": {"qa_band_name": "QC",
-            # "list_of_flags": [0, 1, 2, 4, 5], #TODO: REVISE!!!!!!!!
-            "list_of_flags": [ 15,],
-            "variables" : ["LST"]},
+    "reflectance":
+        {"qa_band_name": "1km Reflectance Data State QA",
+         "list_of_flags": [
+             {"bits": [0, 1], "vals": [1,2]},  # Cloud State
+             {"bits": [2], "vals": [1]},  # Cloud shadow
+             {"bits": [3,4,5], "vals": [3,]},  # land/water flag
+             {"bits": [8,9], "vals": [1,2,3]},  # cirrus
+             {"bits": [12], "vals": [1]},  # snow/ice
+         ],
+         "variables":
+             ['1km Surface Reflectance Band 1', '1km Surface Reflectance Band 5'],
+         },
 
-    "reflectance" : {"qa_band_name": "1km Reflectance Data State QA",
-                     # "list_of_flags": [0, 1, 2, 8, 9, 12, 15],
-                     "list_of_flags": [0, ],
-                     "variables" : ['1km Surface Reflectance Band 1', '1km Surface Reflectance Band 5'],
-                     }
+    "lst":
+        {
+            "qa_band_name": "QC",
+            "list_of_flags": [
+                {"bits": [0, 1], "vals": [2]},  # Mandatory QA flags
+                {"bits": [2, 3], "vals": [3]},  # Data quality flag
+                {"bits": [4, 5], "vals": [1,3]},  # Cloud flag
+            ],
+            "variables" : ["LST"]
+        },
 }
 
 
@@ -29,33 +44,19 @@ def ndvi_calc(red,nir):
     return ((nir-red)/(nir+red)).to_dataset(name="NDVI")
 
 
-def mask_bit_flag(qa_array, bits=None):
+def mask_bit_flag(qa_array, bits, to_be_masked_values):
     """
-    For MYD09 Surface Reflectance see:
-        See Table 13: https://modis-land.gsfc.nasa.gov/pdf/MOD09_UserGuide_v1.4.pdf
-        For the input array, from MYD09 L2 MODIS surface reflectance data, returns a mask where:
-            - Clouds are filtered (Bits set: 0,1,2,8,9)
-            - Snow and Ice (Bits set: 12,15)
-
-    For MYD11 LST see:
-        See Table 9: https://www.earthdata.nasa.gov/s3fs-public/2025-04/MOD11_User_Guide_V5.pdf?VersionId=DWqcQ5V29aHlBv0O6Ef1_1xNffsdfXqy
-        For the input array, from MYD09 L2 MODIS surface reflectance data, returns a mask where:
-            - Clouds are filtered (Bits set: 0,1,2,8,9)
-            - Snow and Ice (Bits set: 12,15)
-
-    :param array: Input L2 Swath from MODIS QA band!!
-    :return: Boolean mask
+    qa_array: The raw QA band (uint16)
+    bits: list of bit positions (e.g., [0, 1])
+    to_be_masked_values: list of decimal states to keep (e.g., [1, 2])
     """
-    if len(bits) == 1:
-        bit = bits[0]
-        mask_array = (qa_array.astype(int) & 2 ** bit) == 2 ** bit
-    elif len(bits) > 1:
-        combined_mask = sum(1 << b for b in bits)
-        mask_array = (qa_array.astype(int)  & combined_mask) > 0
-    else:
-        mask_array = np.full(shape=qa_array.shape, fill_value = False)
+    qa_int = qa_array.astype(np.uint16)
+    bit_mask = sum(1 << b for b in bits)
 
-    return mask_array
+    shift_amount = min(bits)
+    extracted_values = (qa_int & bit_mask) >> shift_amount
+
+    return np.isin(extracted_values, to_be_masked_values)
 
 
 def pad_array(array_dict, lat, lon):
@@ -180,15 +181,20 @@ def open_hdf(path,
     qa_band_name = MODIS_prod_params[type_of_product]["qa_band_name"]
     qa_array = data.select(qa_band_name)[:].astype(np.uint16)
 
-    flag_bits =  MODIS_prod_params[type_of_product]["list_of_flags"]
-    qa_mask = mask_bit_flag(qa_array, flag_bits)
+    # We will add the invalid pixels to the final mask
+    final_qa_mask = np.zeros(qa_array.shape, dtype=bool)
+
+    for filter_set in MODIS_prod_params[type_of_product]["list_of_flags"]:
+        # This finds pixels that shold be flagged. They are grouped.
+        current_mask = mask_bit_flag(qa_array, filter_set["bits"], filter_set["vals"])
+        final_qa_mask = final_qa_mask | current_mask
 
     vars = MODIS_prod_params[type_of_product]["variables"]
     for v in vars:
 
         v_data = data.select(v)
         _SD_var_array = v_data[:].astype(np.float64)
-        SD_var_array = np.where(qa_mask,np.nan,_SD_var_array) # QA masking
+        SD_var_array = np.where(final_qa_mask,np.nan,_SD_var_array) # QA masking
         var_attrs = v_data.attributes()
         var_data_dict[v] = apply_attributes(SD_var_array, var_attrs)
 
@@ -203,6 +209,14 @@ def open_hdf(path,
         lon_var = data.select("Longitude")
         lon_array = lon_var[:].astype(np.float64)
 
+
+    # plt.figure()
+    # mesh = plt.pcolormesh(lon_array, lat_array, SD_var_array,
+    #                       cmap='viridis',
+    #                       shading='auto')
+    # plt.draw()
+    # x = 1
+    # plt.show()
 
 
     return {"data": var_data_dict, "lat": lat_array, "lon" : lon_array}
