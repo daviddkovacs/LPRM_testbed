@@ -1,3 +1,5 @@
+from typing import Literal
+
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
@@ -61,8 +63,8 @@ def usual_stats(x,y):
 
 
 
-def plot_hexbin(df, x_col, y_col, xlim = [273, 325], ylim=[273, 325], plot_polyfit = True):
-
+def plot_hexbin(df, x_col, y_col, xlim = [273, 325], ylim=[273, 325], plot_polyfit = True, utc_timeofday = ""):
+    approx_localtime = approximate_local_time(utc_timeofday)
     x = df[x_col]
     y = df[y_col]
     stats = usual_stats(x, y)
@@ -83,7 +85,7 @@ def plot_hexbin(df, x_col, y_col, xlim = [273, 325], ylim=[273, 325], plot_polyf
     ax.set_ylim(ylim)
     ax.set_xlabel(x_col)
     ax.set_ylabel(y_col)
-    ax.set_title(f'{x_col} vs {y_col}')
+    ax.set_title(f'approx. {approx_localtime} local')
 
     clean_df = df[[x_col, y_col]].dropna()
     x = clean_df[x_col].values
@@ -141,3 +143,6 @@ def plot_modis_comparison(ndvi_da, lst_da, ndvi_time=4, lst_time=8):
 
     plt.tight_layout()
     plt.show()
+
+def approximate_local_time(time_of_day: Literal["morning","evening"],): # very basic, will need to revise for multiple sites!
+   return {"morning": "02:00", "evening": "15:00"}[time_of_day]
