@@ -11,12 +11,12 @@ matplotlib.use('TkAgg')
 frequencies = {'C1': 6.9, 'C2': 7.3, 'X': 10.7, 'KU': 18.7, 'K': 23.8, 'KA': 36.5}
 
 
-def calc_Holmes_temp(KaV):
+def calc_Holmes_temp(AMSR2):
     """
     Surface temperature from Ka-band observations according to Holmes et al. 2008
     """
-    TSURF = KaV["bt_36.5V"] * 0.893 + 44.8
-    TSURF.attrs = KaV.attrs
+    TSURF = AMSR2["bt_36.5V"] * 0.893 + 44.8
+    TSURF.attrs = AMSR2.attrs
     return TSURF
 
 
@@ -37,12 +37,17 @@ def mpdi(AMSR2, band):
     return ((btv-bth)/(btv+bth))
 
 
-def threshold_ndvi(lst, ndvi, soil_range=[0,0.3], ndvi_range=[0.3,1]):
+def threshold_ndvi(lst, ndvi, soil_range=[0,0.3], veg_range=[0.3,1]):
     """
     Simple thresholding of Soil-Veg to get different temps.
     """
-    veg_temp = xr.where((max(ndvi_range)>= ndvi) & (ndvi >min(ndvi_range)), lst, np.nan)
-    soil_temp = xr.where((max(soil_range)> ndvi) & (ndvi >=min(soil_range)), lst, np.nan)
+    # lst, ndvi = xr.align(lst, ndvi, join='override')
+
+    veg_mask = (ndvi > veg_range[0]) & (ndvi <= veg_range[1])
+    veg_temp = xr.where(veg_mask, lst, np.nan)
+
+    soil_mask = (ndvi >= soil_range[0]) & (ndvi < soil_range[1])
+    soil_temp = xr.where(soil_mask, lst, np.nan)
 
     return soil_temp, veg_temp
 
@@ -225,10 +230,12 @@ def morning_evening_passes(dataset,
     return _dataset
 
 
-def common_observations(refds, ds2):
+def common_observations(refds, ds2, method = "nearest"):
+    if method == "exact":
+        method = None
     if len(refds.time) > len(ds2.time):
         raise Exception("refds should have LESS observations, than ds2. Switch the two args!")
 
-    ds2_reduced = ds2.sel(time=refds.time, method='nearest')
+    ds2_reduced = ds2.sel(time=refds.time, method=method)
 
     return refds, ds2_reduced
