@@ -209,16 +209,6 @@ def open_hdf(path,
         lon_var = data.select("Longitude")
         lon_array = lon_var[:].astype(np.float64)
 
-
-    # plt.figure()
-    # mesh = plt.pcolormesh(lon_array, lat_array, SD_var_array,
-    #                       cmap='viridis',
-    #                       shading='auto')
-    # plt.draw()
-    # x = 1
-    # plt.show()
-
-
     return {"data": var_data_dict, "lat": lat_array, "lon" : lon_array}
 
 

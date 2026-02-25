@@ -44,10 +44,10 @@ def threshold_ndvi(lst, ndvi, soil_range=[0,0.3], veg_range=[0.3,1]):
     # lst, ndvi = xr.align(lst, ndvi, join='override')
 
     veg_mask = (ndvi > veg_range[0]) & (ndvi <= veg_range[1])
-    veg_temp = xr.where(veg_mask, lst, np.nan)
+    veg_temp = veg_mask * lst
 
     soil_mask = (ndvi >= soil_range[0]) & (ndvi < soil_range[1])
-    soil_temp = xr.where(soil_mask, lst, np.nan)
+    soil_temp = soil_mask * lst
 
     return soil_temp, veg_temp
 
