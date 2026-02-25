@@ -200,8 +200,9 @@ def open_hdf(path,
 
     if type_of_product == "lst":
         # MYD11 LST data has no pixel-wise geolocation data! Needs to be read from MYD03
+        # try:
         lat_array, lon_array = geolocation_file(datestring=datestring, path=geo_path)
-
+        # except TypeError:
     elif type_of_product == "reflectance":
         # MYD09 Does have geolocation within the same file.
         lat_var = data.select("Latitude")

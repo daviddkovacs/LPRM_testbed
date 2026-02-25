@@ -284,7 +284,13 @@ def morning_evening_passes(dataset,
     :return: day and nighttime datasets
     """
     if time_of_day == "morning":
-        _dataset  = dataset.where(dataset.time.dt.hour <= threshold, drop=True)
+        is_ndvi = isinstance(dataset, xr.DataArray) and "ndvi" in dataset.name.lower()
+
+        if is_ndvi:
+            _dataset = xr.full_like(dataset, fill_value=np.nan)
+        else:
+            _dataset = dataset.where(dataset.time.dt.hour <= threshold, drop=True)
+
     elif time_of_day == "evening":
         _dataset = dataset.where(dataset.time.dt.hour >= threshold, drop=True)
     else:
