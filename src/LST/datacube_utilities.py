@@ -37,17 +37,16 @@ def mpdi(AMSR2, band):
     return ((btv-bth)/(btv+bth))
 
 
-def threshold_ndvi(lst, ndvi, soil_range=[0,0.3], veg_range=[0.3,1]):
+def threshold_ndvi(lst, ndvi, soil_range=[0,0.2], veg_range=[0.5,1]):
     """
     Simple thresholding of Soil-Veg to get different temps.
     """
-    # lst, ndvi = xr.align(lst, ndvi, join='override')
 
     veg_mask = (ndvi > veg_range[0]) & (ndvi <= veg_range[1])
-    veg_temp = veg_mask * lst
+    veg_temp = lst.where(veg_mask)
 
     soil_mask = (ndvi >= soil_range[0]) & (ndvi < soil_range[1])
-    soil_temp = soil_mask * lst
+    soil_temp = lst.where(soil_mask)
 
     return soil_temp, veg_temp
 
@@ -104,7 +103,6 @@ def binning_smaller_pixels(high_res, low_res):
     iterables["lons"] = np.digitize(high_res.lon.values, lon_edges)
 
     return iterables
-
 
 def coarsen_highres(highres_da, lowres_da):
     """
@@ -176,6 +174,71 @@ def coarsen_highres(highres_da, lowres_da):
     return bin_da
 
 
+# def coarsen_highres(highres_da, lowres_da):
+#     """
+#     We perfom the binning of the MODIS/SLSTR pixels to the coarse AMSR2 resolution.
+#     This is the bread-and-butter of the high-low resolution matching.
+#     Linear indexing is used for speed.
+#     Understanding how binning works: users please visit: https://numpy.org/doc/2.3/reference/generated/numpy.digitize.html
+#     We still have outlier pixels from MODIS, has it is an irregular swath data, and these cant be dropped (to withhold nxm structure)
+#     This should work on temporal data cubes (3d)
+#     :param highres_da: SLSTR/MODIS da
+#     :param lowres_da: AMSR2 data
+#     :return: coarsened MODIS to AMSR2 footprint
+#     """
+#
+#     bin_dict = binning_smaller_pixels(highres_da, lowres_da)
+#
+#     n_time = lowres_da.sizes['time']
+#     n_lat = lowres_da.sizes['lat']
+#     n_lon = lowres_da.sizes['lon']
+#     spatial_area = n_lat * n_lon
+#
+#     lats = bin_dict["lats"].flatten()
+#     lons = bin_dict["lons"].flatten()
+#
+#     # We do not need bins that are 0--> outside of bbox
+#     valid_mask = (lats > 0) & (lats <= n_lat) & (lons > 0) & (lons <= n_lon)
+#
+#     # vectorized bins, each pixel gets one according to where it is in time:
+#     # e.g.: bin #3 will not be bin #3 on two different days, it might be e.g.: 18 and 34 depending on
+#     # how much data/temporal steps there is.
+#     t_obs_indices = np.searchsorted(lowres_da.time.values, highres_da.time.values)
+#     combined_bins = (t_obs_indices * spatial_area) + (lats * n_lon) + lons
+#
+#     # We only care about pixels that actually fell inside the lowres grid
+#     # Setting invalid bins to -1 so we can filter them
+#     final_bins = np.where(valid_mask, combined_bins, -1)
+#     highres_da.coords["bin_id"] = ("obs", final_bins)
+#
+#     # Groupby and Mean (ignoring the -1 'out of bounds' bin)
+#     stats = highres_da.where(highres_da.bin_id >= 0, drop=True).groupby("bin_id").mean().compute()
+#
+#     # Map results to the flat output array (size 44 * 5 * 6 = 1320)
+#     output_flat = np.full(n_time * spatial_area, np.nan)
+#
+#     # Fill the flat array using the indices we just calculated
+#     _indices = stats.bin_id.values.astype(int)
+#     indices = _indices - _indices.min()
+#     output_flat[indices] = stats.values
+#
+#     # Reshape to 3D: (Time, Lat, Lon)
+#     reshaped_data = output_flat.reshape((n_time, n_lat, n_lon))
+#
+#     # Create final DataArray
+#     bin_da = xr.DataArray(
+#         data=reshaped_data,
+#         coords={
+#             "time": np.unique(highres_da.time.values),
+#             "lat": lowres_da.lat.values,
+#             "lon": lowres_da.lon.values
+#         },
+#         dims=("time", "lat", "lon")
+#     )
+#
+#     return bin_da
+
+
 def clean_pad_data(list_of_da, x , y):
     """
     filters empy cropped data from SLSTR/MODIS as well as pads data so each cropped ROI is the same dm
@@ -239,3 +302,33 @@ def common_observations(refds, ds2, method = "nearest"):
     ds2_reduced = ds2.sel(time=refds.time, method=method)
 
     return refds, ds2_reduced
+
+
+def match_MYD09_to_MYD11(LST_full,NDVI_full):
+
+    common_dates = np.intersect1d(LST_full.time.values,NDVI_full.time.values)
+    LST, NDVI = LST_full.sel(time= common_dates), NDVI_full.sel(time =common_dates)
+
+    # Unfortunately we will have to stack to vectors here, as finding common lat/lons in 3D is hard
+    LST_flat = LST.stack(obs=  ("time","row","column"))
+    NDVI_flat = NDVI.stack(obs=  ("time","row","column"))
+
+    # okay so:
+    # The issue with finding the intersection in lat, and lon only is NOT possible
+    # becuase we are not dealing with a fixed grid, but swaths. Every pixel has a (lat,lon) pair
+    # we use a complex notation, to combine the coords find the common pixels
+    lst_pairs = LST_flat.lat.values + 1j * LST_flat.lon.values
+    ndvi_pairs = NDVI_flat.lat.values + 1j * NDVI_flat.lon.values
+
+    common_pixels= np.intersect1d(lst_pairs, ndvi_pairs)
+
+    lst_mask = np.isin(lst_pairs, common_pixels)
+    ndvi_mask = np.isin(ndvi_pairs, common_pixels)
+
+    LST_filtered = LST_flat.isel(obs=lst_mask)
+    NDVI_filtered = NDVI_flat.isel(obs=ndvi_mask)
+
+    LST_unstacked = LST_filtered.unstack("obs").drop_vars(["row", "column"])
+    NDVI_unstacked = NDVI_filtered.unstack("obs").drop_vars(["row", "column"])
+
+    return LST_unstacked, NDVI_unstacked
