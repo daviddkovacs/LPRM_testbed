@@ -63,7 +63,7 @@ def usual_stats(x,y):
 
 
 
-def plot_hexbin(df, x_col, y_col, xlim = [273, 325], ylim=[273, 325], plot_polyfit = True, utc_timeofday = ""):
+def plot_hexbin(df, x_col, y_col, xlim = [273, 325], ylim=[273, 325], plot_polyfit = True, utc_timeofday = "",region_in_title = ""):
     approx_localtime = approximate_local_time(utc_timeofday)
     x = df[x_col]
     y = df[y_col]
@@ -85,7 +85,7 @@ def plot_hexbin(df, x_col, y_col, xlim = [273, 325], ylim=[273, 325], plot_polyf
     ax.set_ylim(ylim)
     ax.set_xlabel(x_col)
     ax.set_ylabel(y_col)
-    ax.set_title(f'approx. {approx_localtime} local')
+    ax.set_title(f'{region_in_title}\napprox. {approx_localtime} local')
 
     clean_df = df[[x_col, y_col]].dropna()
     x = clean_df[x_col].values
