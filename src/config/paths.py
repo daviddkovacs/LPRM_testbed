@@ -16,5 +16,5 @@ S3_SLSTR_path = "/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07
 MODIS_path = "/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/LST/MODIS/"
 MODIS_geo_path = "/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/LST/MODIS/midwest/georeference"
 
-MODIS_path_local = "/home/ddkovacs/Desktop/modis"
-MODIS_geo_path_local = "/home/ddkovacs/Desktop/modisgeo"
+MODIS_path_local = "/home/ddkovacs/personal_data/lprm_daytime/modis_data"
+MODIS_geo_path_local = "/home/ddkovacs/personal_data/lprm_daytime/modis_georeference"
