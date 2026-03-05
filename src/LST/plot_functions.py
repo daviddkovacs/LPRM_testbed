@@ -82,7 +82,9 @@ def regressor_calc(df,x_col,y_col,):
 
     return {"m": m,"c":c, "line_x": line_x , "line_y": line_y}
 
+
 def plot_hexbin(df, x_col, y_col, xlim = [273, 325], ylim=[273, 325], plot_polyfit = True, utc_timeofday = "",region_in_title = ""):
+
     approx_localtime = approximate_local_time(utc_timeofday)
     x = df[x_col]
     y = df[y_col]
@@ -96,7 +98,6 @@ def plot_hexbin(df, x_col, y_col, xlim = [273, 325], ylim=[273, 325], plot_polyf
     ax.plot(xlim, ylim, 'k--', alpha=0.8, linewidth=1, zorder=10)
 
 
-
     cb = fig.colorbar(hb, ax=ax)
     cb.set_label('Count')
 
@@ -107,7 +108,6 @@ def plot_hexbin(df, x_col, y_col, xlim = [273, 325], ylim=[273, 325], plot_polyf
     ax.set_title(f'{region_in_title}\napprox. {approx_localtime} local')
 
     regression_dict = regressor_calc(df, x_col, y_col)
-
 
     if plot_polyfit:
         ax.plot(

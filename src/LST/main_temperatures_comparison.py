@@ -21,7 +21,7 @@ def main_processor(MODIS_LST,
                    AMSR2,
                    time_of_day: Literal["morning", "evening"],
                    soil_range=[0, 0.2],
-                   veg_range=[0.6, 1],
+                   veg_range=[0.5, 1],
                    mpdi_band="x"
                    ):
     """
@@ -63,7 +63,21 @@ def main_processor(MODIS_LST,
 
     AMSR2_MPDI = mpdi(common_AMSR2_data, band=mpdi_band)
     AMSR_LST = calc_Holmes_temp(common_AMSR2_data)
-    AMSR_KA = common_AMSR2_data["bt_36.5V"]
+
+    AMSR_C1v = common_AMSR2_data["bt_6.9V"]
+    AMSR_C1h = common_AMSR2_data["bt_6.9H"]
+    AMSR_C2v = common_AMSR2_data["bt_7.3V"]
+    AMSR_C2h = common_AMSR2_data["bt_7.3H"]
+    AMSR_Xv = common_AMSR2_data["bt_10.7V"]
+    AMSR_Xh = common_AMSR2_data["bt_10.7H"]
+    AMSR_KUv = common_AMSR2_data["bt_18.7V"]
+    AMSR_KUh = common_AMSR2_data["bt_18.7H"]
+    AMSR_Kv = common_AMSR2_data["bt_23.8V"]
+    AMSR_Kh = common_AMSR2_data["bt_23.8H"]
+    AMSR_KAv = common_AMSR2_data["bt_36.5V"]
+    AMSR_KAh = common_AMSR2_data["bt_36.5H"]
+    AMSR_Wv = common_AMSR2_data["bt_89.0V"]
+    AMSR_Wh = common_AMSR2_data["bt_89.0H"]
     AMSR2_KUKA = KuKa(common_AMSR2_data)
 
     data_df = pd.DataFrame({
@@ -73,50 +87,73 @@ def main_processor(MODIS_LST,
         f"AMSR2_LST_{time_of_day}": AMSR_LST.values.ravel(),
         f"AMSR2_KUKA_{time_of_day}": AMSR2_KUKA.values.ravel(),
         f"AMSR2_MPDI_{time_of_day}": AMSR2_MPDI.values.ravel(),
-        f"AMSR2_KA_{time_of_day}": AMSR_KA.values.ravel()},
-    )
+
+        f"AMSR2_C1v_{time_of_day}": AMSR_C1v.values.ravel(),
+        f"AMSR2_C1h_{time_of_day}": AMSR_C1h.values.ravel(),
+        f"AMSR2_C2v_{time_of_day}": AMSR_C2v.values.ravel(),
+        f"AMSR2_C2h_{time_of_day}": AMSR_C2h.values.ravel(),
+        f"AMSR2_Xv_{time_of_day}": AMSR_Xv.values.ravel(),
+        f"AMSR2_Xh_{time_of_day}": AMSR_Xh.values.ravel(),
+        f"AMSR2_KUv_{time_of_day}": AMSR_KUv.values.ravel(),
+        f"AMSR2_KUh_{time_of_day}": AMSR_KUh.values.ravel(),
+        f"AMSR2_Kv_{time_of_day}": AMSR_Kv.values.ravel(),
+        f"AMSR2_Kh_{time_of_day}": AMSR_Kh.values.ravel(),
+        f"AMSR2_KAv_{time_of_day}": AMSR_KAv.values.ravel(),
+        f"AMSR2_KAh_{time_of_day}": AMSR_KAh.values.ravel(),
+        f"AMSR2_Wv_{time_of_day}": AMSR_Wv.values.ravel(),
+        f"AMSR2_Wh_{time_of_day}": AMSR_Wh.values.ravel(),
+    })
 
     return data_df
 
 ##
 if __name__=="__main__":
 
-    time_start = "2018-04-01"
-    time_stop = "2018-09-01"
+    dates = pd.date_range(start="2018-01-01", end="2019-01-01", freq="MS")
 
-    landcover = "midwest_large_mix"
+    for i in range(len(dates) - 1):
+        # Convert the pandas timestamps back to strings
+        time_start = dates[i].strftime("%Y-%m-%d")
+        time_stop = dates[i + 1].strftime("%Y-%m-%d")
 
-    Data = DATA_READER(
-        region="midwest",
-        bbox= landcover_bbox_lut[landcover] ,
-        time_start=time_start,
-        time_stop=time_stop,
-    )
+        landcover = "desert"
 
+        Data = DATA_READER(
+            region="midwest",
+            bbox= landcover_bbox_lut[landcover] ,
+            time_start=time_start,
+            time_stop=time_stop,
+        )
 
-    soil_range = [0, 0.2]
-    veg_range = [0.5, 1]
+        soil_range = [0, 0.2]
+        veg_range = [0.5, 1]
 
-    mpdi_band = "x"
-    AMSR2_data = Data.AMSR2_BT
+        mpdi_band = "ka"
+        AMSR2_data = Data.AMSR2_BT
 
-    MODIS_NDVI_cropped, MODIS_LST_cropped = Data.match_AMSR2_extent()
-
-##
-    time_of_day = "morning"
-    data_df = main_processor(MODIS_LST=MODIS_LST_cropped,MODIS_NDVI=MODIS_NDVI_cropped,AMSR2=AMSR2_data, time_of_day=time_of_day)
-
-    plot_hexbin(data_df,f"MODIS_LST_{time_of_day}", f"AMSR2_KA_{time_of_day}",
-                utc_timeofday=time_of_day,
-                region_in_title=landcover,
-                            ylim = [260,330],
-                            xlim = [260,330],
-                )
-    # plot_hexbin(data_df,f"MODIS_soil_temp_{time_of_day}", f"AMSR2_LST_{time_of_day}", utc_timeofday=time_of_day)
+        MODIS_NDVI_cropped, MODIS_LST_cropped = Data.match_AMSR2_extent()
 
 
+        time_of_day = "evening"
+        # MODIS_LST_cropped = MODIS_LST_cropped.isel(row=slice(0, MODIS_NDVI_cropped.sizes['row']))
 
-    # plot_hexbin(data_df,f"MODIS_LST_{time_of_day}", f"AMSR2_KUKA_{time_of_day}",
-    #             ylim = [0.92,1],
-    #             xlim = [273,320],
-    #             utc_timeofday=time_of_day)
+        data_df = main_processor(MODIS_LST=MODIS_LST_cropped,MODIS_NDVI=MODIS_NDVI_cropped,AMSR2=AMSR2_data, time_of_day=time_of_day, mpdi_band=mpdi_band)
+
+        # plot_hexbin(data_df,f"MODIS_veg_temp_{time_of_day}", f"AMSR2_C1v_{time_of_day}",
+        #             xlim=[250,330],ylim=[250,330],utc_timeofday=time_of_day,region_in_title=landcover)
+        #
+        # plot_hexbin(data_df,f"MODIS_veg_temp_{time_of_day}", f"AMSR2_C2v_{time_of_day}",
+        #             xlim=[250,330],ylim=[250,330],utc_timeofday=time_of_day,region_in_title=landcover)
+        #
+        # plot_hexbin(data_df,f"MODIS_veg_temp_{time_of_day}", f"AMSR2_Xv_{time_of_day}",
+        #             xlim=[250,330],ylim=[250,330],utc_timeofday=time_of_day,region_in_title=landcover)
+        #
+        # plot_hexbin(data_df,f"MODIS_veg_temp_{time_of_day}", f"AMSR2_KUv_{time_of_day}",
+        #             xlim=[250,330],ylim=[250,330],utc_timeofday=time_of_day,region_in_title=landcover)
+        #
+        plot_hexbin(data_df,f"MODIS_LST_{time_of_day}", f"AMSR2_KAv_{time_of_day}",
+                    xlim=[250,330],ylim=[250,330],utc_timeofday=time_of_day,
+                    region_in_title=f"{landcover}\n{time_start} avg. NDVI: {np.round(MODIS_NDVI_cropped.mean().values,2)}")
+        #
+        # plot_hexbin(data_df,f"MODIS_veg_temp_{time_of_day}", f"AMSR2_Wv_{time_of_day}",
+        #             xlim=[250,330],ylim=[250,330],utc_timeofday=time_of_day,region_in_title=landcover)
