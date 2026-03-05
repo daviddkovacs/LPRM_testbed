@@ -62,6 +62,25 @@ def usual_stats(x,y):
     return {"r" : r , "bias" : bias , "rmse" : rmse}
 
 
+def regressor_calc(df,x_col,y_col,):
+    """
+    Huber Regressor (https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.HuberRegressor.html)
+    to calculate regression and intercept with penalizing outliers
+    :param df: dataframe containing AMSR2 Tb and MODIS LST
+    :param x_col:
+    :param y_col:
+    :return: m (gradient), c (y axis intercept)
+    """
+    clean_df = df[[x_col, y_col]].dropna()
+    x = clean_df[x_col].values
+    y = clean_df[y_col].values
+    FUNCTION = HuberRegressor()
+    FUNCTION.fit(x.reshape(-1, 1), y)
+    line_x = np.arange(x.min(), x.max(), 0.01)[:, np.newaxis]
+    line_y = FUNCTION.predict(line_x)
+    m, c = np.polyfit(line_x.ravel(), line_y, 1)
+
+    return {"m": m,"c":c, "line_x": line_x , "line_y": line_y}
 
 def plot_hexbin(df, x_col, y_col, xlim = [273, 325], ylim=[273, 325], plot_polyfit = True, utc_timeofday = "",region_in_title = ""):
     approx_localtime = approximate_local_time(utc_timeofday)
@@ -87,19 +106,13 @@ def plot_hexbin(df, x_col, y_col, xlim = [273, 325], ylim=[273, 325], plot_polyf
     ax.set_ylabel(y_col)
     ax.set_title(f'{region_in_title}\napprox. {approx_localtime} local')
 
-    clean_df = df[[x_col, y_col]].dropna()
-    x = clean_df[x_col].values
-    y = clean_df[y_col].values
-    ransac = HuberRegressor()
-    ransac.fit(x.reshape(-1, 1), y)
-    line_x_ransac = np.arange(x.min(), x.max(), 0.01)[:, np.newaxis]
-    line_y_ransac = ransac.predict(line_x_ransac)
-    m, c = np.polyfit(line_x_ransac.ravel(), line_y_ransac, 1)
+    regression_dict = regressor_calc(df, x_col, y_col)
+
 
     if plot_polyfit:
         ax.plot(
-            line_x_ransac,
-            line_y_ransac,
+            regression_dict["line_x"],
+            regression_dict["line_y"],
             color="cornflowerblue",
             linewidth=2,
             label="RANSAC regressor",
@@ -110,7 +123,7 @@ def plot_hexbin(df, x_col, y_col, xlim = [273, 325], ylim=[273, 325], plot_polyf
         f'$RMSE = {stats["rmse"]:.2f}$ K',
         f'$Bias = {stats["bias"]:.2f}$ K',
         f'$N = {len(x)}$',
-        f"y(x)={np.round(m, 2)}x+{np.round(c, 2)}"
+        f"y(x)={np.round(regression_dict["m"], 2)}x+{np.round(regression_dict["c"], 2)}"
     ))
 
     props = dict(boxstyle='round', facecolor='white', alpha=0.8)
