@@ -38,7 +38,8 @@ def OPTICAL_datacube(region: Literal["sahel", "siberia", "midwest", "ceu"],
                            bbox=bbox,
                            type_of_product="lst",
                            time_start=time_start,
-                               time_stop=time_stop)["LST"]
+                           time_stop=time_stop,
+                           geo_path = MODIS_geopath_region)["LST"]
 
 
     return MODIS_NDVI, MODIS_LST

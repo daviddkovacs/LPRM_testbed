@@ -172,7 +172,7 @@ def geolocation_file(datestring: str = None,
 def open_hdf(path,
              type_of_product: Literal["reflectance", "lst"],
              datestring: str = None,  # Format: YYYYDOY.HHMM
-             geo_path = MODIS_geo_path
+             geo_path = None
              ):
 
     data = SD(path)
@@ -219,7 +219,7 @@ def open_modis(path,
                date_pattern=r"\d{7}\.\d{4}",
                time_start="2024-01-01",
                time_stop="2025-01-01",
-               geo_path = MODIS_geo_path
+               geo_path = None
                ):
 
     folder_modis = os.path.join(path, type_of_product, "*.hdf")
