@@ -83,23 +83,27 @@ def regressor_calc(df,x_col,y_col,):
     return {"m": m,"c":c, "line_x": line_x , "line_y": line_y}
 
 
-def plot_hexbin(df, x_col, y_col, xlim = [273, 325], ylim=[273, 325], plot_polyfit = True, utc_timeofday = "",region_in_title = ""):
+def plot_hexbin(df, x_col, y_col, xlim=[273, 325], ylim=[273, 325], plot_polyfit=True, utc_timeofday="", region_in_title="", ax=None, show_colorbar=True):
 
     approx_localtime = approximate_local_time(utc_timeofday)
     x = df[x_col]
     y = df[y_col]
     stats = usual_stats(x, y)
 
-    fig, ax = plt.subplots(figsize=(6, 5))
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(6, 5))
+        is_standalone = True
+    else:
+        fig = ax.figure
+        is_standalone = False
 
-    hb = ax.hexbin(x, y,
-                   gridsize=100, cmap='inferno', mincnt=1)
-
+    hb = ax.hexbin(x, y, gridsize=100, cmap='inferno', mincnt=1)
     ax.plot(xlim, ylim, 'k--', alpha=0.8, linewidth=1, zorder=10)
 
-
-    cb = fig.colorbar(hb, ax=ax)
-    cb.set_label('Count')
+    # 2. Wrap the colorbar in an IF statement
+    if show_colorbar:
+        cb = fig.colorbar(hb, ax=ax)
+        cb.set_label('Count')
 
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
@@ -118,20 +122,25 @@ def plot_hexbin(df, x_col, y_col, xlim = [273, 325], ylim=[273, 325], plot_polyf
             label="RANSAC regressor",
         )
 
+    # Notice I swapped the double quotes around "m" and "c" to single quotes
+    # so they don't break the f-string!
     textstr = '\n'.join((
         f'$R = {stats["r"]:.2f}$',
         f'$RMSE = {stats["rmse"]:.2f}$ K',
         f'$Bias = {stats["bias"]:.2f}$ K',
         f'$N = {len(x)}$',
-        f"y(x)={np.round(regression_dict["m"], 2)}x+{np.round(regression_dict["c"], 2)}"
+        f"y(x)={np.round(regression_dict['m'], 2)}x+{np.round(regression_dict['c'], 2)}"
     ))
 
     props = dict(boxstyle='round', facecolor='white', alpha=0.8)
-
     ax.text(0.05, 0.95, textstr, transform=ax.transAxes, fontsize=11,
             verticalalignment='top', bbox=props)
-    plt.show()
 
+    if is_standalone:
+        plt.show()
+
+    # 3. Return the hexbin object at the very end
+    return hb
 
 def fill_plot_coords(ds_slice):
     """Forward and backward fills lat/lon NaNs to prevent pcolormesh errors."""

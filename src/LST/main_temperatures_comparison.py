@@ -109,51 +109,43 @@ def main_processor(MODIS_LST,
 ##
 if __name__=="__main__":
 
-    dates = pd.date_range(start="2018-01-01", end="2019-01-01", freq="MS")
+    dates = pd.date_range(start="2018-01-01", end="2018-02-01", freq="MS")
+
+    fig, axes = plt.subplots(3, 4, figsize=(22, 16), sharex=True, sharey=True)
+    axes = axes.flatten()
+
 
     for i in range(len(dates) - 1):
-        # Convert the pandas timestamps back to strings
         time_start = dates[i].strftime("%Y-%m-%d")
         time_stop = dates[i + 1].strftime("%Y-%m-%d")
 
         landcover = "desert"
 
-        Data = DATA_READER(
-            region="midwest",
-            bbox= landcover_bbox_lut[landcover] ,
-            time_start=time_start,
-            time_stop=time_stop,
-        )
+        Data = DATA_READER(region="midwest",
+                           bbox=landcover_bbox_lut[landcover],
+                           time_start=time_start,
+                           time_stop=time_stop)
 
         soil_range = [0, 0.2]
         veg_range = [0.5, 1]
-
         mpdi_band = "ka"
         AMSR2_data = Data.AMSR2_BT
-
         MODIS_NDVI_cropped, MODIS_LST_cropped = Data.match_AMSR2_extent()
-
-
         time_of_day = "evening"
-        # MODIS_LST_cropped = MODIS_LST_cropped.isel(row=slice(0, MODIS_NDVI_cropped.sizes['row']))
 
-        data_df = main_processor(MODIS_LST=MODIS_LST_cropped,MODIS_NDVI=MODIS_NDVI_cropped,AMSR2=AMSR2_data, time_of_day=time_of_day, mpdi_band=mpdi_band)
+        data_df = main_processor(MODIS_LST=MODIS_LST_cropped, MODIS_NDVI=MODIS_NDVI_cropped, AMSR2=AMSR2_data, time_of_day=time_of_day, mpdi_band=mpdi_band)
 
-        # plot_hexbin(data_df,f"MODIS_veg_temp_{time_of_day}", f"AMSR2_C1v_{time_of_day}",
-        #             xlim=[250,330],ylim=[250,330],utc_timeofday=time_of_day,region_in_title=landcover)
-        #
-        # plot_hexbin(data_df,f"MODIS_veg_temp_{time_of_day}", f"AMSR2_C2v_{time_of_day}",
-        #             xlim=[250,330],ylim=[250,330],utc_timeofday=time_of_day,region_in_title=landcover)
-        #
-        # plot_hexbin(data_df,f"MODIS_veg_temp_{time_of_day}", f"AMSR2_Xv_{time_of_day}",
-        #             xlim=[250,330],ylim=[250,330],utc_timeofday=time_of_day,region_in_title=landcover)
-        #
-        # plot_hexbin(data_df,f"MODIS_veg_temp_{time_of_day}", f"AMSR2_KUv_{time_of_day}",
-        #             xlim=[250,330],ylim=[250,330],utc_timeofday=time_of_day,region_in_title=landcover)
-        #
-        plot_hexbin(data_df,f"MODIS_LST_{time_of_day}", f"AMSR2_KAv_{time_of_day}",
-                    xlim=[250,330],ylim=[250,330],utc_timeofday=time_of_day,
-                    region_in_title=f"{landcover}\n{time_start} avg. NDVI: {np.round(MODIS_NDVI_cropped.mean().values,2)}")
-        #
-        # plot_hexbin(data_df,f"MODIS_veg_temp_{time_of_day}", f"AMSR2_Wv_{time_of_day}",
-        #             xlim=[250,330],ylim=[250,330],utc_timeofday=time_of_day,region_in_title=landcover)
+        hb = plot_hexbin(data_df, f"MODIS_LST_{time_of_day}", f"AMSR2_KAv_{time_of_day}",
+                         xlim=[250,330], ylim=[250,330], utc_timeofday=time_of_day,
+                         region_in_title=f"{landcover}\n{time_start} avg. NDVI: {np.round(MODIS_NDVI_cropped.mean().values,2)}",
+                         ax=axes[i],
+                         show_colorbar=False)
+
+        axes[i].label_outer()
+
+    fig.subplots_adjust(hspace=0.4, wspace=0.1, right=0.85)
+    cbar_ax = fig.add_axes([0.88, 0.15, 0.02, 0.7])
+    cbar = fig.colorbar(hb, cax=cbar_ax)
+    cbar.set_label('Count', fontsize=14)
+
+    plt.show()
