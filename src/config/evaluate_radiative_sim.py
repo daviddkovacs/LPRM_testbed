@@ -1,12 +1,9 @@
-import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.linear_model import HuberRegressor
 
 import xarray as xr
-import matplotlib.pyplot as plt
 
-matplotlib.use("TkAgg")
-# from src.config.radiative_14 import sm_i,vod_i,t_i,iterations, number_simulations
 
 number_simulations = 50
 sm_i = np.linspace(0.01,1,number_simulations)

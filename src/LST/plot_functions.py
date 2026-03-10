@@ -1,10 +1,7 @@
 from typing import Literal
-
 import numpy as np
-import matplotlib
 import matplotlib.pyplot as plt
 from sklearn.linear_model import HuberRegressor
-matplotlib.use("TkAgg")
 
 LST_plot_params = {"x": "lon",
                    "y": "lat",

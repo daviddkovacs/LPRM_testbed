@@ -1,11 +1,9 @@
-import matplotlib
 import xarray as xr
 from LST.load_amsr2 import open_amsr2
 from LST.load_modis import open_modis,ndvi_calc
 import os
 from typing import Literal, List
 from config.paths import S3_SLSTR_path, path_bt, MODIS_path, MODIS_geo_path, MODIS_path_local, MODIS_geo_path_local
-matplotlib.use("TkAgg")
 
 def OPTICAL_datacube(region: Literal["sahel", "siberia", "midwest", "ceu"],
                          bbox: List[float],

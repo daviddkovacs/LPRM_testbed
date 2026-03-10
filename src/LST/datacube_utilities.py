@@ -1,12 +1,6 @@
 from typing import Literal
 import numpy as np
 import xarray as xr
-import matplotlib
-import matplotlib.pyplot as plt
-from fontTools.unicodedata import block
-
-from LST.plot_functions import plot_hexbin, plot_modis_comparison
-matplotlib.use('TkAgg')
 
 frequencies = {'C1': 6.9, 'C2': 7.3, 'X': 10.7, 'KU': 18.7, 'K': 23.8, 'KA': 36.5}
 
