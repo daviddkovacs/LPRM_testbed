@@ -105,11 +105,15 @@ def main_processor(MODIS_LST,
     return data_df
 
 ##
-landcover = "desert"
+landcover = "forest"
 soil_range = [0, 0.2]
 veg_range = [0.5, 1]
 mpdi_band = "ka"
-dates = pd.date_range(start="2018-01-01", end="2018-02-01", freq="MS")
+time_of_day = "evening"
+x_axis_scatter  = "AMSR2_Xh_"
+y_axis_scatter  = "AMSR2_Xv_"
+
+dates = pd.date_range(start="2018-01-01", end="2019-01-01", freq="MS")
 
 if __name__=="__main__":
 
@@ -127,12 +131,14 @@ if __name__=="__main__":
 
         AMSR2_data = Data.AMSR2_BT
         MODIS_NDVI_cropped, MODIS_LST_cropped = Data.match_AMSR2_extent()
-        time_of_day = "evening"
 
         data_df = main_processor(MODIS_LST=MODIS_LST_cropped, MODIS_NDVI=MODIS_NDVI_cropped, AMSR2=AMSR2_data, time_of_day=time_of_day, mpdi_band=mpdi_band)
 
-        hb = plot_hexbin(data_df, f"MODIS_LST_{time_of_day}", f"AMSR2_KAv_{time_of_day}",
-                         xlim=[250,330], ylim=[250,330], utc_timeofday=time_of_day,
+        hb = plot_hexbin(data_df,
+                         f"{x_axis_scatter}{time_of_day}",
+                         f"{y_axis_scatter}{time_of_day}",
+                         utc_timeofday=time_of_day,
+                         xlim=[250,330], ylim=[250,330],
                          region_in_title=f"{landcover}\n{time_start} avg. NDVI: {np.round(MODIS_NDVI_cropped.mean().values,2)}",
                          ax=axes[i],
                          show_colorbar=False)
