@@ -110,19 +110,25 @@ soil_range = [0, 0.2]
 veg_range = [0.5, 1]
 mpdi_band = "ka"
 time_of_day = "evening"
-x_axis_scatter  = "AMSR2_Xh_"
-y_axis_scatter  = "AMSR2_Xv_"
+x_axis_scatter  = "AMSR2_Kv_"
+y_axis_scatter  = "AMSR2_KAv_"
 
-dates = pd.date_range(start="2018-01-01", end="2019-01-01", freq="MS")
+start="2018-04-01"
+end="2018-07-01"
+freq="YS"
+
 
 if __name__=="__main__":
+
+    dates = pd.date_range(start=start, end=end, freq=freq)
+    final_dates = dates.union(pd.to_datetime([start, end]))
 
     fig, axes = plt.subplots(3, 4, figsize=(22, 16), sharex=True, sharey=True)
     axes = axes.flatten()
 
-    for i in range(len(dates) - 1):
-        time_start = dates[i].strftime("%Y-%m-%d")
-        time_stop = dates[i + 1].strftime("%Y-%m-%d")
+    for i in range(len(final_dates) - 1):
+        time_start = final_dates[i].strftime("%Y-%m-%d")
+        time_stop = final_dates[i + 1].strftime("%Y-%m-%d")
 
         Data = DATA_READER(region="midwest",
                            bbox=landcover_bbox_lut[landcover],
@@ -146,6 +152,8 @@ if __name__=="__main__":
         axes[i].label_outer()
 
     fig.subplots_adjust(hspace=0.4, wspace=0.1, right=0.85)
+    fig.supxlabel(f"{x_axis_scatter}{time_of_day}", fontsize=14)
+    fig.supylabel(f"{y_axis_scatter}{time_of_day}", fontsize=14)
     cbar_ax = fig.add_axes([0.88, 0.15, 0.02, 0.7])
     cbar = fig.colorbar(hb, cax=cbar_ax)
     cbar.set_label('Count', fontsize=14)

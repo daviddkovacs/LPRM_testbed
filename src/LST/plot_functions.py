@@ -97,15 +97,14 @@ def plot_hexbin(df, x_col, y_col, xlim=[273, 325], ylim=[273, 325], plot_polyfit
     hb = ax.hexbin(x, y, gridsize=100, cmap='inferno', mincnt=1)
     ax.plot(xlim, ylim, 'k--', alpha=0.8, linewidth=1, zorder=10)
 
-    # 2. Wrap the colorbar in an IF statement
     if show_colorbar:
         cb = fig.colorbar(hb, ax=ax)
         cb.set_label('Count')
 
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
-    ax.set_xlabel(x_col)
-    ax.set_ylabel(y_col)
+    # ax.set_xlabel(x_col)
+    # ax.set_ylabel(y_col)
     ax.set_title(f'{region_in_title}\napprox. {approx_localtime} local')
 
     regression_dict = regressor_calc(df, x_col, y_col)
@@ -119,8 +118,6 @@ def plot_hexbin(df, x_col, y_col, xlim=[273, 325], ylim=[273, 325], plot_polyfit
             label="RANSAC regressor",
         )
 
-    # Notice I swapped the double quotes around "m" and "c" to single quotes
-    # so they don't break the f-string!
     textstr = '\n'.join((
         f'$R = {stats["r"]:.2f}$',
         f'$RMSE = {stats["rmse"]:.2f}$ K',
@@ -136,7 +133,6 @@ def plot_hexbin(df, x_col, y_col, xlim=[273, 325], ylim=[273, 325], plot_polyfit
     if is_standalone:
         plt.show()
 
-    # 3. Return the hexbin object at the very end
     return hb
 
 def fill_plot_coords(ds_slice):
