@@ -14,6 +14,58 @@ from datacube_utilities import (morning_evening_passes, coarsen_highres,
                                 landcover_bbox_lut)
 import matplotlib.pyplot as plt
 
+def ASMR2_arrays(AMSR2_datacube_daynight,
+                 time_of_day,
+                 mpdi_band = "x"):
+    """
+    Get AMSR2 observations
+    :return: dataframe with flattened arrays ready to plot in scatterplot
+    """
+    AMSR2_datacube = morning_evening_passes(AMSR2_datacube_daynight, time_of_day=time_of_day)
+
+    AMSR2_MPDI = mpdi(AMSR2_datacube, band=mpdi_band)
+    AMSR_LST = calc_Holmes_temp(AMSR2_datacube)
+
+    AMSR_C1v = AMSR2_datacube["bt_6.9V"]
+    AMSR_C1h = AMSR2_datacube["bt_6.9H"]
+    AMSR_C2v = AMSR2_datacube["bt_7.3V"]
+    AMSR_C2h = AMSR2_datacube["bt_7.3H"]
+    AMSR_Xv = AMSR2_datacube["bt_10.7V"]
+    AMSR_Xh = AMSR2_datacube["bt_10.7H"]
+    AMSR_KUv = AMSR2_datacube["bt_18.7V"]
+    AMSR_KUh = AMSR2_datacube["bt_18.7H"]
+    AMSR_Kv = AMSR2_datacube["bt_23.8V"]
+    AMSR_Kh = AMSR2_datacube["bt_23.8H"]
+    AMSR_KAv = AMSR2_datacube["bt_36.5V"]
+    AMSR_KAh = AMSR2_datacube["bt_36.5H"]
+    AMSR_Wv = AMSR2_datacube["bt_89.0V"]
+    AMSR_Wh = AMSR2_datacube["bt_89.0H"]
+    AMSR2_KUKA = KuKa(AMSR2_datacube)
+
+    data_df = pd.DataFrame({
+        f"AMSR2_LST_{time_of_day}": AMSR_LST.values.ravel(),
+        f"AMSR2_KUKA_{time_of_day}": AMSR2_KUKA.values.ravel(),
+        f"AMSR2_MPDI_{time_of_day}": AMSR2_MPDI.values.ravel(),
+
+        f"AMSR2_C1v_{time_of_day}": AMSR_C1v.values.ravel(),
+        f"AMSR2_C1h_{time_of_day}": AMSR_C1h.values.ravel(),
+        f"AMSR2_C2v_{time_of_day}": AMSR_C2v.values.ravel(),
+        f"AMSR2_C2h_{time_of_day}": AMSR_C2h.values.ravel(),
+        f"AMSR2_Xv_{time_of_day}": AMSR_Xv.values.ravel(),
+        f"AMSR2_Xh_{time_of_day}": AMSR_Xh.values.ravel(),
+        f"AMSR2_KUv_{time_of_day}": AMSR_KUv.values.ravel(),
+        f"AMSR2_KUh_{time_of_day}": AMSR_KUh.values.ravel(),
+        f"AMSR2_Kv_{time_of_day}": AMSR_Kv.values.ravel(),
+        f"AMSR2_Kh_{time_of_day}": AMSR_Kh.values.ravel(),
+        f"AMSR2_KAv_{time_of_day}": AMSR_KAv.values.ravel(),
+        f"AMSR2_KAh_{time_of_day}": AMSR_KAh.values.ravel(),
+        f"AMSR2_Wv_{time_of_day}": AMSR_Wv.values.ravel(),
+        f"AMSR2_Wh_{time_of_day}": AMSR_Wh.values.ravel(),
+    })
+
+    return data_df
+
+
 def main_processor(MODIS_LST,
                    MODIS_NDVI,
                    AMSR2,
@@ -105,13 +157,13 @@ def main_processor(MODIS_LST,
     return data_df
 
 ##
-landcover = "forest"
+landcover = "forest_amazon"
 soil_range = [0, 0.2]
 veg_range = [0.5, 1]
 mpdi_band = "ka"
-time_of_day = "evening"
-x_axis_scatter  = "AMSR2_Xh_"
-y_axis_scatter  = "AMSR2_Xv_"
+time_of_day = "morning"
+x_axis_scatter  = "AMSR2_KAv_"
+y_axis_scatter  = "AMSR2_KUv_"
 
 dates = pd.date_range(start="2018-01-01", end="2019-01-01", freq="MS")
 
@@ -124,22 +176,24 @@ if __name__=="__main__":
         time_start = dates[i].strftime("%Y-%m-%d")
         time_stop = dates[i + 1].strftime("%Y-%m-%d")
 
+        print(time_start)
         Data = DATA_READER(region="midwest",
                            bbox=landcover_bbox_lut[landcover],
                            time_start=time_start,
                            time_stop=time_stop)
 
         AMSR2_data = Data.AMSR2_BT
-        MODIS_NDVI_cropped, MODIS_LST_cropped = Data.match_AMSR2_extent()
+        # MODIS_NDVI_cropped, MODIS_LST_cropped = Data.match_AMSR2_extent()
 
-        data_df = main_processor(MODIS_LST=MODIS_LST_cropped, MODIS_NDVI=MODIS_NDVI_cropped, AMSR2=AMSR2_data, time_of_day=time_of_day, mpdi_band=mpdi_band)
+        # data_df = main_processor(MODIS_LST=MODIS_LST_cropped, MODIS_NDVI=MODIS_NDVI_cropped, AMSR2=AMSR2_data, time_of_day=time_of_day, mpdi_band=mpdi_band)
+        data_df = ASMR2_arrays(AMSR2_data,time_of_day=time_of_day,mpdi_band=mpdi_band)
 
         hb = plot_hexbin(data_df,
                          f"{x_axis_scatter}{time_of_day}",
                          f"{y_axis_scatter}{time_of_day}",
                          utc_timeofday=time_of_day,
                          xlim=[250,330], ylim=[250,330],
-                         region_in_title=f"{landcover}\n{time_start} avg. NDVI: {np.round(MODIS_NDVI_cropped.mean().values,2)}",
+                         region_in_title=f"{landcover}\n{time_start}",
                          ax=axes[i],
                          show_colorbar=False)
 
@@ -151,3 +205,4 @@ if __name__=="__main__":
     cbar.set_label('Count', fontsize=14)
 
     plt.show(block=True)
+    print(landcover)

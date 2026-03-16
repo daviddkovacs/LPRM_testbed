@@ -23,11 +23,11 @@ class DATA_READER:
         :param microwave_overpass: Select which specific overpass to load for the Microwave sensor.
         """
 
-        self.MODIS_NDVI, self.MODIS_LST = OPTICAL_datacube(region=region,
-                                                 bbox=bbox,
-                                                 time_start=time_start,
-                                                 time_stop=time_stop
-                                                           )
+        # self.MODIS_NDVI, self.MODIS_LST = OPTICAL_datacube(region=region,
+        #                                          bbox=bbox,
+        #                                          time_start=time_start,
+        #                                          time_stop=time_stop
+        #                                                    )
 
         self.AMSR2_BT = MICROWAVE_datacube(bbox=bbox,
                                         overpass=microwave_overpass,
