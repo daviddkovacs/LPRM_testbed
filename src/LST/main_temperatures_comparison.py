@@ -73,6 +73,47 @@ def monthly_boxplots(dates,landcover,time_of_day,x_axis_scatter, y_axis_scatter 
     plt.show()
 
 
+def monthly_scatter(dates, landcover, time_of_day, x_axis_scatter, y_axis_scatter):
+
+    fig, axes = plt.subplots(3, 4, figsize=(22, 16), sharex=True, sharey=True)
+    axes = axes.flatten()
+
+    for i in range(len(dates) - 1):
+        time_start = dates[i].strftime("%Y-%m-%d")
+        time_stop = dates[i + 1].strftime("%Y-%m-%d")
+
+        print(time_start)
+        Data = DATA_READER(region="midwest",
+                           bbox=landcover_bbox_lut[landcover],
+                           time_start=time_start,
+                           time_stop=time_stop)
+
+        AMSR2_data = Data.AMSR2_BT
+        # MODIS_NDVI_cropped, MODIS_LST_cropped = Data.match_AMSR2_extent()
+
+        # data_df = main_processor(MODIS_LST=MODIS_LST_cropped, MODIS_NDVI=MODIS_NDVI_cropped, AMSR2=AMSR2_data, time_of_day=time_of_day, mpdi_band=mpdi_band)
+        data_df = ASMR2_arrays(AMSR2_data, time_of_day=time_of_day, mpdi_band=mpdi_band)
+
+        hb = plot_hexbin(data_df,
+                         f"{x_axis_scatter}{time_of_day}",
+                         f"{y_axis_scatter}{time_of_day}",
+                         utc_timeofday=time_of_day,
+                         xlim=[250, 330], ylim=[250, 330],
+                         region_in_title=f"{landcover}\n{time_start}",
+                         ax=axes[i],
+                         show_colorbar=False)
+
+        axes[i].label_outer()
+
+    fig.subplots_adjust(hspace=0.4, wspace=0.1, right=0.85)
+    cbar_ax = fig.add_axes([0.88, 0.15, 0.02, 0.7])
+    cbar = fig.colorbar(hb, cax=cbar_ax)
+    cbar.set_label('Count', fontsize=14)
+
+    plt.show(block=True)
+    print(landcover)
+
+
 def ASMR2_arrays(AMSR2_datacube_daynight,
                  time_of_day,
                  mpdi_band = "x"):
@@ -227,4 +268,7 @@ dates = pd.date_range(start="2018-01-01", end="2019-01-01", freq="MS")
 
 if __name__=="__main__":
 
-    monthly_boxplots(dates, landcover, time_of_day, x_axis_scatter, y_axis_scatter)
+    # monthly_boxplots(dates, landcover, time_of_day, x_axis_scatter, y_axis_scatter)
+    monthly_scatter(dates, landcover, time_of_day, x_axis_scatter, y_axis_scatter)
+
+    
