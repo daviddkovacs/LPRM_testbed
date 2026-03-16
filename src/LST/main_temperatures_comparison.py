@@ -1,6 +1,7 @@
 import pandas as pd
 import xarray as xr
 import numpy as np
+import seaborn as sns
 from typing import Literal
 from LST.datacube_utilities import match_MYD09_to_MYD11
 from LST.plot_functions import plot_hexbin
@@ -13,6 +14,64 @@ from datacube_utilities import (morning_evening_passes, coarsen_highres,
                                 threshold_ndvi,
                                 landcover_bbox_lut)
 import matplotlib.pyplot as plt
+
+def monthly_boxplots(dates,landcover,time_of_day,x_axis_scatter, y_axis_scatter ):
+    data_monthly = {}
+
+    for i in range(len(dates) - 1):
+        time_start = dates[i].strftime("%Y-%m-%d")
+        time_stop = dates[i + 1].strftime("%Y-%m-%d")
+
+        print(time_start)
+        Data = DATA_READER(region="midwest",
+                           bbox=landcover_bbox_lut[landcover],
+                           time_start=time_start,
+                           time_stop=time_stop)
+
+        AMSR2_data = Data.AMSR2_BT
+        # MODIS_NDVI_cropped, MODIS_LST_cropped = Data.match_AMSR2_extent()
+
+        # data_df = main_processor(MODIS_LST=MODIS_LST_cropped, MODIS_NDVI=MODIS_NDVI_cropped, AMSR2=AMSR2_data, time_of_day=time_of_day, mpdi_band=mpdi_band)
+        data_df = ASMR2_arrays(AMSR2_data, time_of_day=time_of_day, mpdi_band=mpdi_band)
+        data_monthly[time_start] = data_df
+
+    all_months_data = []
+
+    for month_key, df in data_monthly.items():
+        temp_df = df[[f"{x_axis_scatter}{time_of_day}", f"{y_axis_scatter}{time_of_day}"]].copy()
+        temp_df['Month'] = month_key
+        all_months_data.append(temp_df)
+
+    combined_df = pd.concat(all_months_data, ignore_index=True)
+
+    melted_df = combined_df.melt(
+        id_vars='Month',
+        value_vars=[f"{x_axis_scatter}{time_of_day}", f"{y_axis_scatter}{time_of_day}"],
+        var_name='pol',
+        value_name='TB'
+    )
+
+    plt.figure(figsize=(16, 8))
+
+    sns.boxplot(
+        data=melted_df,
+        x='Month',
+        y='TB',
+        hue='pol',
+        palette='muted',
+        showfliers=False
+    )
+
+    plt.title(f'Monthly {x_axis_scatter} and {y_axis_scatter} ({landcover})', fontsize=16)
+    plt.xlabel('Date', fontsize=12)
+    plt.ylabel('TB', fontsize=12)
+    plt.ylim([245, 310])
+    plt.xticks(rotation=45)
+    plt.grid(axis='y', linestyle='--', alpha=0.6)
+    plt.tight_layout()
+
+    plt.show()
+
 
 def ASMR2_arrays(AMSR2_datacube_daynight,
                  time_of_day,
@@ -157,52 +216,15 @@ def main_processor(MODIS_LST,
     return data_df
 
 ##
-landcover = "forest_amazon"
-soil_range = [0, 0.2]
-veg_range = [0.5, 1]
+
+landcover = "desert"
 mpdi_band = "ka"
 time_of_day = "morning"
-x_axis_scatter  = "AMSR2_KAv_"
-y_axis_scatter  = "AMSR2_KUv_"
+x_axis_scatter  = "AMSR2_KUh_"
+y_axis_scatter  = "AMSR2_KAv_"
 
 dates = pd.date_range(start="2018-01-01", end="2019-01-01", freq="MS")
 
 if __name__=="__main__":
 
-    fig, axes = plt.subplots(3, 4, figsize=(22, 16), sharex=True, sharey=True)
-    axes = axes.flatten()
-
-    for i in range(len(dates) - 1):
-        time_start = dates[i].strftime("%Y-%m-%d")
-        time_stop = dates[i + 1].strftime("%Y-%m-%d")
-
-        print(time_start)
-        Data = DATA_READER(region="midwest",
-                           bbox=landcover_bbox_lut[landcover],
-                           time_start=time_start,
-                           time_stop=time_stop)
-
-        AMSR2_data = Data.AMSR2_BT
-        # MODIS_NDVI_cropped, MODIS_LST_cropped = Data.match_AMSR2_extent()
-
-        # data_df = main_processor(MODIS_LST=MODIS_LST_cropped, MODIS_NDVI=MODIS_NDVI_cropped, AMSR2=AMSR2_data, time_of_day=time_of_day, mpdi_band=mpdi_band)
-        data_df = ASMR2_arrays(AMSR2_data,time_of_day=time_of_day,mpdi_band=mpdi_band)
-
-        hb = plot_hexbin(data_df,
-                         f"{x_axis_scatter}{time_of_day}",
-                         f"{y_axis_scatter}{time_of_day}",
-                         utc_timeofday=time_of_day,
-                         xlim=[250,330], ylim=[250,330],
-                         region_in_title=f"{landcover}\n{time_start}",
-                         ax=axes[i],
-                         show_colorbar=False)
-
-        axes[i].label_outer()
-
-    fig.subplots_adjust(hspace=0.4, wspace=0.1, right=0.85)
-    cbar_ax = fig.add_axes([0.88, 0.15, 0.02, 0.7])
-    cbar = fig.colorbar(hb, cax=cbar_ax)
-    cbar.set_label('Count', fontsize=14)
-
-    plt.show(block=True)
-    print(landcover)
+    monthly_boxplots(dates, landcover, time_of_day, x_axis_scatter, y_axis_scatter)
