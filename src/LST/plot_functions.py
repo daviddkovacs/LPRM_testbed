@@ -107,10 +107,10 @@ def plot_hexbin(df, x_col, y_col,
 
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
-    # ax.set_xlabel(x_col)
-    # ax.set_ylabel(y_col)
-    fig.supxlabel(f"{x_col}", fontsize=16, y=0.05)
-    fig.supylabel(f"{y_col}", fontsize=16, x=0.05)
+    ax.set_xlabel(x_col)
+    ax.set_ylabel(y_col)
+    # fig.supxlabel(f"{x_col}", fontsize=16, y=0.05)
+    # fig.supylabel(f"{y_col}", fontsize=16, x=0.05)
     ax.set_title(f'{region_in_title}\napprox. {approx_localtime} local')
 
     regression_dict = regressor_calc(df, x_col, y_col)

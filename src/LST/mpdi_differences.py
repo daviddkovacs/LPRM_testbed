@@ -1,5 +1,5 @@
 from datacube_loader import MICROWAVE_datacube
-from datacube_utilities import mpdi, calc_Holmes_temp, frequencies
+from datacube_utilities import mpdi, calc_Holmes_temp, frequencies, crop2roi
 import pandas as pd
 import matplotlib.pyplot as plt
 import lprm.retrieval.lprm_v6_1.par100m_v6_1 as par100
@@ -201,22 +201,30 @@ if __name__=="__main__":
 
     ##
 
-    DELTA_T = TSIM - HOLMES_T_DAY_low_mpdi
+    roi = [
+    92.9045500991939,
+    11.611761085870995,
+    109.40947438922251,
+    25.479277755120222
+  ]
+
+    DELTA_T = TSIM / HOLMES_T_DAY_low_mpdi
+
     F = (AMSR2_DAY_low_mpdi[f"bt_{frequencies["ku".upper()]}H"]
          /AMSR2_DAY_low_mpdi[f"bt_{frequencies["ka".upper()]}V"])
 
-    loop_range = pd.date_range(start="time_start",end=time_stop,freq="D")
+    loop_range = pd.date_range(start="2018-03-01",end="2018-03-05",freq="D")
+
     for i in loop_range:
-        df = pd.DataFrame({"delta_t":DELTA_T.sel(time=i,method="nearest").values.ravel(),
-                           "f":F.sel(time=i, method="nearest").values.ravel()})
+        df = pd.DataFrame({"delta_t":crop2roi(DELTA_T,roi).sel(time=i,method="nearest").values.ravel(),
+                           "f":crop2roi(F,roi).sel(time=i, method="nearest").values.ravel()})
         plot_hexbin(df,
                     "delta_t",
                     "f",
                     utc_timeofday="evening",
-                    xlim=[-20,20], ylim=[0.8,1.1],
-                    region_in_title=str(i),
+                    xlim=[None,None], ylim=[0.8,1.1],
+                    region_in_title=f"{i}",
                     # ax=axes[i],
                     # show_colorbar=False,
                     )
-
 
