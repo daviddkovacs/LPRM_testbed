@@ -1,7 +1,13 @@
 from datacube_loader import MICROWAVE_datacube
-from datacube_utilities import mpdi
+from datacube_utilities import mpdi, calc_Holmes_temp, frequencies
 import pandas as pd
 import matplotlib.pyplot as plt
+import lprm.retrieval.lprm_v6_1.par100m_v6_1 as par100
+from lprm.retrieval.lprm_general import load_aux_file
+from lprm.retrieval.lprm_v6_1.parameters import (
+    get_lprm_parameters_for_frequency,
+)
+
 
 def load_AMSR2_daily(bbox,time_start,time_stop):
     """
@@ -72,43 +78,61 @@ if __name__=="__main__":
     time_stop = "2019-01-01"
     bandlist = ["c2", "x", "ku"]
 
-
     AMSR2_DAY, AMSR2_NIGHT = load_AMSR2_daily(bbox = bbox,time_start=time_start,time_stop=time_stop)
+    HOLMES_T_NIGHT, HOLMES_T_DAY = calc_Holmes_temp(AMSR2_NIGHT), calc_Holmes_temp(AMSR2_DAY)
     MPDI_DAY , MPDI_NIGHT = calc_MPDI_bands(AMSR2_DAY=AMSR2_DAY,AMSR2_NIGHT=AMSR2_NIGHT, list_of_bands=bandlist)
-    MPDI_deltas =  calc_MPDI_difference(MPDI_day=MPDI_DAY, MPDI_night=MPDI_NIGHT, list_of_bands=bandlist)
+    MPDI_deltas = calc_MPDI_difference(MPDI_day=MPDI_DAY, MPDI_night=MPDI_NIGHT, list_of_bands=bandlist)
+
 ##
-    t= 20
-    test_band = "x"
-    test_day = MPDI_DAY[test_band].isel(time = t).compute()
-    test_night = MPDI_NIGHT[test_band].isel(time = t).compute()
-    test_dif = test_night - test_day
+
+    times = AMSR2_NIGHT.time
+    LPRM_dict = {}
+    inc_angle = 55.0
+
+    for band in bandlist:
+        lprm_list = []
+        band = band.upper()
+        freq = frequencies[band.upper()]
+
+        for day in times:
+            print(day.dt.date.item())
+            tb_map = AMSR2_NIGHT.sel(time = day).compute()
+            holmes_t = HOLMES_T_NIGHT.sel(time = day).compute()
+
+            aux_data_dict = {
+                "sand": load_aux_file(0.25, "SND"),
+                "clay": load_aux_file(0.25, "CLY"),
+                "bld": load_aux_file(0.25, "BLD"),
+            }
+            params = get_lprm_parameters_for_frequency(band, inc_angle)
+
+            sm, vod = par100.run_band(
+                tb_map[f"bt_{freq}V"].values,
+                tb_map[f"bt_{freq}H"].values,
+                holmes_t.values,
+                aux_data_dict["sand"],
+                aux_data_dict["clay"],
+                aux_data_dict["bld"],
+                params.Q,
+                params.w,
+                params.opt_atm,
+                inc_angle,
+                params.h1,
+                params.h2,
+                params.vod_Av,
+                params.vod_Bv,
+                float(freq),
+                params.temp_freeze,
+                False,    # apply VOD correction if mean is passed
+                None,                # pass mean VOD of backwards window
+            )
 
 
-    plt.figure(figsize=(20,12))
-    test_dif.plot(vmin = -0.01, vmax = 0.01, cmap = "coolwarm")
-    plt.title(f"MPDI{test_band} difference (night - day)")
-    plt.show()
-
-    ##
-    dates = pd.date_range(start="2018-01-01", end="2019-01-01", freq="D")
-
-
-    for i in range(len(dates) - 1):
-
-        time_start = dates[i].strftime("%Y-%m-%d")
-        time_stop = dates[i + 1].strftime("%Y-%m-%d")
-
-        month_mean_day = MPDI_DAY[test_band].sel(time = slice(time_start,time_stop))
-        month_mean_night = MPDI_NIGHT[test_band].sel(time = slice(time_start,time_stop))
-
-        month_diff = (month_mean_night - month_mean_day).compute()
-        mean_diff  = month_diff.mean(dim = "time")
-
-        minval = -0.0001
-        maxval = 0.0001
-        filtered_diff = mean_diff.where((mean_diff >= minval) & (mean_diff <= maxval))
-
-        plt.figure(figsize=(20,12))
-        filtered_diff.plot(vmin = minval, vmax = maxval, cmap = "coolwarm")
-        plt.title(f"MPDI{test_band} {time_start} dif (night - day)")
-        plt.show()
+    # threshold = 0.005
+    #
+    # mpdi_current = MPDI_deltas["x"].isel(time=100).compute()
+    # mpdi_filtered = mpdi_current.where((mpdi_current >= -threshold) & (mpdi_current <= mpdi_current))
+    #
+    # plt.figure(figsize=(20,12))
+    # mpdi_filtered.plot(vmin= -threshold, vmax = threshold, cmap = "coolwarm")
+    # plt.show()
