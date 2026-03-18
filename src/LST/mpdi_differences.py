@@ -70,7 +70,7 @@ def calc_MPDI_difference(MPDI_day, MPDI_night, list_of_bands=["c2", "x", "ku"]):
         MPDI_difference_dict[band] = MPDI_night[band] - MPDI_day[band]
     return MPDI_difference_dict
 
-def retrieve_LPRM(TB_DATASET, HOLMES_T, band):
+def retrieve_LPRM(TB_DATASET, HOLMES_T, band, SM_input = None, VOD_input = None):
     """
     Retrieve LPRM, traditional method. Input is Brightness temps, Holmes "KA" temp and band
     :return: SM and VOD datasets
@@ -83,6 +83,8 @@ def retrieve_LPRM(TB_DATASET, HOLMES_T, band):
 
     lprm_list_sm = []
     lprm_list_vod = []
+    lprm_list_tsim = []
+
     for t in times:
         print(t.dt.date.item())
         tb_map = TB_DATASET.sel(time = t).compute()
@@ -95,7 +97,7 @@ def retrieve_LPRM(TB_DATASET, HOLMES_T, band):
         }
         params = get_lprm_parameters_for_frequency(band, inc_angle)
 
-        sm, vod = par100.run_band(
+        sm, vod,tsim = par100.run_band(
             tb_map[f"bt_{freq}V"].values,
             tb_map[f"bt_{freq}H"].values,
             holmes_t.values,
@@ -114,6 +116,8 @@ def retrieve_LPRM(TB_DATASET, HOLMES_T, band):
             params.temp_freeze,
             False,
             None,
+            SM_map_night = SM_input,
+            VOD_map_night = VOD_input,
         )
 
         sm_da = xr.DataArray(
@@ -132,13 +136,27 @@ def retrieve_LPRM(TB_DATASET, HOLMES_T, band):
         sm_da = sm_da.where(sm_da>=0)
         vod_da = vod_da.where(vod_da>=0)
 
+        if SM_input is not None:
+            tsim_da = xr.DataArray(
+                data=tsim,
+                coords=tb_map.coords,
+                dims=tb_map.dims,
+                name="tsim"
+            )
+            tsim_da = tsim_da.where(tsim_da>=0)
+            lprm_list_tsim.append(tsim_da)
+
         lprm_list_sm.append(sm_da)
         lprm_list_vod.append(vod_da)
 
     SM_dataset = xr.concat(lprm_list_sm, dim = "time")
     VOD_dataset = xr.concat(lprm_list_vod, dim = "time")
+    if SM_input is not None:
+        TSIM_dataset = xr.concat(lprm_list_tsim, dim="time")
+    else:
+        TSIM_dataset = np.zeros(9)
 
-    return SM_dataset, VOD_dataset
+    return SM_dataset, VOD_dataset, TSIM_dataset
 
 
 def threshold_by_mpdi(SM,VOD, MPDI, threshold):
@@ -162,7 +180,7 @@ if __name__=="__main__":
 
     bbox = [-180, -90, 180, 90]
     time_start = "2018-01-01"
-    time_stop = "2019-01-01"
+    time_stop = "2018-02-01"
     bandlist = ["c2", "x", "ku"]
 
     AMSR2_DAY, AMSR2_NIGHT = load_AMSR2_daily(bbox = bbox,time_start=time_start,time_stop=time_stop)
@@ -179,3 +197,6 @@ if __name__=="__main__":
     mpdi_delta_band = MPDI_deltas[band_current]
 
     SM_low_mpdi, VOD_low_mpdi = threshold_by_mpdi(SM=SM, VOD=VOD,MPDI=mpdi_delta_band, threshold=threshold)
+##
+    # _,_,TSIM = retrieve_LPRM(TB_DATASET=AMSR2_NIGHT, HOLMES_T=HOLMES_T_NIGHT, band=band_current,
+    #                          SM_input=SM_low_mpdi.values,VOD_input=VOD_low_mpdi)
