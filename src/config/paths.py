@@ -1,5 +1,6 @@
 # LPRM retrievals
 path_bt = "/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/01_resampled_bt/"
+path_bt_climers01_local = "/home/ddkovacs/personal_data/lprm_daytime/resampled_TBs"
 path_lprm = "/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/04_retrieved/coarse_resolution/"
 path_aux = "/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/02_aux_data/coarse_resolution/lprm_v6/soil_content"
 

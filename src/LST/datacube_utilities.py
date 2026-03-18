@@ -53,12 +53,12 @@ landcover_bbox_lut = {
     35.95425540038144
   ]
     ,
-    "forest_pixel":
+    "forest_west_virginia":
         [
-            -104.94696115256528,
-            36.99846847567471,
-            -104.65094769349078,
-            37.21961904513921
+            -82.81946874253154,
+            37.06066523546711,
+            -81.4855328438654,
+            37.886633912495896
         ]
     ,
     "agri_mix":
@@ -79,7 +79,7 @@ def calc_Holmes_temp(AMSR2):
     return TSURF
 
 
-def KuKa(AMSR2, num = "Ku",denom = "Ka"):
+def MW_fraction(AMSR2, num = "ku", denom = "ka"):
     """
     Calculate ratio, as seen in SSM/I Cal/Val document
     https://apps.dtic.mil/sti/tr/pdf/ADA274626.pdf

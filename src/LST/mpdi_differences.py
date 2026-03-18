@@ -1,5 +1,5 @@
 from datacube_loader import MICROWAVE_datacube
-from datacube_utilities import mpdi, frequencies
+from datacube_utilities import mpdi
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -61,8 +61,8 @@ def calc_MPDI_difference(MPDI_day, MPDI_night, list_of_bands=["c2", "x", "ku"]):
 
     for band in list_of_bands:
         MPDI_difference_dict[band] = MPDI_night[band] - MPDI_day[band]
-
     return MPDI_difference_dict
+
 
 ##
 if __name__=="__main__":
@@ -76,10 +76,39 @@ if __name__=="__main__":
     AMSR2_DAY, AMSR2_NIGHT = load_AMSR2_daily(bbox = bbox,time_start=time_start,time_stop=time_stop)
     MPDI_DAY , MPDI_NIGHT = calc_MPDI_bands(AMSR2_DAY=AMSR2_DAY,AMSR2_NIGHT=AMSR2_NIGHT, list_of_bands=bandlist)
     MPDI_deltas =  calc_MPDI_difference(MPDI_day=MPDI_DAY, MPDI_night=MPDI_NIGHT, list_of_bands=bandlist)
+##
+    t= 20
+    test_band = "x"
+    test_day = MPDI_DAY[test_band].isel(time = t).compute()
+    test_night = MPDI_NIGHT[test_band].isel(time = t).compute()
+    test_dif = test_night - test_day
 
-    MPDI_x = MPDI_deltas["x"].compute()
-    debug_im = MPDI_x.isel(time= 0).values
 
-    plt.figure()
-    MPDI_x.isel(time = 0).plot()
+    plt.figure(figsize=(20,12))
+    test_dif.plot(vmin = -0.01, vmax = 0.01, cmap = "coolwarm")
+    plt.title(f"MPDI{test_band} difference (night - day)")
     plt.show()
+
+    ##
+    dates = pd.date_range(start="2018-01-01", end="2019-01-01", freq="D")
+
+
+    for i in range(len(dates) - 1):
+
+        time_start = dates[i].strftime("%Y-%m-%d")
+        time_stop = dates[i + 1].strftime("%Y-%m-%d")
+
+        month_mean_day = MPDI_DAY[test_band].sel(time = slice(time_start,time_stop))
+        month_mean_night = MPDI_NIGHT[test_band].sel(time = slice(time_start,time_stop))
+
+        month_diff = (month_mean_night - month_mean_day).compute()
+        mean_diff  = month_diff.mean(dim = "time")
+
+        minval = -0.0001
+        maxval = 0.0001
+        filtered_diff = mean_diff.where((mean_diff >= minval) & (mean_diff <= maxval))
+
+        plt.figure(figsize=(20,12))
+        filtered_diff.plot(vmin = minval, vmax = maxval, cmap = "coolwarm")
+        plt.title(f"MPDI{test_band} {time_start} dif (night - day)")
+        plt.show()
