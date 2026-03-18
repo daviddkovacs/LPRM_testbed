@@ -8,7 +8,7 @@ from lprm.retrieval.lprm_v6_1.parameters import (
     get_lprm_parameters_for_frequency,
 )
 import xarray as xr
-
+import numpy as np
 
 def load_AMSR2_daily(bbox,time_start,time_stop):
     """
@@ -120,7 +120,7 @@ def retrieve_LPRM(TB_DATASET, HOLMES_T, band):
             data=sm,
             coords=tb_map.coords,
             dims=tb_map.dims,
-            name="soil_moisture"
+            name="sm"
         )
 
         vod_da = xr.DataArray(
@@ -129,13 +129,33 @@ def retrieve_LPRM(TB_DATASET, HOLMES_T, band):
             dims=tb_map.dims,
             name="vod"
         )
+        sm_da = sm_da.where(sm_da>=0)
+        vod_da = vod_da.where(vod_da>=0)
+
         lprm_list_sm.append(sm_da)
         lprm_list_vod.append(vod_da)
 
-        SM_dataset = xr.concat(lprm_list_sm, dim = "time")
-        VOD_dataset = xr.concat(lprm_list_vod, dim = "time")
+    SM_dataset = xr.concat(lprm_list_sm, dim = "time")
+    VOD_dataset = xr.concat(lprm_list_vod, dim = "time")
 
-        return SM_dataset, VOD_dataset
+    return SM_dataset, VOD_dataset
+
+
+def threshold_by_mpdi(SM,VOD, MPDI, threshold):
+    """
+    Where MPDI difference (night-day) is between +- threshold, we mask SM and VOD retrievals
+    :param SM: SM dataset
+    :param VOD: VOD dataset
+    :param MPDI: MPDI difference at band
+    :param threshold: usually a low float
+    :return: masked SM, masked VOD
+    """
+    low_mpdi_mask = xr.where((MPDI >= -threshold) & (MPDI <= threshold),1,0).compute()
+
+    SM_low_mpdi = xr.where((low_mpdi_mask==1),SM,np.nan)
+    VOD_low_mpdi = xr.where((low_mpdi_mask==1),VOD,np.nan)
+
+    return SM_low_mpdi, VOD_low_mpdi
 
 ##
 if __name__=="__main__":
@@ -151,12 +171,11 @@ if __name__=="__main__":
     MPDI_deltas = calc_MPDI_difference(MPDI_day=MPDI_DAY, MPDI_night=MPDI_NIGHT, list_of_bands=bandlist)
 
 ##
+    band_current = "x"
+    SM, VOD = retrieve_LPRM(TB_DATASET=AMSR2_NIGHT, HOLMES_T=HOLMES_T_NIGHT, band=band_current)
 
-    # threshold = 0.005
-    #
-    # mpdi_current = MPDI_deltas["x"].isel(time=100).compute()
-    # mpdi_filtered = mpdi_current.where((mpdi_current >= -threshold) & (mpdi_current <= mpdi_current))
-    #
-    # plt.figure(figsize=(20,12))
-    # mpdi_filtered.plot(vmin= -threshold, vmax = threshold, cmap = "coolwarm")
-    # plt.show()
+##
+    threshold = 0.0005
+    mpdi_delta_band = MPDI_deltas[band_current]
+
+    SM_low_mpdi, VOD_low_mpdi = threshold_by_mpdi(SM=SM, VOD=VOD,MPDI=mpdi_delta_band, threshold=threshold)
