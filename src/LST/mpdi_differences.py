@@ -90,6 +90,12 @@ def retrieve_LPRM(TB_DATASET, HOLMES_T, band, SM_input = None, VOD_input = None)
         tb_map = TB_DATASET.sel(time = t).compute()
         holmes_t = HOLMES_T.sel(time = t).compute()
 
+        if SM_input is not None:
+            sm_input = SM_input.sel(time = t).compute().values
+            vod_input = VOD_input.sel(time = t).compute().values
+        else:
+            sm_input = None
+            vod_input = None
         aux_data_dict = {
             "sand": load_aux_file(0.25, "SND"),
             "clay": load_aux_file(0.25, "CLY"),
@@ -116,8 +122,8 @@ def retrieve_LPRM(TB_DATASET, HOLMES_T, band, SM_input = None, VOD_input = None)
             params.temp_freeze,
             False,
             None,
-            SM_map_night = SM_input,
-            VOD_map_night = VOD_input,
+            SM_map_night = sm_input,
+            VOD_map_night = vod_input,
         )
 
         sm_da = xr.DataArray(
@@ -190,7 +196,7 @@ if __name__=="__main__":
 
 ##
     band_current = "x"
-    SM, VOD = retrieve_LPRM(TB_DATASET=AMSR2_NIGHT, HOLMES_T=HOLMES_T_NIGHT, band=band_current)
+    SM, VOD,_ = retrieve_LPRM(TB_DATASET=AMSR2_NIGHT, HOLMES_T=HOLMES_T_NIGHT, band=band_current)
 
 ##
     threshold = 0.0005
@@ -198,5 +204,6 @@ if __name__=="__main__":
 
     SM_low_mpdi, VOD_low_mpdi = threshold_by_mpdi(SM=SM, VOD=VOD,MPDI=mpdi_delta_band, threshold=threshold)
 ##
-    # _,_,TSIM = retrieve_LPRM(TB_DATASET=AMSR2_NIGHT, HOLMES_T=HOLMES_T_NIGHT, band=band_current,
-    #                          SM_input=SM_low_mpdi.values,VOD_input=VOD_low_mpdi)
+    _,_,TSIM = retrieve_LPRM(TB_DATASET=AMSR2_NIGHT, HOLMES_T=HOLMES_T_NIGHT, band=band_current,
+                             SM_input=SM_low_mpdi,VOD_input=VOD_low_mpdi)
+
