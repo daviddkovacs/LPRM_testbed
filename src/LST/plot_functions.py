@@ -80,7 +80,11 @@ def regressor_calc(df,x_col,y_col,):
     return {"m": m,"c":c, "line_x": line_x , "line_y": line_y}
 
 
-def plot_hexbin(df, x_col, y_col, xlim=[273, 325], ylim=[273, 325], plot_polyfit=True, utc_timeofday="", region_in_title="", ax=None, show_colorbar=True):
+def plot_hexbin(df, x_col, y_col,
+                xlim=[273, 325], ylim=[273, 325],
+                plot_polyfit=True, utc_timeofday="",
+                region_in_title="", ax=None, show_colorbar=True,
+                bins = None):
 
     approx_localtime = approximate_local_time(utc_timeofday)
     x = df[x_col]
@@ -94,10 +98,9 @@ def plot_hexbin(df, x_col, y_col, xlim=[273, 325], ylim=[273, 325], plot_polyfit
         fig = ax.figure
         is_standalone = False
 
-    hb = ax.hexbin(x, y, gridsize=100, cmap='inferno', mincnt=1)
+    hb = ax.hexbin(x, y, gridsize=100, cmap='inferno', mincnt=1, bins=bins)
     ax.plot(xlim, ylim, 'k--', alpha=0.8, linewidth=1, zorder=10)
 
-    # 2. Wrap the colorbar in an IF statement
     if show_colorbar:
         cb = fig.colorbar(hb, ax=ax)
         cb.set_label('Count')
@@ -121,8 +124,6 @@ def plot_hexbin(df, x_col, y_col, xlim=[273, 325], ylim=[273, 325], plot_polyfit
             label="RANSAC regressor",
         )
 
-    # Notice I swapped the double quotes around "m" and "c" to single quotes
-    # so they don't break the f-string!
     textstr = '\n'.join((
         f'$R = {stats["r"]:.2f}$',
         f'$RMSE = {stats["rmse"]:.2f}$ K',
@@ -138,10 +139,8 @@ def plot_hexbin(df, x_col, y_col, xlim=[273, 325], ylim=[273, 325], plot_polyfit
     if is_standalone:
         plt.show()
 
-    # 3. Return the hexbin object at the very end
     return hb
 
-# def plot_boxwhisker()
 
 def fill_plot_coords(ds_slice):
     """Forward and backward fills lat/lon NaNs to prevent pcolormesh errors."""

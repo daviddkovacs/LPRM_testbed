@@ -9,6 +9,7 @@ from lprm.retrieval.lprm_v6_1.parameters import (
 )
 import xarray as xr
 import numpy as np
+from plot_functions import plot_hexbin
 
 def load_AMSR2_daily(bbox,time_start,time_stop):
     """
@@ -165,28 +166,12 @@ def retrieve_LPRM(TB_DATASET, HOLMES_T, band, SM_input = None, VOD_input = None)
     return SM_dataset, VOD_dataset, TSIM_dataset
 
 
-def threshold_by_mpdi(SM,VOD, MPDI, threshold):
-    """
-    Where MPDI difference (night-day) is between +- threshold, we mask SM and VOD retrievals
-    :param SM: SM dataset
-    :param VOD: VOD dataset
-    :param MPDI: MPDI difference at band
-    :param threshold: usually a low float
-    :return: masked SM, masked VOD
-    """
-    low_mpdi_mask = xr.where((MPDI >= -threshold) & (MPDI <= threshold),1,0).compute()
-
-    SM_low_mpdi = xr.where((low_mpdi_mask==1),SM,np.nan)
-    VOD_low_mpdi = xr.where((low_mpdi_mask==1),VOD,np.nan)
-
-    return SM_low_mpdi, VOD_low_mpdi
-
 ##
 if __name__=="__main__":
 
     bbox = [-180, -90, 180, 90]
     time_start = "2018-01-01"
-    time_stop = "2018-02-01"
+    time_stop = "2018-06-01"
     bandlist = ["c2", "x", "ku"]
 
     AMSR2_DAY, AMSR2_NIGHT = load_AMSR2_daily(bbox = bbox,time_start=time_start,time_stop=time_stop)
@@ -196,14 +181,42 @@ if __name__=="__main__":
 
 ##
     band_current = "x"
-    SM, VOD,_ = retrieve_LPRM(TB_DATASET=AMSR2_NIGHT, HOLMES_T=HOLMES_T_NIGHT, band=band_current)
-
+    SM_NIGHT, VOD_NIGHT,_ = retrieve_LPRM(TB_DATASET=AMSR2_NIGHT, HOLMES_T=HOLMES_T_NIGHT, band=band_current)
+    # Highly experimental! Dummy variables are given for TB and HOLMES. TSIM is obtained by
+    # running LPRM in reverse.
+    _, _, TSIM = retrieve_LPRM(TB_DATASET=AMSR2_NIGHT, HOLMES_T=HOLMES_T_NIGHT, band=band_current,
+                               SM_input=SM_NIGHT, VOD_input=VOD_NIGHT)
 ##
     threshold = 0.0005
     mpdi_delta_band = MPDI_deltas[band_current]
 
-    SM_low_mpdi, VOD_low_mpdi = threshold_by_mpdi(SM=SM, VOD=VOD,MPDI=mpdi_delta_band, threshold=threshold)
-##
-    _,_,TSIM = retrieve_LPRM(TB_DATASET=AMSR2_NIGHT, HOLMES_T=HOLMES_T_NIGHT, band=band_current,
-                             SM_input=SM_low_mpdi,VOD_input=VOD_low_mpdi)
+    low_mpdi_mask = xr.where((mpdi_delta_band >= -threshold) & (mpdi_delta_band <= threshold),
+                             1,0).compute()
+
+    SM_low_mpdi = xr.where((low_mpdi_mask==1),SM_NIGHT,np.nan)
+    VOD_low_mpdi = xr.where((low_mpdi_mask==1),VOD_NIGHT,np.nan)
+    HOLMES_T_DAY_low_mpdi = xr.where((low_mpdi_mask==1),HOLMES_T_DAY,np.nan)
+    AMSR2_DAY_low_mpdi = xr.where((low_mpdi_mask==1),AMSR2_DAY,np.nan)
+
+
+    ##
+
+    DELTA_T = TSIM - HOLMES_T_DAY_low_mpdi
+    F = (AMSR2_DAY_low_mpdi[f"bt_{frequencies["ku".upper()]}H"]
+         /AMSR2_DAY_low_mpdi[f"bt_{frequencies["ka".upper()]}V"])
+
+    loop_range = pd.date_range(start="time_start",end=time_stop,freq="D")
+    for i in loop_range:
+        df = pd.DataFrame({"delta_t":DELTA_T.sel(time=i,method="nearest").values.ravel(),
+                           "f":F.sel(time=i, method="nearest").values.ravel()})
+        plot_hexbin(df,
+                    "delta_t",
+                    "f",
+                    utc_timeofday="evening",
+                    xlim=[-20,20], ylim=[0.8,1.1],
+                    region_in_title=str(i),
+                    # ax=axes[i],
+                    # show_colorbar=False,
+                    )
+
 
