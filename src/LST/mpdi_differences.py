@@ -7,6 +7,7 @@ from lprm.retrieval.lprm_general import load_aux_file
 from lprm.retrieval.lprm_v6_1.parameters import (
     get_lprm_parameters_for_frequency,
 )
+import xarray as xr
 
 
 def load_AMSR2_daily(bbox,time_start,time_stop):
@@ -69,6 +70,72 @@ def calc_MPDI_difference(MPDI_day, MPDI_night, list_of_bands=["c2", "x", "ku"]):
         MPDI_difference_dict[band] = MPDI_night[band] - MPDI_day[band]
     return MPDI_difference_dict
 
+def retrieve_LPRM(TB_DATASET, HOLMES_T, band):
+    """
+    Retrieve LPRM, traditional method. Input is Brightness temps, Holmes "KA" temp and band
+    :return: SM and VOD datasets
+    """
+    times = TB_DATASET.time
+    inc_angle = 55.0
+
+    band = band.upper()
+    freq = frequencies[band.upper()]
+
+    lprm_list_sm = []
+    lprm_list_vod = []
+    for t in times:
+        print(t.dt.date.item())
+        tb_map = TB_DATASET.sel(time = t).compute()
+        holmes_t = HOLMES_T.sel(time = t).compute()
+
+        aux_data_dict = {
+            "sand": load_aux_file(0.25, "SND"),
+            "clay": load_aux_file(0.25, "CLY"),
+            "bld": load_aux_file(0.25, "BLD"),
+        }
+        params = get_lprm_parameters_for_frequency(band, inc_angle)
+
+        sm, vod = par100.run_band(
+            tb_map[f"bt_{freq}V"].values,
+            tb_map[f"bt_{freq}H"].values,
+            holmes_t.values,
+            aux_data_dict["sand"],
+            aux_data_dict["clay"],
+            aux_data_dict["bld"],
+            params.Q,
+            params.w,
+            params.opt_atm,
+            inc_angle,
+            params.h1,
+            params.h2,
+            params.vod_Av,
+            params.vod_Bv,
+            float(freq),
+            params.temp_freeze,
+            False,
+            None,
+        )
+
+        sm_da = xr.DataArray(
+            data=sm,
+            coords=tb_map.coords,
+            dims=tb_map.dims,
+            name="soil_moisture"
+        )
+
+        vod_da = xr.DataArray(
+            data=vod,
+            coords=tb_map.coords,
+            dims=tb_map.dims,
+            name="vod"
+        )
+        lprm_list_sm.append(sm_da)
+        lprm_list_vod.append(vod_da)
+
+        SM_dataset = xr.concat(lprm_list_sm, dim = "time")
+        VOD_dataset = xr.concat(lprm_list_vod, dim = "time")
+
+        return SM_dataset, VOD_dataset
 
 ##
 if __name__=="__main__":
@@ -84,49 +151,6 @@ if __name__=="__main__":
     MPDI_deltas = calc_MPDI_difference(MPDI_day=MPDI_DAY, MPDI_night=MPDI_NIGHT, list_of_bands=bandlist)
 
 ##
-
-    times = AMSR2_NIGHT.time
-    LPRM_dict = {}
-    inc_angle = 55.0
-
-    for band in bandlist:
-        lprm_list = []
-        band = band.upper()
-        freq = frequencies[band.upper()]
-
-        for day in times:
-            print(day.dt.date.item())
-            tb_map = AMSR2_NIGHT.sel(time = day).compute()
-            holmes_t = HOLMES_T_NIGHT.sel(time = day).compute()
-
-            aux_data_dict = {
-                "sand": load_aux_file(0.25, "SND"),
-                "clay": load_aux_file(0.25, "CLY"),
-                "bld": load_aux_file(0.25, "BLD"),
-            }
-            params = get_lprm_parameters_for_frequency(band, inc_angle)
-
-            sm, vod = par100.run_band(
-                tb_map[f"bt_{freq}V"].values,
-                tb_map[f"bt_{freq}H"].values,
-                holmes_t.values,
-                aux_data_dict["sand"],
-                aux_data_dict["clay"],
-                aux_data_dict["bld"],
-                params.Q,
-                params.w,
-                params.opt_atm,
-                inc_angle,
-                params.h1,
-                params.h2,
-                params.vod_Av,
-                params.vod_Bv,
-                float(freq),
-                params.temp_freeze,
-                False,    # apply VOD correction if mean is passed
-                None,                # pass mean VOD of backwards window
-            )
-
 
     # threshold = 0.005
     #
