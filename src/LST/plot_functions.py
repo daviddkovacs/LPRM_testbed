@@ -166,5 +166,5 @@ def plot_modis_comparison(ndvi_da, lst_da, ndvi_time=4, lst_time=8):
     plt.tight_layout()
     plt.show()
 
-def approximate_local_time(time_of_day: Literal["morning","evening"],): # very basic, will need to revise for multiple sites!
-   return {"morning": "02:00", "evening": "15:00"}[time_of_day]
+def approximate_local_time(time_of_day: Literal["morning","evening",""],): # very basic, will need to revise for multiple sites!
+   return {"morning": "02:00", "evening": "15:00","":""}[time_of_day]
