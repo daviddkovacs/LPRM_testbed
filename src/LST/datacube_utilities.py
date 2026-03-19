@@ -123,6 +123,17 @@ def crop2roi(ds,bbox):
     )
     return ds.where(valid, drop=True)
 
+def ravel_roi_time(data, roi ,time, method = None):
+    """
+    Selects data under region of interest, and gets time coord nearest to obs.
+    :param data: Dataarray
+    :param roi: bbox
+    :param time:
+    :return: numpy vector
+    """
+
+    return crop2roi(data, roi).sel(time=time, method=method).values.ravel()
+
 
 def filternan(array):
     return  array.values.flatten()[~np.isnan(array.values.flatten())]

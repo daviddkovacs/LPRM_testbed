@@ -97,17 +97,9 @@ def monthly_scatter(dates, landcover, time_of_day, x_axis_scatter, y_axis_scatte
         data_df = ASMR2_arrays(AMSR2_data, time_of_day=time_of_day, mpdi_band=mpdi_band,
                                numerator_Hpol=numerator_Hpol,denominator_Vpol=denominator_Vpol)
 
-        hb = plot_hexbin(data_df,
-                         # f"{x_axis_scatter}{time_of_day}",
-                         f"{x_axis_scatter}evening",
-                         # f"{y_axis_scatter}{time_of_day}",
-                         f"{y_axis_scatter}morning",
-                         utc_timeofday=time_of_day,
-                         xlim=xlim, ylim=ylim,
-                         region_in_title=f"{landcover}\n{time_start}",
-                         ax=axes[i],
-                         show_colorbar=False,
-                         )
+        hb = plot_hexbin(data_df, f"{x_axis_scatter}evening", f"{y_axis_scatter}morning", xlim=xlim, ylim=ylim,
+                         utc_timeofday=time_of_day, title_string=f"{landcover}\n{time_start}", ax=axes[i],
+                         show_colorbar=False)
         axes[i].label_outer()
 
     fig.subplots_adjust(hspace=0.4, wspace=0.1, right=0.85)

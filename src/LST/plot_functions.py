@@ -83,12 +83,17 @@ def regressor_calc(df,x_col,y_col,):
 def plot_hexbin(df, x_col, y_col,
                 xlim=[273, 325], ylim=[273, 325],
                 plot_polyfit=True, utc_timeofday="",
-                region_in_title="", ax=None, show_colorbar=True,
-                bins = None):
+                title_string="", ax=None, show_colorbar=True,
+                bins = None, color_of_points = None):
 
     approx_localtime = approximate_local_time(utc_timeofday)
     x = df[x_col]
     y = df[y_col]
+
+    if color_of_points is not None:
+        _color = df[color_of_points]
+    else:
+        _color = None
     stats = usual_stats(x, y)
 
     if ax is None:
@@ -98,12 +103,12 @@ def plot_hexbin(df, x_col, y_col,
         fig = ax.figure
         is_standalone = False
 
-    hb = ax.hexbin(x, y, gridsize=100, cmap='inferno', mincnt=1, bins=bins)
+    hb = ax.hexbin(x, y, C=_color, gridsize=100, cmap='inferno', mincnt=1, bins=bins)
     ax.plot(xlim, ylim, 'k--', alpha=0.8, linewidth=1, zorder=10)
 
     if show_colorbar:
         cb = fig.colorbar(hb, ax=ax)
-        cb.set_label('Count')
+        cb.set_label(color_of_points if color_of_points else 'Count')
 
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
@@ -111,7 +116,7 @@ def plot_hexbin(df, x_col, y_col,
     ax.set_ylabel(y_col)
     # fig.supxlabel(f"{x_col}", fontsize=16, y=0.05)
     # fig.supylabel(f"{y_col}", fontsize=16, x=0.05)
-    ax.set_title(f'{region_in_title}\napprox. {approx_localtime} local')
+    ax.set_title(f'{title_string}\napprox. {approx_localtime} local')
 
     regression_dict = regressor_calc(df, x_col, y_col)
 
@@ -128,7 +133,7 @@ def plot_hexbin(df, x_col, y_col,
         f'$R = {stats["r"]:.2f}$',
         f'$RMSE = {stats["rmse"]:.2f}$ K',
         f'$Bias = {stats["bias"]:.2f}$ K',
-        f'$N = {len(x)}$',
+        f'$N = {np.count_nonzero(~np.isnan(x))}$',
         f"y(x)={np.round(regression_dict['m'], 2)}x+{np.round(regression_dict['c'], 2)}"
     ))
 

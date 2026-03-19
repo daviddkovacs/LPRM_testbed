@@ -1,5 +1,5 @@
 from datacube_loader import MICROWAVE_datacube
-from datacube_utilities import mpdi, calc_Holmes_temp, frequencies, crop2roi
+from datacube_utilities import mpdi, calc_Holmes_temp, frequencies, crop2roi, ravel_roi_time
 import pandas as pd
 import matplotlib.pyplot as plt
 import lprm.retrieval.lprm_v6_1.par100m_v6_1 as par100
@@ -171,7 +171,7 @@ if __name__=="__main__":
 
     bbox = [-180, -90, 180, 90]
     time_start = "2018-01-01"
-    time_stop = "2018-06-01"
+    time_stop = "2019-01-01"
     bandlist = ["c2", "x", "ku"]
 
     AMSR2_DAY, AMSR2_NIGHT = load_AMSR2_daily(bbox = bbox,time_start=time_start,time_stop=time_stop)
@@ -184,10 +184,10 @@ if __name__=="__main__":
     SM_NIGHT, VOD_NIGHT,_ = retrieve_LPRM(TB_DATASET=AMSR2_NIGHT, HOLMES_T=HOLMES_T_NIGHT, band=band_current)
     # Highly experimental! Dummy variables are given for TB and HOLMES. TSIM is obtained by
     # running LPRM in reverse.
-    _, _, TSIM = retrieve_LPRM(TB_DATASET=AMSR2_NIGHT, HOLMES_T=HOLMES_T_NIGHT, band=band_current,
+    _, _, TSIM_DAY = retrieve_LPRM(TB_DATASET=AMSR2_NIGHT, HOLMES_T=HOLMES_T_NIGHT, band=band_current,
                                SM_input=SM_NIGHT, VOD_input=VOD_NIGHT)
 ##
-    threshold = 0.0005
+    threshold = 0.000005
     mpdi_delta_band = MPDI_deltas[band_current]
 
     low_mpdi_mask = xr.where((mpdi_delta_band >= -threshold) & (mpdi_delta_band <= threshold),
@@ -197,34 +197,38 @@ if __name__=="__main__":
     VOD_low_mpdi = xr.where((low_mpdi_mask==1),VOD_NIGHT,np.nan)
     HOLMES_T_DAY_low_mpdi = xr.where((low_mpdi_mask==1),HOLMES_T_DAY,np.nan)
     AMSR2_DAY_low_mpdi = xr.where((low_mpdi_mask==1),AMSR2_DAY,np.nan)
+    TSIM_low_mpdi = xr.where((low_mpdi_mask==1),TSIM_DAY,np.nan)
 
 
     ##
 
-    roi = [
-    92.9045500991939,
-    11.611761085870995,
-    109.40947438922251,
-    25.479277755120222
+    roi =  [
+   -180,-90,180,90
   ]
 
-    DELTA_T = TSIM / HOLMES_T_DAY_low_mpdi
+    T_KA = AMSR2_DAY_low_mpdi["bt_36.5V"]
+    DELTA_T = TSIM_low_mpdi - T_KA
 
     F = (AMSR2_DAY_low_mpdi[f"bt_{frequencies["ku".upper()]}H"]
          /AMSR2_DAY_low_mpdi[f"bt_{frequencies["ka".upper()]}V"])
 
-    loop_range = pd.date_range(start="2018-03-01",end="2018-03-05",freq="D")
+    date_range = pd.date_range(start="2018-01-01",end="2019-01-01",freq="MS")
 
-    for i in loop_range:
-        df = pd.DataFrame({"delta_t":crop2roi(DELTA_T,roi).sel(time=i,method="nearest").values.ravel(),
-                           "f":crop2roi(F,roi).sel(time=i, method="nearest").values.ravel()})
+    for i in date_range.month:
+        month_selector = (DELTA_T.time.dt.month == i)
+        df = pd.DataFrame({
+            "delta_t": ravel_roi_time(DELTA_T,roi,month_selector,method="nearest"),
+            "f": ravel_roi_time(F,roi,month_selector,method="nearest"),
+            "TSIM_low_mpdi" : ravel_roi_time(TSIM_low_mpdi,roi,month_selector,method="nearest"),
+            "T_KA": ravel_roi_time(T_KA,roi,month_selector,method="nearest"),
+            "VOD_low_mpdi": ravel_roi_time(VOD_low_mpdi,roi,month_selector,method="nearest"),
+            "SM_low_mpdi": ravel_roi_time(SM_low_mpdi,roi,month_selector,method="nearest"),
+        })
+
         plot_hexbin(df,
-                    "delta_t",
-                    "f",
-                    utc_timeofday="evening",
-                    xlim=[None,None], ylim=[0.8,1.1],
-                    region_in_title=f"{i}",
-                    # ax=axes[i],
-                    # show_colorbar=False,
-                    )
+                    "T_KA",
+                    "TSIM_low_mpdi",
+                    color_of_points="VOD_low_mpdi",
+                    xlim=[260, 320], ylim=[260, 320],
+                    title_string=f"{i}")
 
