@@ -217,18 +217,18 @@ if __name__=="__main__":
     for i in date_range.month:
         month_selector = (DELTA_T.time.dt.month == i)
         df = pd.DataFrame({
-            "delta_t": ravel_roi_time(DELTA_T,roi,month_selector,method="nearest"),
-            "f": ravel_roi_time(F,roi,month_selector,method="nearest"),
-            "TSIM_low_mpdi" : ravel_roi_time(TSIM_low_mpdi,roi,month_selector,method="nearest"),
+            "DELTA_T": ravel_roi_time(DELTA_T,roi,month_selector,method="nearest"),
+            "F": ravel_roi_time(F,roi,month_selector,method="nearest"),
             "T_KA": ravel_roi_time(T_KA,roi,month_selector,method="nearest"),
+            "TSIM_low_mpdi" : ravel_roi_time(TSIM_low_mpdi,roi,month_selector,method="nearest"),
             "VOD_low_mpdi": ravel_roi_time(VOD_low_mpdi,roi,month_selector,method="nearest"),
             "SM_low_mpdi": ravel_roi_time(SM_low_mpdi,roi,month_selector,method="nearest"),
         })
 
         plot_hexbin(df,
-                    "T_KA",
                     "TSIM_low_mpdi",
+                    "F",
                     color_of_points="VOD_low_mpdi",
-                    xlim=[260, 320], ylim=[260, 320],
+                    xlim=[None, None], ylim=[None, None],
+                    # cbar_min= 0.95, cbar_max= 1.05,
                     title_string=f"{i}")
-

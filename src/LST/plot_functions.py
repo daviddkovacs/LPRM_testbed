@@ -82,6 +82,7 @@ def regressor_calc(df,x_col,y_col,):
 
 def plot_hexbin(df, x_col, y_col,
                 xlim=[273, 325], ylim=[273, 325],
+                cbar_min = None, cbar_max = None,
                 plot_polyfit=True, utc_timeofday="",
                 title_string="", ax=None, show_colorbar=True,
                 bins = None, color_of_points = None):
@@ -103,7 +104,7 @@ def plot_hexbin(df, x_col, y_col,
         fig = ax.figure
         is_standalone = False
 
-    hb = ax.hexbin(x, y, C=_color, gridsize=100, cmap='inferno', mincnt=1, bins=bins)
+    hb = ax.hexbin(x, y, C=_color, gridsize=100, cmap='inferno', mincnt=1, bins=bins, vmin=cbar_min, vmax=cbar_max)
     ax.plot(xlim, ylim, 'k--', alpha=0.8, linewidth=1, zorder=10)
 
     if show_colorbar:
