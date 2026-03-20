@@ -85,7 +85,7 @@ def plot_hexbin(df, x_col, y_col,
                 cbar_min = None, cbar_max = None,
                 plot_polyfit=True, utc_timeofday="",
                 title_string="", ax=None, show_colorbar=True,
-                bins = None, color_of_points = None, plot_holmes_line = False):
+                bins = None, color_of_points = None,   ):
 
     approx_localtime = approximate_local_time(utc_timeofday)
     x = df[x_col]
@@ -129,14 +129,6 @@ def plot_hexbin(df, x_col, y_col,
             linewidth=2,
             label="Scatter fit",
         )
-    if plot_holmes_line:
-        ax.plot(
-            x,
-            x*0.893 +44.8,
-            color="green",
-            linewidth=2,
-            label="Holmes eq.",
-        )
 
     textstr = '\n'.join((
         f'$R = {stats["r"]:.2f}$',
@@ -149,7 +141,7 @@ def plot_hexbin(df, x_col, y_col,
     props = dict(boxstyle='round', facecolor='white', alpha=0.8)
     ax.text(0.05, 0.95, textstr, transform=ax.transAxes, fontsize=11,
             verticalalignment='top', bbox=props)
-    ax.legend()
+
     if is_standalone:
         plt.show()
 

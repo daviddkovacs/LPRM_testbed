@@ -67,7 +67,7 @@ def run_band(Vertical_polarized_BT,
     f: double
         TBD
     temp_freeze: double
-        Temperature threshold for frozen conditions
+        Temperature dif_threshold for frozen conditions
     vegetation_correction: bool
         If vegetation correction needs to be applied, False by default
     VODN: Optional[numpy.ndarray]

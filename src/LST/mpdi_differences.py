@@ -10,7 +10,7 @@ from lprm.retrieval.lprm_v6_1.parameters import (
 )
 import xarray as xr
 import numpy as np
-from plot_functions import plot_hexbin, usual_stats
+from plot_functions import plot_hexbin, usual_stats, regressor_calc
 
 def load_AMSR2_daily(bbox,time_start,time_stop):
     """
@@ -170,9 +170,13 @@ def retrieve_LPRM(TB_DATASET, SURFACE_T, band, SM_input = None, VOD_input = None
     return SM_dataset, VOD_dataset, TSIM_dataset
 
 
-def coarse_grid(DATA):
+def coarse_grid(DATA, resolution = 5):
 
-    _DATA_coarse_grid = DATA.coarsen(lat=20, lon=20, boundary="exact").construct(
+    coarsen_multiplier = int(resolution / 0.25 )# If 0.25 cci grid is used for TBs
+
+    _DATA_coarse_grid = DATA.coarsen(lat=coarsen_multiplier,
+                                     lon=coarsen_multiplier,
+                                     boundary="exact").construct(
         lat=("lat_grid", "lat_pixel"),
         lon=("lon_grid", "lon_pixel")
     )
@@ -202,6 +206,72 @@ def get_empty_grid(resolution):
     return empty_grid
 
 
+def global_regression(bounds,
+                      X_DATA,
+                      Y_DATA,
+                      x_var="T_KA",
+                      y_var="TSIM_low_mpdi",
+                      ):
+    empty_map = get_empty_grid(resolution=5)
+    stats_dict_map = {"lat": [],
+                      "lon": [],
+                      "r": [],
+                      "rmse": [],
+                      "bias": [],
+                      "n": [],
+                      "intercept": [],
+                      "slope": [],
+                      }
+
+    for coarse_lat in empty_map.lat[(empty_map.lat > bounds[1]) & (empty_map.lat < bounds[3])]:
+        for coarse_lon in empty_map.lon[(empty_map.lon > bounds[0]) & (empty_map.lon < bounds[2])]:
+
+            print(f"{coarse_lat.values.item()} {coarse_lon.values.item()}")
+            X_DATA_box = X_DATA.sel(lat_grid=coarse_lat, lon_grid=coarse_lon)
+            Y_DATA_box = Y_DATA.sel(lat_grid=coarse_lat, lon_grid=coarse_lon)
+
+            df_box = pd.DataFrame({
+                x_var: X_DATA_box.compute().to_numpy().ravel(),
+                y_var: Y_DATA_box.compute().to_numpy().ravel(),
+            }).dropna()
+
+            if df_box.empty:
+                stats_dict_map = {(coarse_lat.values.item(), coarse_lon.values.item()): np.nan}
+                print(df_box)
+                continue
+
+            stats_box = usual_stats(df_box[x_var], df_box[y_var])
+            regression_statistics = regressor_calc(df_box, x_var, y_var)
+            print(stats_box)
+
+            stats_dict_map["lat"].append(coarse_lat.values.item())
+            stats_dict_map["lon"].append(coarse_lon.values.item())
+            stats_dict_map["r"].append(stats_box["r"])
+            stats_dict_map["rmse"].append(stats_box["rmse"])
+            stats_dict_map["bias"].append(stats_box["bias"])
+            stats_dict_map["n"].append(np.count_nonzero(~np.isnan(df_box[x_var])))
+            stats_dict_map["slope"].append(regression_statistics["m"])
+            stats_dict_map["intercept"].append(regression_statistics["c"])
+
+            # try:
+            #     plot_hexbin(df_box,
+            #                 "T_KA_box",
+            #                 "T_SIM_box",
+            #                 color_of_points=None,
+            #                 # xlim=[0.95,1.05], ylim=[265,320],   #F
+            #                 xlim=[265, 320], ylim=[265, 320],  # T and T
+            #                 # xlim=[None,None], ylim=[None,None],
+            #                 cbar_min=0, cbar_max=30,
+            #                 # title_string=f"month:{i} {region}",
+            #                 plot_holmes_line=False)
+            # except:
+            #     pass
+
+    stat_map = pd.DataFrame(stats_dict_map).set_index(['lat', 'lon']).to_xarray()
+
+    return stat_map
+
+
 ##
 if __name__=="__main__":
 
@@ -223,25 +293,24 @@ if __name__=="__main__":
                                    SM_input=SM_NIGHT, VOD_input=VOD_NIGHT)
 
 ##
-
-    threshold = 0.00005
+    dif_threshold = 0.00005
     minimum_mpdi = 0.01
+
     MPDI_DAY , MPDI_NIGHT = calc_MPDI_bands(AMSR2_DAY=AMSR2_DAY,AMSR2_NIGHT=AMSR2_NIGHT,
                                             list_of_bands=bandlist, minimum_mpdi=minimum_mpdi)
-    MPDI_deltas = calc_MPDI_difference(MPDI_day=MPDI_DAY, MPDI_night=MPDI_NIGHT, list_of_bands=bandlist)
+    MPDI_deltas = calc_MPDI_difference(MPDI_day=MPDI_DAY,
+                                       MPDI_night=MPDI_NIGHT,
+                                       list_of_bands=bandlist)
 
-    MPDI_DAY_band = MPDI_DAY[band_current]
     MPDI_DELTA_band = MPDI_deltas[band_current]
 
-    low_mpdi_mask = xr.where((MPDI_DELTA_band >= -threshold) & (MPDI_DELTA_band <= threshold),
+    low_mpdi_mask = xr.where((MPDI_DELTA_band >= -dif_threshold) & (MPDI_DELTA_band <= dif_threshold),
                              1, 0).compute()
 
     SM_low_mpdi = xr.where((low_mpdi_mask==1),SM_NIGHT,np.nan)
     VOD_low_mpdi = xr.where((low_mpdi_mask==1),VOD_NIGHT,np.nan)
-    HOLMES_T_DAY_low_mpdi = xr.where((low_mpdi_mask==1),HOLMES_T_DAY,np.nan)
     AMSR2_DAY_low_mpdi = xr.where((low_mpdi_mask==1),AMSR2_DAY,np.nan)
     TSIM_low_mpdi = xr.where((low_mpdi_mask==1),TSIM_DAY,np.nan)
-    MPDI_DAY_low_mpdi = xr.where((low_mpdi_mask==1),MPDI_DAY_band,np.nan)
 
     ##
 
@@ -298,7 +367,6 @@ if __name__=="__main__":
 
     }
 
-
     region = "sahara"
     roi = _density_plot_rois[region]
 
@@ -342,42 +410,17 @@ if __name__=="__main__":
     T_KA_COARSE = coarse_grid(T_KA)
     T_SIM_COARSE = coarse_grid(TSIM_low_mpdi)
 
-    empty_map = get_empty_grid(resolution=5)
-    year = (DELTA_T.time.dt.year == 2018)
-    stats_dict_map = {}
-    for coarse_lat in empty_map.lat[empty_map.lat>0.1]:
-        for coarse_lon in empty_map.lon:
-            print(f"{coarse_lat.values.item()} {coarse_lon.values.item()}")
-            T_KA_box = T_KA_COARSE.sel(lat_grid=coarse_lat, lon_grid=coarse_lon)
-            T_SIM_box = T_SIM_COARSE.sel(lat_grid=coarse_lat, lon_grid=coarse_lon)
-            check_box = T_KA_box.values.ravel()
-            x_var = "T_KA_box"
-            y_var = "T_SIM_box"
-            df_box = pd.DataFrame({
-                x_var: T_KA_box.compute().to_numpy().ravel(),
-                y_var: T_SIM_box.compute().to_numpy().ravel(),
-            }).dropna()
-
-            if df_box.empty:
-                stats_dict_map = {(coarse_lat.values.item(), coarse_lon.values.item()): np.nan}
-                continue
-
-            stats_box = usual_stats(df_box[x_var],df_box[y_var])
-            print(stats_box)
-            stats_dict_map = {(coarse_lat.values.item(), coarse_lon.values.item()): stats_box}
-
-            try:
-                plot_hexbin(df_box,
-                            "T_KA_box",
-                            "T_SIM_box",
-                            color_of_points=None,
-                            # xlim=[0.95,1.05], ylim=[265,320],   #F
-                            xlim=[265, 320], ylim=[265, 320],  # T and T
-                            # xlim=[None,None], ylim=[None,None],
-                            cbar_min=0, cbar_max=30,
-                            # title_string=f"month:{i} {region}",
-                            plot_holmes_line=False)
-            except:
-                pass
+    bounds = [
+    111.6506142546412,
+    -39.687619815942966,
+    155.13597468747986,
+    -12.219515130554456
+  ]
 
 
+
+stat_map = global_regression(bounds, T_KA_COARSE, T_SIM_COARSE)
+
+plt.figure()
+stat_map["slope"].plot()
+plt.show()
