@@ -11,6 +11,8 @@ from lprm.retrieval.lprm_v6_1.parameters import (
 import xarray as xr
 import numpy as np
 from plot_functions import plot_hexbin, usual_stats, regressor_calc
+from joblib import Parallel, delayed
+import itertools
 
 def load_AMSR2_daily(bbox,time_start,time_stop):
     """
@@ -205,71 +207,54 @@ def get_empty_grid(resolution):
     )
     return empty_grid
 
+def regression_process_pixel(lat_val, lon_val, X_DATA, Y_DATA,
+                  x_var="T_KA",
+                  y_var="TSIM_low_mpdi",):
+    """
+    Function to process regression on a single block o
+    :param lat_val:
+    :param lon_val:
+    :param X_DATA:
+    :param Y_DATA:
+    :param x_var:
+    :param y_var:
+    :return:
+    """
+    X_DATA_box = X_DATA.sel(lat_grid=lat_val, lon_grid=lon_val)
+    Y_DATA_box = Y_DATA.sel(lat_grid=lat_val, lon_grid=lon_val)
 
-def global_regression(bounds,
-                      X_DATA,
-                      Y_DATA,
-                      x_var="T_KA",
-                      y_var="TSIM_low_mpdi",
-                      ):
-    empty_map = get_empty_grid(resolution=5)
-    stats_dict_map = {"lat": [],
-                      "lon": [],
-                      "r": [],
-                      "rmse": [],
-                      "bias": [],
-                      "n": [],
-                      "intercept": [],
-                      "slope": [],
-                      }
+    df_box = pd.DataFrame({
+        x_var: X_DATA_box.compute().to_numpy().ravel(),
+        y_var: Y_DATA_box.compute().to_numpy().ravel(),
+    }).dropna()
 
-    for coarse_lat in empty_map.lat[(empty_map.lat > bounds[1]) & (empty_map.lat < bounds[3])]:
-        for coarse_lon in empty_map.lon[(empty_map.lon > bounds[0]) & (empty_map.lon < bounds[2])]:
+    result = {'lat': lat_val, 'lon': lon_val}
 
-            print(f"{coarse_lat.values.item()} {coarse_lon.values.item()}")
-            X_DATA_box = X_DATA.sel(lat_grid=coarse_lat, lon_grid=coarse_lon)
-            Y_DATA_box = Y_DATA.sel(lat_grid=coarse_lat, lon_grid=coarse_lon)
+    if df_box.empty:
+        result.update({'r': np.nan, 'rmse': np.nan, 'bias': np.nan,
+                       'n': np.nan, 'slope': np.nan, 'intercept': np.nan})
+        return result
 
-            df_box = pd.DataFrame({
-                x_var: X_DATA_box.compute().to_numpy().ravel(),
-                y_var: Y_DATA_box.compute().to_numpy().ravel(),
-            }).dropna()
+    stats_box = usual_stats(df_box[x_var], df_box[y_var])
 
-            if df_box.empty:
-                stats_dict_map = {(coarse_lat.values.item(), coarse_lon.values.item()): np.nan}
-                print(df_box)
-                continue
+    try:
+        regression_statistics = regressor_calc(df_box, x_var, y_var)
+    except:
+        result.update({'r': np.nan, 'rmse': np.nan, 'bias': np.nan,
+                       'n': np.nan, 'slope': np.nan, 'intercept': np.nan})
+        return result
 
-            stats_box = usual_stats(df_box[x_var], df_box[y_var])
-            regression_statistics = regressor_calc(df_box, x_var, y_var)
-            print(stats_box)
+    result.update({
+        'r': stats_box["r"],
+        'rmse': stats_box["rmse"],
+        'bias': stats_box["bias"],
+        'n': len(df_box),
+        'slope': regression_statistics["m"],
+        'intercept': regression_statistics["c"]
+    })
 
-            stats_dict_map["lat"].append(coarse_lat.values.item())
-            stats_dict_map["lon"].append(coarse_lon.values.item())
-            stats_dict_map["r"].append(stats_box["r"])
-            stats_dict_map["rmse"].append(stats_box["rmse"])
-            stats_dict_map["bias"].append(stats_box["bias"])
-            stats_dict_map["n"].append(np.count_nonzero(~np.isnan(df_box[x_var])))
-            stats_dict_map["slope"].append(regression_statistics["m"])
-            stats_dict_map["intercept"].append(regression_statistics["c"])
+    return result
 
-            # try:
-            #     plot_hexbin(df_box,
-            #                 "T_KA_box",
-            #                 "T_SIM_box",
-            #                 color_of_points=None,
-            #                 # xlim=[0.95,1.05], ylim=[265,320],   #F
-            #                 xlim=[265, 320], ylim=[265, 320],  # T and T
-            #                 # xlim=[None,None], ylim=[None,None],
-            #                 cbar_min=0, cbar_max=30,
-            #                 # title_string=f"month:{i} {region}",
-            #                 plot_holmes_line=False)
-            # except:
-            #     pass
-
-    stat_map = pd.DataFrame(stats_dict_map).set_index(['lat', 'lon']).to_xarray()
-
-    return stat_map
 
 
 ##
@@ -407,20 +392,66 @@ if __name__=="__main__":
 
 ##
 
-    T_KA_COARSE = coarse_grid(T_KA)
-    T_SIM_COARSE = coarse_grid(TSIM_low_mpdi)
+def regression_wrapper(X_DATA,
+                       Y_DATA,
+                       resolution =5,
+                       bounds = [ -180,-90,180,90 ],
+                       ):
+    """
+    This function wraps the parralel processor and its functionalities.
+    :param X_DATA: X axis of the scatter (usually T_KA)
+    :param Y_DATA: Y axis of the scatter (usually T_SIM_low_mpdi)
+    :param resolution: in degs
+    :param bounds: bbox
+    :return: dataset with regression stats for pixel
+    """
 
-    bounds = [
-    111.6506142546412,
-    -39.687619815942966,
-    155.13597468747986,
-    -12.219515130554456
-  ]
+    X_DATA_COARSE = coarse_grid(X_DATA, resolution=resolution).compute()
+    Y_DATA_COARSE = coarse_grid(Y_DATA,resolution=resolution).compute()
+
+    empty_map = get_empty_grid(resolution=resolution)
+
+    lats = empty_map.lat[(empty_map.lat > bounds[1]) & (empty_map.lat < bounds[3])].values
+    lons = empty_map.lon[(empty_map.lon > bounds[0]) & (empty_map.lon < bounds[2])].values
+
+    coords = list(itertools.product(lats, lons))
+
+    results_list = Parallel(n_jobs=-1)(
+        delayed(regression_process_pixel)(lat.item(), lon.item(), X_DATA_COARSE, Y_DATA_COARSE)
+        for lat, lon in coords
+    )
+
+    stat_da = pd.DataFrame(results_list).set_index(['lat', 'lon']).to_xarray()
+
+    return stat_da
 
 
+stat_da = regression_wrapper(T_KA,TSIM_low_mpdi,resolution=1)
 
-stat_map = global_regression(bounds, T_KA_COARSE, T_SIM_COARSE)
+##
 
-plt.figure()
-stat_map["slope"].plot()
-plt.show()
+def world_map(data, variable, cbar_min = 0.8, cbar_max = 1.1, cmap = "RdYlBu_r"):
+    plt.figure(figsize=(20, 12))
+
+    p = data[variable].plot(
+        cmap=cmap,
+        vmin=cbar_min,
+        vmax=cbar_max,
+        cbar_kwargs={
+            "orientation": "vertical",
+            "shrink": 0.9
+        }
+    )
+    p.colorbar.set_label(variable, fontsize=16, weight='bold')
+
+    p.colorbar.ax.tick_params(labelsize=12)
+    plt.title(variable, fontsize=25, pad=15)
+    plt.xlabel("Longitude", fontsize=20)
+    plt.ylabel("Latitude", fontsize=20)
+    plt.tight_layout()
+    plt.show()
+
+world_map(stat_da, "intercept", cbar_min=0,cbar_max=100, cmap="viridis")
+world_map(stat_da, "slope", cbar_min=0.8,cbar_max=1.1, cmap="RdYlGn")
+world_map(stat_da, "r", cbar_min=0.5,cbar_max=1, cmap="coolwarm")
+world_map(stat_da, "rmse", cbar_min=0,cbar_max=25, cmap="YlGn")
