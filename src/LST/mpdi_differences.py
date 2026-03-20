@@ -1,5 +1,6 @@
 from datacube_loader import MICROWAVE_datacube
-from datacube_utilities import mpdi, calc_Holmes_temp, frequencies, crop2roi, ravel_roi_time
+from datacube_utilities import (mpdi, calc_Holmes_temp, frequencies,density_plot_rois,
+                                 ravel_roi_time)
 import pandas as pd
 import matplotlib.pyplot as plt
 import lprm.retrieval.lprm_v6_1.par100m_v6_1 as par100
@@ -9,7 +10,7 @@ from lprm.retrieval.lprm_v6_1.parameters import (
 )
 import xarray as xr
 import numpy as np
-from plot_functions import plot_hexbin
+from plot_functions import plot_hexbin, usual_stats
 
 def load_AMSR2_daily(bbox,time_start,time_stop):
     """
@@ -38,7 +39,7 @@ def load_AMSR2_daily(bbox,time_start,time_stop):
     return AMSR2_DAY, AMSR2_NIGHT
 
 
-def calc_MPDI_bands(AMSR2_DAY,AMSR2_NIGHT, list_of_bands=["c2", "x", "ku"]):
+def calc_MPDI_bands(AMSR2_DAY,AMSR2_NIGHT, list_of_bands=["c2", "x", "ku"], minimum_mpdi = 0.01):
     """
     We calculate MPDIs for different frequencies
     :param AMSR2_DAY: Daytime TB stack
@@ -50,8 +51,11 @@ def calc_MPDI_bands(AMSR2_DAY,AMSR2_NIGHT, list_of_bands=["c2", "x", "ku"]):
     MPDI_NIGHT_dict = {}
 
     for band in list_of_bands:
-        MPDI_DAY_dict[band] = mpdi(AMSR2_DAY,band)
-        MPDI_NIGHT_dict[band] = mpdi(AMSR2_NIGHT,band)
+        _mpdi_day = mpdi(AMSR2_DAY,band)
+        MPDI_DAY_dict[band] = _mpdi_day.where(_mpdi_day>minimum_mpdi)
+
+        _mpdi_night =  mpdi(AMSR2_NIGHT,band)
+        MPDI_NIGHT_dict[band] = _mpdi_night.where(_mpdi_night>minimum_mpdi)
 
     return MPDI_DAY_dict, MPDI_NIGHT_dict
 
@@ -71,7 +75,7 @@ def calc_MPDI_difference(MPDI_day, MPDI_night, list_of_bands=["c2", "x", "ku"]):
         MPDI_difference_dict[band] = MPDI_night[band] - MPDI_day[band]
     return MPDI_difference_dict
 
-def retrieve_LPRM(TB_DATASET, HOLMES_T, band, SM_input = None, VOD_input = None):
+def retrieve_LPRM(TB_DATASET, SURFACE_T, band, SM_input = None, VOD_input = None):
     """
     Retrieve LPRM, traditional method. Input is Brightness temps, Holmes "KA" temp and band
     :return: SM and VOD datasets
@@ -89,7 +93,7 @@ def retrieve_LPRM(TB_DATASET, HOLMES_T, band, SM_input = None, VOD_input = None)
     for t in times:
         print(t.dt.date.item())
         tb_map = TB_DATASET.sel(time = t).compute()
-        holmes_t = HOLMES_T.sel(time = t).compute()
+        holmes_t = SURFACE_T.sel(time = t).compute()
 
         if SM_input is not None:
             sm_input = SM_input.sel(time = t).compute().values
@@ -166,6 +170,38 @@ def retrieve_LPRM(TB_DATASET, HOLMES_T, band, SM_input = None, VOD_input = None)
     return SM_dataset, VOD_dataset, TSIM_dataset
 
 
+def coarse_grid(DATA):
+
+    _DATA_coarse_grid = DATA.coarsen(lat=20, lon=20, boundary="exact").construct(
+        lat=("lat_grid", "lat_pixel"),
+        lon=("lon_grid", "lon_pixel")
+    )
+    DATA_coarse_grid = _DATA_coarse_grid.assign_coords(
+        lat_grid=_DATA_coarse_grid.lat.mean(dim="lat_pixel"),
+        lon_grid=_DATA_coarse_grid.lon.mean(dim="lon_pixel")
+    )
+    return DATA_coarse_grid
+
+
+def get_empty_grid(resolution):
+
+    lats = np.arange(-87.5, 90, resolution)
+    lons = np.arange(-177.5, 180, resolution)
+
+    empty_data = np.full( (len(lats), len(lons)), np.nan)
+
+    empty_grid = xr.DataArray(
+        data=empty_data,
+        dims=["lat", "lon"],
+        coords={
+            "lat": lats,
+            "lon": lons
+        },
+        name="empty_grid"
+    )
+    return empty_grid
+
+
 ##
 if __name__=="__main__":
 
@@ -176,59 +212,172 @@ if __name__=="__main__":
 
     AMSR2_DAY, AMSR2_NIGHT = load_AMSR2_daily(bbox = bbox,time_start=time_start,time_stop=time_stop)
     HOLMES_T_NIGHT, HOLMES_T_DAY = calc_Holmes_temp(AMSR2_NIGHT), calc_Holmes_temp(AMSR2_DAY)
-    MPDI_DAY , MPDI_NIGHT = calc_MPDI_bands(AMSR2_DAY=AMSR2_DAY,AMSR2_NIGHT=AMSR2_NIGHT, list_of_bands=bandlist)
-    MPDI_deltas = calc_MPDI_difference(MPDI_day=MPDI_DAY, MPDI_night=MPDI_NIGHT, list_of_bands=bandlist)
 
 ##
     band_current = "x"
-    SM_NIGHT, VOD_NIGHT,_ = retrieve_LPRM(TB_DATASET=AMSR2_NIGHT, HOLMES_T=HOLMES_T_NIGHT, band=band_current)
-    # Highly experimental! Dummy variables are given for TB and HOLMES. TSIM is obtained by
-    # running LPRM in reverse.
-    _, _, TSIM_DAY = retrieve_LPRM(TB_DATASET=AMSR2_NIGHT, HOLMES_T=HOLMES_T_NIGHT, band=band_current,
-                               SM_input=SM_NIGHT, VOD_input=VOD_NIGHT)
-##
-    threshold = 0.000005
-    mpdi_delta_band = MPDI_deltas[band_current]
+    SM_NIGHT, VOD_NIGHT,_ = retrieve_LPRM(TB_DATASET=AMSR2_NIGHT, SURFACE_T=HOLMES_T_NIGHT, band=band_current)
+    # Highly experimental! TSIM is obtained byrunning LPRM in reverse.
+    # TB has to be corresponding, for T_SIM to work!!!! DAY-DAY NIGHT-NIGHT
+    # SURFACE_T doesnt matter if SM_input is True.
+    _, _, TSIM_DAY = retrieve_LPRM(TB_DATASET=AMSR2_DAY, SURFACE_T=HOLMES_T_DAY, band=band_current,
+                                   SM_input=SM_NIGHT, VOD_input=VOD_NIGHT)
 
-    low_mpdi_mask = xr.where((mpdi_delta_band >= -threshold) & (mpdi_delta_band <= threshold),
-                             1,0).compute()
+##
+
+    threshold = 0.00005
+    minimum_mpdi = 0.01
+    MPDI_DAY , MPDI_NIGHT = calc_MPDI_bands(AMSR2_DAY=AMSR2_DAY,AMSR2_NIGHT=AMSR2_NIGHT,
+                                            list_of_bands=bandlist, minimum_mpdi=minimum_mpdi)
+    MPDI_deltas = calc_MPDI_difference(MPDI_day=MPDI_DAY, MPDI_night=MPDI_NIGHT, list_of_bands=bandlist)
+
+    MPDI_DAY_band = MPDI_DAY[band_current]
+    MPDI_DELTA_band = MPDI_deltas[band_current]
+
+    low_mpdi_mask = xr.where((MPDI_DELTA_band >= -threshold) & (MPDI_DELTA_band <= threshold),
+                             1, 0).compute()
 
     SM_low_mpdi = xr.where((low_mpdi_mask==1),SM_NIGHT,np.nan)
     VOD_low_mpdi = xr.where((low_mpdi_mask==1),VOD_NIGHT,np.nan)
     HOLMES_T_DAY_low_mpdi = xr.where((low_mpdi_mask==1),HOLMES_T_DAY,np.nan)
     AMSR2_DAY_low_mpdi = xr.where((low_mpdi_mask==1),AMSR2_DAY,np.nan)
     TSIM_low_mpdi = xr.where((low_mpdi_mask==1),TSIM_DAY,np.nan)
-
+    MPDI_DAY_low_mpdi = xr.where((low_mpdi_mask==1),MPDI_DAY_band,np.nan)
 
     ##
 
-    roi =  [
-   -180,-90,180,90
-  ]
+    _density_plot_rois = {
+        "sahel":
+            [
+                -14.164029114749468,
+                7.731771192012118,
+                9.907581803277111,
+                13.006449666672083
+            ],
+        "global":
+            [-180, -90, 180, 90]
+        ,
+        "sahara":
+            [
+                -6.563682229177971,
+                17.2166067599386,
+                27.705191507372177,
+                28.452234776822834
+            ]
+        ,
+        "amazon":
+            [
+                -75.76941061821752,
+                -9.550648452334485,
+                -50.019288836794715,
+                3.3550514019901527
+            ]
+        ,
+        "mississippi":
+            [
+                -94.9768726933208,
+                30.214798554771548,
+                -91.7883126223943,
+                34.546414390488565
+            ]
+        ,
+        "deciduous_w_virginia":
+            [
+                -84.49150294626182,
+                34.757704980926704,
+                -78.90004665477167,
+                40.778886369880695
+            ]
+        ,
+        "australia":
+            [
+                144.04056490447869,
+                -35.50692205951431,
+                147.3312456957429,
+                -33.30894507250183
+            ]
+
+    }
+
+
+    region = "sahara"
+    roi = _density_plot_rois[region]
 
     T_KA = AMSR2_DAY_low_mpdi["bt_36.5V"]
+    T_HOLMES = T_KA * 0.893 + 44.8
     DELTA_T = TSIM_low_mpdi - T_KA
 
     F = (AMSR2_DAY_low_mpdi[f"bt_{frequencies["ku".upper()]}H"]
          /AMSR2_DAY_low_mpdi[f"bt_{frequencies["ka".upper()]}V"])
 
-    date_range = pd.date_range(start="2018-01-01",end="2019-01-01",freq="MS")
+    # date_range = pd.date_range(start="2018-01-01",end="2018-12-01",freq="MS")
+    #
+    # for i in date_range.year:
+    #     # month_selector = (DELTA_T.time.dt.month == i)
+    #     month_selector = (DELTA_T.time.dt.year == 2018)
+    #     df = pd.DataFrame({
+    #         "DELTA_T": ravel_roi_time(DELTA_T,roi,month_selector,method="nearest"),
+    #         "F": ravel_roi_time(F,roi,month_selector,method="nearest"),
+    #         "T_KA": ravel_roi_time(T_KA,roi,month_selector,method="nearest"),
+    #         "TSIM_low_mpdi" : ravel_roi_time(TSIM_low_mpdi,roi,month_selector,method="nearest"),
+    #         "VOD_low_mpdi": ravel_roi_time(VOD_low_mpdi,roi,month_selector,method="nearest"),
+    #         "SM_low_mpdi": ravel_roi_time(SM_low_mpdi,roi,month_selector,method="nearest"),
+    #         "T_HOLMES": ravel_roi_time(T_HOLMES,roi,month_selector,method="nearest"),
+    #         "MPDI_DAY_low_mpdi": ravel_roi_time(MPDI_DAY_low_mpdi,roi,month_selector,method="nearest"),
+    #     })
+    #
+    #     plot_hexbin(df,
+    #                 "T_KA",
+    #                 "TSIM_low_mpdi",
+    #                 color_of_points="DELTA_T",
+    #                 # xlim=[0.95,1.05], ylim=[265,320],   #F
+    #                 xlim=[265,320], ylim=[265,320],          # T and T
+    #                 # xlim=[None,None], ylim=[None,None],
+    #                 cbar_min= 0, cbar_max= 30,
+    #                 title_string=f"month:{i} {region}",
+    #                 plot_holmes_line=False)
 
-    for i in date_range.month:
-        month_selector = (DELTA_T.time.dt.month == i)
-        df = pd.DataFrame({
-            "DELTA_T": ravel_roi_time(DELTA_T,roi,month_selector,method="nearest"),
-            "F": ravel_roi_time(F,roi,month_selector,method="nearest"),
-            "T_KA": ravel_roi_time(T_KA,roi,month_selector,method="nearest"),
-            "TSIM_low_mpdi" : ravel_roi_time(TSIM_low_mpdi,roi,month_selector,method="nearest"),
-            "VOD_low_mpdi": ravel_roi_time(VOD_low_mpdi,roi,month_selector,method="nearest"),
-            "SM_low_mpdi": ravel_roi_time(SM_low_mpdi,roi,month_selector,method="nearest"),
-        })
 
-        plot_hexbin(df,
-                    "TSIM_low_mpdi",
-                    "F",
-                    color_of_points="VOD_low_mpdi",
-                    xlim=[None, None], ylim=[None, None],
-                    # cbar_min= 0.95, cbar_max= 1.05,
-                    title_string=f"{i}")
+##
+
+    T_KA_COARSE = coarse_grid(T_KA)
+    T_SIM_COARSE = coarse_grid(TSIM_low_mpdi)
+
+    empty_map = get_empty_grid(resolution=5)
+    year = (DELTA_T.time.dt.year == 2018)
+    stats_dict_map = {}
+    for coarse_lat in empty_map.lat[empty_map.lat>0.1]:
+        for coarse_lon in empty_map.lon:
+            print(f"{coarse_lat.values.item()} {coarse_lon.values.item()}")
+            T_KA_box = T_KA_COARSE.sel(lat_grid=coarse_lat, lon_grid=coarse_lon)
+            T_SIM_box = T_SIM_COARSE.sel(lat_grid=coarse_lat, lon_grid=coarse_lon)
+            check_box = T_KA_box.values.ravel()
+            x_var = "T_KA_box"
+            y_var = "T_SIM_box"
+            df_box = pd.DataFrame({
+                x_var: T_KA_box.compute().to_numpy().ravel(),
+                y_var: T_SIM_box.compute().to_numpy().ravel(),
+            }).dropna()
+
+            if df_box.empty:
+                stats_dict_map = {(coarse_lat.values.item(), coarse_lon.values.item()): np.nan}
+                continue
+
+            stats_box = usual_stats(df_box[x_var],df_box[y_var])
+            print(stats_box)
+            stats_dict_map = {(coarse_lat.values.item(), coarse_lon.values.item()): stats_box}
+
+            try:
+                plot_hexbin(df_box,
+                            "T_KA_box",
+                            "T_SIM_box",
+                            color_of_points=None,
+                            # xlim=[0.95,1.05], ylim=[265,320],   #F
+                            xlim=[265, 320], ylim=[265, 320],  # T and T
+                            # xlim=[None,None], ylim=[None,None],
+                            cbar_min=0, cbar_max=30,
+                            # title_string=f"month:{i} {region}",
+                            plot_holmes_line=False)
+            except:
+                pass
+
+
