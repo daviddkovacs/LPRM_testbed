@@ -10,7 +10,7 @@ from lprm.retrieval.lprm_v6_1.parameters import (
 )
 import xarray as xr
 import numpy as np
-from plot_functions import plot_hexbin, usual_stats, regressor_calc
+from plot_functions import plot_hexbin, usual_stats, regressor_calc, world_map
 from joblib import Parallel, delayed
 import itertools
 
@@ -207,9 +207,15 @@ def get_empty_grid(resolution):
     )
     return empty_grid
 
-def regression_process_pixel(lat_val, lon_val, X_DATA, Y_DATA,
-                  x_var="T_KA",
-                  y_var="TSIM_low_mpdi",):
+def regression_process_pixel(lat_val,
+                             lon_val,
+                             X_DATA,
+                             Y_DATA,
+                             x_var="T_KA",
+                             y_var="TSIM_low_mpdi",
+                             global_slope = 0.85,
+                             global_intercept = 58.07,
+                             ):
     """
     Function to process regression on a single block o
     :param lat_val:
@@ -220,8 +226,8 @@ def regression_process_pixel(lat_val, lon_val, X_DATA, Y_DATA,
     :param y_var:
     :return:
     """
-    X_DATA_box = X_DATA.sel(lat_grid=lat_val, lon_grid=lon_val)
-    Y_DATA_box = Y_DATA.sel(lat_grid=lat_val, lon_grid=lon_val)
+    X_DATA_box = X_DATA.sel(lat_grid=lat_val, lon_grid=lon_val, method="nearest")
+    Y_DATA_box = Y_DATA.sel(lat_grid=lat_val, lon_grid=lon_val, method="nearest")
 
     df_box = pd.DataFrame({
         x_var: X_DATA_box.compute().to_numpy().ravel(),
@@ -241,7 +247,7 @@ def regression_process_pixel(lat_val, lon_val, X_DATA, Y_DATA,
         regression_statistics = regressor_calc(df_box, x_var, y_var)
     except:
         result.update({'r': np.nan, 'rmse': np.nan, 'bias': np.nan,
-                       'n': np.nan, 'slope': np.nan, 'intercept': np.nan})
+                       'n': np.nan, 'slope': global_slope, 'intercept': global_intercept})
         return result
 
     result.update({
@@ -255,6 +261,39 @@ def regression_process_pixel(lat_val, lon_val, X_DATA, Y_DATA,
 
     return result
 
+
+def regression_wrapper(X_DATA,
+                       Y_DATA,
+                       resolution =5,
+                       bounds = [ -180,-90,180,90 ],
+                       ):
+    """
+    This function wraps the parralel processor and its functionalities.
+    :param X_DATA: X axis of the scatter (usually T_KA)
+    :param Y_DATA: Y axis of the scatter (usually T_SIM_low_mpdi)
+    :param resolution: in degs
+    :param bounds: bbox
+    :return: dataset with regression stats for pixel
+    """
+
+    X_DATA_COARSE = coarse_grid(X_DATA, resolution=resolution).compute()
+    Y_DATA_COARSE = coarse_grid(Y_DATA,resolution=resolution).compute()
+
+    empty_map = get_empty_grid(resolution=resolution)
+
+    lats = empty_map.lat[(empty_map.lat > bounds[1]) & (empty_map.lat < bounds[3])].values
+    lons = empty_map.lon[(empty_map.lon > bounds[0]) & (empty_map.lon < bounds[2])].values
+
+    coords = list(itertools.product(lats, lons))
+
+    results_list = Parallel(n_jobs=-1)(
+        delayed(regression_process_pixel)(lat.item(), lon.item(), X_DATA_COARSE, Y_DATA_COARSE)
+        for lat, lon in coords
+    )
+
+    stat_da = pd.DataFrame(results_list).set_index(['lat', 'lon']).to_xarray()
+
+    return stat_da
 
 
 ##
@@ -297,161 +336,115 @@ if __name__=="__main__":
     AMSR2_DAY_low_mpdi = xr.where((low_mpdi_mask==1),AMSR2_DAY,np.nan)
     TSIM_low_mpdi = xr.where((low_mpdi_mask==1),TSIM_DAY,np.nan)
 
-    ##
-
-    _density_plot_rois = {
-        "sahel":
-            [
-                -14.164029114749468,
-                7.731771192012118,
-                9.907581803277111,
-                13.006449666672083
-            ],
-        "global":
-            [-180, -90, 180, 90]
-        ,
-        "sahara":
-            [
-                -6.563682229177971,
-                17.2166067599386,
-                27.705191507372177,
-                28.452234776822834
-            ]
-        ,
-        "amazon":
-            [
-                -75.76941061821752,
-                -9.550648452334485,
-                -50.019288836794715,
-                3.3550514019901527
-            ]
-        ,
-        "mississippi":
-            [
-                -94.9768726933208,
-                30.214798554771548,
-                -91.7883126223943,
-                34.546414390488565
-            ]
-        ,
-        "deciduous_w_virginia":
-            [
-                -84.49150294626182,
-                34.757704980926704,
-                -78.90004665477167,
-                40.778886369880695
-            ]
-        ,
-        "australia":
-            [
-                144.04056490447869,
-                -35.50692205951431,
-                147.3312456957429,
-                -33.30894507250183
-            ]
-
-    }
-
-    region = "sahara"
-    roi = _density_plot_rois[region]
-
     T_KA = AMSR2_DAY_low_mpdi["bt_36.5V"]
-    T_HOLMES = T_KA * 0.893 + 44.8
-    DELTA_T = TSIM_low_mpdi - T_KA
-
-    F = (AMSR2_DAY_low_mpdi[f"bt_{frequencies["ku".upper()]}H"]
-         /AMSR2_DAY_low_mpdi[f"bt_{frequencies["ka".upper()]}V"])
-
-    # date_range = pd.date_range(start="2018-01-01",end="2018-12-01",freq="MS")
-    #
-    # for i in date_range.year:
-    #     # month_selector = (DELTA_T.time.dt.month == i)
-    #     month_selector = (DELTA_T.time.dt.year == 2018)
-    #     df = pd.DataFrame({
-    #         "DELTA_T": ravel_roi_time(DELTA_T,roi,month_selector,method="nearest"),
-    #         "F": ravel_roi_time(F,roi,month_selector,method="nearest"),
-    #         "T_KA": ravel_roi_time(T_KA,roi,month_selector,method="nearest"),
-    #         "TSIM_low_mpdi" : ravel_roi_time(TSIM_low_mpdi,roi,month_selector,method="nearest"),
-    #         "VOD_low_mpdi": ravel_roi_time(VOD_low_mpdi,roi,month_selector,method="nearest"),
-    #         "SM_low_mpdi": ravel_roi_time(SM_low_mpdi,roi,month_selector,method="nearest"),
-    #         "T_HOLMES": ravel_roi_time(T_HOLMES,roi,month_selector,method="nearest"),
-    #         "MPDI_DAY_low_mpdi": ravel_roi_time(MPDI_DAY_low_mpdi,roi,month_selector,method="nearest"),
-    #     })
-    #
-    #     plot_hexbin(df,
-    #                 "T_KA",
-    #                 "TSIM_low_mpdi",
-    #                 color_of_points="DELTA_T",
-    #                 # xlim=[0.95,1.05], ylim=[265,320],   #F
-    #                 xlim=[265,320], ylim=[265,320],          # T and T
-    #                 # xlim=[None,None], ylim=[None,None],
-    #                 cbar_min= 0, cbar_max= 30,
-    #                 title_string=f"month:{i} {region}",
-    #                 plot_holmes_line=False)
-
 
 ##
+    res = 2
+    stat_da = regression_wrapper(T_KA,TSIM_low_mpdi,resolution=res)
 
-def regression_wrapper(X_DATA,
-                       Y_DATA,
-                       resolution =5,
-                       bounds = [ -180,-90,180,90 ],
-                       ):
-    """
-    This function wraps the parralel processor and its functionalities.
-    :param X_DATA: X axis of the scatter (usually T_KA)
-    :param Y_DATA: Y axis of the scatter (usually T_SIM_low_mpdi)
-    :param resolution: in degs
-    :param bounds: bbox
-    :return: dataset with regression stats for pixel
-    """
-
-    X_DATA_COARSE = coarse_grid(X_DATA, resolution=resolution).compute()
-    Y_DATA_COARSE = coarse_grid(Y_DATA,resolution=resolution).compute()
-
-    empty_map = get_empty_grid(resolution=resolution)
-
-    lats = empty_map.lat[(empty_map.lat > bounds[1]) & (empty_map.lat < bounds[3])].values
-    lons = empty_map.lon[(empty_map.lon > bounds[0]) & (empty_map.lon < bounds[2])].values
-
-    coords = list(itertools.product(lats, lons))
-
-    results_list = Parallel(n_jobs=-1)(
-        delayed(regression_process_pixel)(lat.item(), lon.item(), X_DATA_COARSE, Y_DATA_COARSE)
-        for lat, lon in coords
-    )
-
-    stat_da = pd.DataFrame(results_list).set_index(['lat', 'lon']).to_xarray()
-
-    return stat_da
-
-
-stat_da = regression_wrapper(T_KA,TSIM_low_mpdi,resolution=1)
+    ##
+    world_map(stat_da, "intercept", cbar_min=0,cbar_max=100, cmap="viridis", title_extra = str(res))
+    world_map(stat_da, "slope", cbar_min=0.8,cbar_max=1.1, cmap="RdYlGn",title_extra = str(res))
+    world_map(stat_da, "r", cbar_min=0.5,cbar_max=1, cmap="coolwarm",title_extra = str(res))
+    world_map(stat_da, "rmse", cbar_min=0,cbar_max=25, cmap="YlGn",title_extra = str(res))
+    world_map(stat_da, "bias", cbar_min=0,cbar_max=25, cmap="Purples",title_extra = str(res))
 
 ##
+    highres_coords = HOLMES_T_DAY.isel(time =0)
+    _stat_da = stat_da.reindex_like(highres_coords, method="nearest" )
+    compression_settings = {"zlib": True, "complevel": 5}
 
-def world_map(data, variable, cbar_min = 0.8, cbar_max = 1.1, cmap = "RdYlBu_r"):
-    plt.figure(figsize=(20, 12))
+    encoding_dict = {"sm": compression_settings}
 
-    p = data[variable].plot(
-        cmap=cmap,
-        vmin=cbar_min,
-        vmax=cbar_max,
-        cbar_kwargs={
-            "orientation": "vertical",
-            "shrink": 0.9
-        }
-    )
-    p.colorbar.set_label(variable, fontsize=16, weight='bold')
+    _stat_da.to_netcdf("/home/ddkovacs/personal_data/lprm_daytime/"
+                     f"Daytime_T_aux.nc", encoding={key : compression_settings for key in stat_da.var()})
 
-    p.colorbar.ax.tick_params(labelsize=12)
-    plt.title(variable, fontsize=25, pad=15)
-    plt.xlabel("Longitude", fontsize=20)
-    plt.ylabel("Latitude", fontsize=20)
-    plt.tight_layout()
-    plt.show()
+_density_plot_rois = {
+    "sahel":
+        [
+            -14.164029114749468,
+            7.731771192012118,
+            9.907581803277111,
+            13.006449666672083
+        ],
+    "global":
+        [-180, -90, 180, 90]
+    ,
+    "sahara":
+        [
+            -6.563682229177971,
+            17.2166067599386,
+            27.705191507372177,
+            28.452234776822834
+        ]
+    ,
+    "amazon":
+        [
+            -71.7768365566669,
+            -8.491843421295215,
+            -67.95189966183453,
+            -5.472202615630479
+        ]
+    ,
+    "mississippi":
+        [
+            -94.9768726933208,
+            30.214798554771548,
+            -91.7883126223943,
+            34.546414390488565
+        ]
+    ,
+    "deciduous_w_virginia":
+        [
+            -84.49150294626182,
+            34.757704980926704,
+            -78.90004665477167,
+            40.778886369880695
+        ]
+    ,
+    "australia":
+        [
+            144.04056490447869,
+            -35.50692205951431,
+            147.3312456957429,
+            -33.30894507250183
+        ]
 
-world_map(stat_da, "intercept", cbar_min=0,cbar_max=100, cmap="viridis")
-world_map(stat_da, "slope", cbar_min=0.8,cbar_max=1.1, cmap="RdYlGn")
-world_map(stat_da, "r", cbar_min=0.5,cbar_max=1, cmap="coolwarm")
-world_map(stat_da, "rmse", cbar_min=0,cbar_max=25, cmap="YlGn")
+}
+
+region = "global"
+roi = _density_plot_rois[region]
+
+T_KA = AMSR2_DAY_low_mpdi["bt_36.5V"]
+T_HOLMES = T_KA * 0.893 + 44.8
+DELTA_T = TSIM_low_mpdi - T_KA
+
+F = (AMSR2_DAY_low_mpdi[f"bt_{frequencies["ku".upper()]}H"]
+     /AMSR2_DAY_low_mpdi[f"bt_{frequencies["ka".upper()]}V"])
+
+date_range = pd.date_range(start="2018-01-01",end="2018-12-01",freq="MS")
+
+for i in date_range.year:
+    # month_selector = (DELTA_T.time.dt.month == i)
+    month_selector = (DELTA_T.time.dt.year == 2018)
+    df = pd.DataFrame({
+        "DELTA_T": ravel_roi_time(DELTA_T,roi,month_selector,method="nearest"),
+        "F": ravel_roi_time(F,roi,month_selector,method="nearest"),
+        "T_KA": ravel_roi_time(T_KA,roi,month_selector,method="nearest"),
+        "TSIM_low_mpdi" : ravel_roi_time(TSIM_low_mpdi,roi,month_selector,method="nearest"),
+        "VOD_low_mpdi": ravel_roi_time(VOD_low_mpdi,roi,month_selector,method="nearest"),
+        "SM_low_mpdi": ravel_roi_time(SM_low_mpdi,roi,month_selector,method="nearest"),
+        "T_HOLMES": ravel_roi_time(T_HOLMES,roi,month_selector,method="nearest"),
+    })
+
+    plot_hexbin(df,
+                "T_KA",
+                "TSIM_low_mpdi",
+                color_of_points="F",
+                # xlim=[0.95,1.05], ylim=[265,320],   #F
+                xlim=[265,320], ylim=[265,320],          # T and T
+                # xlim=[None,None], ylim=[None,None],
+                # cbar_min= 0, cbar_max= 30,
+                title_string=f"month:{i} {region}",
+                )
+

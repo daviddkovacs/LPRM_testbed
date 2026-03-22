@@ -1,8 +1,8 @@
 import matplotlib.pyplot as plt
 
 from mpdi_differences import load_AMSR2_daily, retrieve_LPRM, calc_Holmes_temp
-
-
+import xarray as xr
+from plot_functions import world_map
 ##
 if __name__=="__main__":
 
@@ -13,21 +13,43 @@ if __name__=="__main__":
 
     AMSR2_DAY, AMSR2_NIGHT = load_AMSR2_daily(bbox = bbox,time_start=time_start,time_stop=time_stop)
     HOLMES_T_NIGHT, HOLMES_T_DAY = calc_Holmes_temp(AMSR2_NIGHT), calc_Holmes_temp(AMSR2_DAY)
-    NEW_T_DAY = AMSR2_DAY["bt_36.5V"] * 0.84 + 62.33
+
+    ##
+    path_aux_t = "~/personal_data/lprm_daytime/Daytime_T_aux.nc"
+    daytime_stats = xr.open_dataset(path_aux_t)
+
+    T_KA = AMSR2_DAY["bt_36.5V"]
+
+    slope = daytime_stats["slope"]
+    intercept = daytime_stats["intercept"]
+
+    T_DAYTIME = (T_KA * slope + intercept).compute()
 
 ##
     band_current = "x"
-    SM_NIGHT, VOD_NIGHT,_ = retrieve_LPRM(TB_DATASET=AMSR2_NIGHT, SURFACE_T=HOLMES_T_NIGHT, band=band_current)
+    SM_NIGHT, VOD_NIGHT,_ = retrieve_LPRM(TB_DATASET=AMSR2_NIGHT,
+                                          SURFACE_T=HOLMES_T_NIGHT,
+                                          band=band_current)
 
-    _, _,T_sim_day = retrieve_LPRM(TB_DATASET=AMSR2_DAY, SURFACE_T=HOLMES_T_DAY,
-                                          SM_input=SM_NIGHT, VOD_input=VOD_NIGHT,band=band_current)
+    _, _,T_sim_day = retrieve_LPRM(TB_DATASET=AMSR2_DAY,
+                                   SURFACE_T=HOLMES_T_DAY,
+                                   SM_input=SM_NIGHT,
+                                   VOD_input=VOD_NIGHT,
+                                   band=band_current)
 
-    SM_DAY, VOD_DAY, _ = retrieve_LPRM(TB_DATASET=AMSR2_DAY, SURFACE_T=HOLMES_T_DAY, band=band_current)
-    SM_DAY_new, VOD_DAY_new, _ = retrieve_LPRM(TB_DATASET=AMSR2_DAY, SURFACE_T=T_sim_day, band=band_current)
+    SM_DAY, VOD_DAY, _ = retrieve_LPRM(TB_DATASET=AMSR2_DAY,
+                                       SURFACE_T=HOLMES_T_DAY,
+                                       band=band_current)
+
+    SM_DAY_new, VOD_DAY_new, _ = retrieve_LPRM(TB_DATASET=AMSR2_DAY,
+                                               SURFACE_T=T_DAYTIME,
+                                               band=band_current)
 
 
 ##
-    lat , lon =-35.350097, 146.656135
+    lat , lon =  35.352836, -103.32996
+
+
 
     plt.figure(figsize=(20,4))
     SM_DAY.sel(lat = lat, lon = lon, method = "nearest").plot(label ="SM_DAY")
@@ -38,6 +60,13 @@ if __name__=="__main__":
     plt.show()
 
 ##
+    compression_settings = {"zlib": True, "complevel": 5}
+
+    encoding_dict = {"sm": compression_settings}
+
+    SM_DAY_new.to_netcdf("/home/ddkovacs/personal_data/lprm_daytime/"
+                     f"SM_DAY_reg.nc", encoding={"sm": compression_settings})
+
 
 
 

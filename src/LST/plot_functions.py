@@ -59,6 +59,35 @@ def usual_stats(x,y):
     return {"r" : r , "bias" : bias , "rmse" : rmse}
 
 
+def world_map(data,
+              variable,
+              cbar_min = 0.8,
+              cbar_max = 1.1,
+              cmap = "RdYlBu_r",
+              title_extra = ""
+              ):
+
+    plt.figure(figsize=(20, 12))
+
+    p = data[variable].plot(
+        cmap=cmap,
+        vmin=cbar_min,
+        vmax=cbar_max,
+        cbar_kwargs={
+            "orientation": "vertical",
+            "shrink": 0.9
+        }
+    )
+    p.colorbar.set_label(variable, fontsize=16, weight='bold')
+
+    p.colorbar.ax.tick_params(labelsize=12)
+    plt.title(f"{variable} T_KA-T_SIM {title_extra}deg", fontsize=25, pad=15)
+    plt.xlabel("Longitude", fontsize=20)
+    plt.ylabel("Latitude", fontsize=20)
+    plt.tight_layout()
+    plt.show()
+
+
 def regressor_calc(df,x_col,y_col,):
     """
     Huber Regressor (https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.HuberRegressor.html)
