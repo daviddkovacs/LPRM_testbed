@@ -3,7 +3,9 @@ from LST.load_amsr2 import open_amsr2
 from LST.load_modis import open_modis,ndvi_calc
 import os
 from typing import Literal, List
-from config.paths import S3_SLSTR_path, path_bt, MODIS_path, MODIS_geo_path, MODIS_path_local, MODIS_geo_path_local
+from config.paths import S3_SLSTR_path, path_bt, MODIS_path, MODIS_geo_path, MODIS_path_local, MODIS_geo_path_local, \
+    path_bt_climers01_local
+
 
 def OPTICAL_datacube(region: Literal["sahel", "siberia", "midwest", "ceu"],
                          bbox: List[float],
@@ -46,7 +48,7 @@ def OPTICAL_datacube(region: Literal["sahel", "siberia", "midwest", "ceu"],
 
 def MICROWAVE_datacube(
         bbox: List[float],
-        path=path_bt,
+        path=path_bt_climers01_local,
         sensor="AMSR2",
         overpass:Literal["day","night","daynight"] = "day",
         time_start="2024-01-01",

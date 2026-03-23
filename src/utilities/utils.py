@@ -37,7 +37,7 @@ def filter_distance(distance_df,
     Parameters
     ----------
     distance_df: pandas dataframe with nearest distances and ids
-    radius: threshold radius for nearest distances. Default is 10
+    radius: dif_threshold radius for nearest distances. Default is 10
 
     Returns
     -------

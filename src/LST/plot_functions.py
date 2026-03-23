@@ -59,6 +59,35 @@ def usual_stats(x,y):
     return {"r" : r , "bias" : bias , "rmse" : rmse}
 
 
+def world_map(data,
+              variable,
+              cbar_min = 0.8,
+              cbar_max = 1.1,
+              cmap = "RdYlBu_r",
+              title_extra = ""
+              ):
+
+    plt.figure(figsize=(20, 12))
+
+    p = data[variable].plot(
+        cmap=cmap,
+        vmin=cbar_min,
+        vmax=cbar_max,
+        cbar_kwargs={
+            "orientation": "vertical",
+            "shrink": 0.9
+        }
+    )
+    p.colorbar.set_label(variable, fontsize=16, weight='bold')
+
+    p.colorbar.ax.tick_params(labelsize=12)
+    plt.title(f"{variable} T_KA-T_SIM {title_extra}deg", fontsize=25, pad=15)
+    plt.xlabel("Longitude", fontsize=20)
+    plt.ylabel("Latitude", fontsize=20)
+    plt.tight_layout()
+    plt.show()
+
+
 def regressor_calc(df,x_col,y_col,):
     """
     Huber Regressor (https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.HuberRegressor.html)
@@ -80,11 +109,21 @@ def regressor_calc(df,x_col,y_col,):
     return {"m": m,"c":c, "line_x": line_x , "line_y": line_y}
 
 
-def plot_hexbin(df, x_col, y_col, xlim=[273, 325], ylim=[273, 325], plot_polyfit=True, utc_timeofday="", region_in_title="", ax=None, show_colorbar=True):
+def plot_hexbin(df, x_col, y_col,
+                xlim=[273, 325], ylim=[273, 325],
+                cbar_min = None, cbar_max = None,
+                plot_polyfit=True, utc_timeofday="",
+                title_string="", ax=None, show_colorbar=True,
+                bins = None, color_of_points = None,   ):
 
     approx_localtime = approximate_local_time(utc_timeofday)
     x = df[x_col]
     y = df[y_col]
+
+    if color_of_points is not None:
+        _color = df[color_of_points]
+    else:
+        _color = None
     stats = usual_stats(x, y)
 
     if ax is None:
@@ -94,18 +133,20 @@ def plot_hexbin(df, x_col, y_col, xlim=[273, 325], ylim=[273, 325], plot_polyfit
         fig = ax.figure
         is_standalone = False
 
-    hb = ax.hexbin(x, y, gridsize=100, cmap='inferno', mincnt=1)
+    hb = ax.hexbin(x, y, C=_color, gridsize=100, cmap='inferno', mincnt=1, bins=bins, vmin=cbar_min, vmax=cbar_max)
     ax.plot(xlim, ylim, 'k--', alpha=0.8, linewidth=1, zorder=10)
 
     if show_colorbar:
         cb = fig.colorbar(hb, ax=ax)
-        cb.set_label('Count')
+        cb.set_label(color_of_points if color_of_points else 'Count')
 
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
-    # ax.set_xlabel(x_col)
-    # ax.set_ylabel(y_col)
-    ax.set_title(f'{region_in_title}\napprox. {approx_localtime} local')
+    ax.set_xlabel(x_col)
+    ax.set_ylabel(y_col)
+    # fig.supxlabel(f"{x_col}", fontsize=16, y=0.05)
+    # fig.supylabel(f"{y_col}", fontsize=16, x=0.05)
+    ax.set_title(f'{title_string}\napprox. {approx_localtime} local')
 
     regression_dict = regressor_calc(df, x_col, y_col)
 
@@ -115,14 +156,14 @@ def plot_hexbin(df, x_col, y_col, xlim=[273, 325], ylim=[273, 325], plot_polyfit
             regression_dict["line_y"],
             color="cornflowerblue",
             linewidth=2,
-            label="RANSAC regressor",
+            label="Scatter fit",
         )
 
     textstr = '\n'.join((
         f'$R = {stats["r"]:.2f}$',
         f'$RMSE = {stats["rmse"]:.2f}$ K',
         f'$Bias = {stats["bias"]:.2f}$ K',
-        f'$N = {len(x)}$',
+        f'$N = {np.count_nonzero(~np.isnan(x))}$',
         f"y(x)={np.round(regression_dict['m'], 2)}x+{np.round(regression_dict['c'], 2)}"
     ))
 
@@ -134,6 +175,7 @@ def plot_hexbin(df, x_col, y_col, xlim=[273, 325], ylim=[273, 325], plot_polyfit
         plt.show()
 
     return hb
+
 
 def fill_plot_coords(ds_slice):
     """Forward and backward fills lat/lon NaNs to prevent pcolormesh errors."""
@@ -159,5 +201,5 @@ def plot_modis_comparison(ndvi_da, lst_da, ndvi_time=4, lst_time=8):
     plt.tight_layout()
     plt.show()
 
-def approximate_local_time(time_of_day: Literal["morning","evening"],): # very basic, will need to revise for multiple sites!
-   return {"morning": "02:00", "evening": "15:00"}[time_of_day]
+def approximate_local_time(time_of_day: Literal["morning","evening",""],): # very basic, will need to revise for multiple sites!
+   return {"morning": "02:00", "evening": "15:00","":""}[time_of_day]

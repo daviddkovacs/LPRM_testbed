@@ -29,12 +29,20 @@ landcover_bbox_lut = {
             37.479346477831314
         ]
     ,
-    "forest_durango":
+    "forest_amazon":
 [
-    -108.35384787187026,
-    37.44806238250527,
-    -108.0152992757282,
-    37.8426023468099
+    -73.14282831871029,
+    -10.252603756879822,
+    -69.79762012909454,
+    -7.40706163002595
+  ]
+    ,
+    "forest_deciduous":
+[
+    22.517240470154462,
+    48.47465603576933,
+    23.298305514714286,
+    49.06651088674198
   ]
     ,
     "desert_pixel":
@@ -45,12 +53,12 @@ landcover_bbox_lut = {
     35.95425540038144
   ]
     ,
-    "forest_pixel":
+    "forest_west_virginia":
         [
-            -104.94696115256528,
-            36.99846847567471,
-            -104.65094769349078,
-            37.21961904513921
+            -82.81946874253154,
+            37.06066523546711,
+            -81.4855328438654,
+            37.886633912495896
         ]
     ,
     "agri_mix":
@@ -62,6 +70,50 @@ landcover_bbox_lut = {
   ]
 }
 
+density_plot_rois = {
+    "sahel":
+        [
+            -13.445130601826833,
+            6.499981756513975,
+            10.162809408722524,
+            14.661863181674946
+        ],
+    "global":
+        [-180, -90, 180, 90]
+    ,
+    "sahara":
+        [
+            -6.563682229177971,
+            17.2166067599386,
+            27.705191507372177,
+            28.452234776822834
+        ]
+    ,
+    "amazon":
+        [
+            -75.76941061821752,
+            -9.550648452334485,
+            -50.019288836794715,
+            3.3550514019901527
+        ]
+    ,
+    "mississippi":
+        [
+            -94.9768726933208,
+            30.214798554771548,
+            -91.7883126223943,
+            34.546414390488565
+        ]
+    ,
+    "deciduous_w_virginia":
+        [
+            -84.49150294626182,
+            34.757704980926704,
+            -78.90004665477167,
+            40.778886369880695
+        ]
+
+}
 def calc_Holmes_temp(AMSR2):
     """
     Surface temperature from Ka-band observations according to Holmes et al. 2008
@@ -71,7 +123,7 @@ def calc_Holmes_temp(AMSR2):
     return TSURF
 
 
-def KuKa(AMSR2, num = "Ku",denom = "Ka"):
+def MW_fraction(AMSR2, num = "ku", denom = "ka"):
     """
     Calculate ratio, as seen in SSM/I Cal/Val document
     https://apps.dtic.mil/sti/tr/pdf/ADA274626.pdf
@@ -114,6 +166,17 @@ def crop2roi(ds,bbox):
             (ds.lat >= bbox[1]) & (ds.lat <= bbox[3])
     )
     return ds.where(valid, drop=True)
+
+def ravel_roi_time(data, roi ,time, method = None):
+    """
+    Selects data under region of interest, and gets time coord nearest to obs.
+    :param data: Dataarray
+    :param roi: bbox
+    :param time:
+    :return: numpy vector
+    """
+
+    return crop2roi(data, roi).sel(time=time, method=method).values.ravel()
 
 
 def filternan(array):
