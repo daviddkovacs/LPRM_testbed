@@ -247,7 +247,7 @@ def regression_process_pixel(lat_val,
         regression_statistics = regressor_calc(df_box, x_var, y_var)
     except:
         result.update({'r': np.nan, 'rmse': np.nan, 'bias': np.nan,
-                       'n': np.nan, 'slope': global_slope, 'intercept': global_intercept})
+                       'n': np.nan, 'slope':  np.nan, 'intercept': np.nan})
         return result
 
     result.update({
@@ -318,7 +318,7 @@ if __name__=="__main__":
 
 ##
     dif_threshold = 0.00005
-    minimum_mpdi = 0.01
+    minimum_mpdi = 0.00001
 
     MPDI_DAY , MPDI_NIGHT = calc_MPDI_bands(AMSR2_DAY=AMSR2_DAY,AMSR2_NIGHT=AMSR2_NIGHT,
                                             list_of_bands=bandlist, minimum_mpdi=minimum_mpdi)
@@ -339,10 +339,10 @@ if __name__=="__main__":
     T_KA = AMSR2_DAY_low_mpdi["bt_36.5V"]
 
 ##
-    res = 2
+    res = 1
     stat_da = regression_wrapper(T_KA,TSIM_low_mpdi,resolution=res)
 
-    ##
+##
     world_map(stat_da, "intercept", cbar_min=0,cbar_max=100, cmap="viridis", title_extra = str(res))
     world_map(stat_da, "slope", cbar_min=0.8,cbar_max=1.1, cmap="RdYlGn",title_extra = str(res))
     world_map(stat_da, "r", cbar_min=0.5,cbar_max=1, cmap="coolwarm",title_extra = str(res))
@@ -356,95 +356,96 @@ if __name__=="__main__":
 
     encoding_dict = {"sm": compression_settings}
 
-    _stat_da.to_netcdf("/home/ddkovacs/personal_data/lprm_daytime/"
-                     f"Daytime_T_aux.nc", encoding={key : compression_settings for key in stat_da.var()})
+    _stat_da.to_netcdf("/home/ddkovacs/personal_data/lprm_daytime/lprm_testing/T_aux/"
+                     f"Daytime_T_aux_noMPDI_filter.nc", encoding={key : compression_settings for key in stat_da.var()})
 
-_density_plot_rois = {
-    "sahel":
-        [
-            -14.164029114749468,
-            7.731771192012118,
-            9.907581803277111,
-            13.006449666672083
-        ],
-    "global":
-        [-180, -90, 180, 90]
-    ,
-    "sahara":
-        [
-            -6.563682229177971,
-            17.2166067599386,
-            27.705191507372177,
-            28.452234776822834
-        ]
-    ,
-    "amazon":
-        [
-            -71.7768365566669,
-            -8.491843421295215,
-            -67.95189966183453,
-            -5.472202615630479
-        ]
-    ,
-    "mississippi":
-        [
-            -94.9768726933208,
-            30.214798554771548,
-            -91.7883126223943,
-            34.546414390488565
-        ]
-    ,
-    "deciduous_w_virginia":
-        [
-            -84.49150294626182,
-            34.757704980926704,
-            -78.90004665477167,
-            40.778886369880695
-        ]
-    ,
-    "australia":
-        [
-            144.04056490447869,
-            -35.50692205951431,
-            147.3312456957429,
-            -33.30894507250183
-        ]
+##
+    _density_plot_rois = {
+        "sahel":
+            [
+                -14.164029114749468,
+                7.731771192012118,
+                9.907581803277111,
+                13.006449666672083
+            ],
+        "global":
+            [-180, -90, 180, 90]
+        ,
+        "sahara":
+            [
+                -6.563682229177971,
+                17.2166067599386,
+                27.705191507372177,
+                28.452234776822834
+            ]
+        ,
+        "amazon":
+            [
+                -71.7768365566669,
+                -8.491843421295215,
+                -67.95189966183453,
+                -5.472202615630479
+            ]
+        ,
+        "mississippi":
+            [
+                -94.9768726933208,
+                30.214798554771548,
+                -91.7883126223943,
+                34.546414390488565
+            ]
+        ,
+        "deciduous_w_virginia":
+            [
+                -84.49150294626182,
+                34.757704980926704,
+                -78.90004665477167,
+                40.778886369880695
+            ]
+        ,
+        "australia":
+            [
+                144.04056490447869,
+                -35.50692205951431,
+                147.3312456957429,
+                -33.30894507250183
+            ]
 
-}
+    }
 
-region = "global"
-roi = _density_plot_rois[region]
+    region = "amazon"
+    roi = _density_plot_rois[region]
 
-T_KA = AMSR2_DAY_low_mpdi["bt_36.5V"]
-T_HOLMES = T_KA * 0.893 + 44.8
-DELTA_T = TSIM_low_mpdi - T_KA
+    T_KA = AMSR2_DAY_low_mpdi["bt_36.5V"]
+    T_HOLMES = T_KA * 0.893 + 44.8
+    DELTA_T = TSIM_low_mpdi - T_KA
 
-F = (AMSR2_DAY_low_mpdi[f"bt_{frequencies["ku".upper()]}H"]
-     /AMSR2_DAY_low_mpdi[f"bt_{frequencies["ka".upper()]}V"])
+    F = (AMSR2_DAY_low_mpdi[f"bt_{frequencies["ku".upper()]}H"]
+         /AMSR2_DAY_low_mpdi[f"bt_{frequencies["ka".upper()]}V"])
 
-date_range = pd.date_range(start="2018-01-01",end="2018-12-01",freq="MS")
+    date_range = pd.date_range(start="2018-01-01",end="2018-12-01",freq="MS")
 
-for i in date_range.year:
-    # month_selector = (DELTA_T.time.dt.month == i)
-    month_selector = (DELTA_T.time.dt.year == 2018)
-    df = pd.DataFrame({
-        "DELTA_T": ravel_roi_time(DELTA_T,roi,month_selector,method="nearest"),
-        "F": ravel_roi_time(F,roi,month_selector,method="nearest"),
-        "T_KA": ravel_roi_time(T_KA,roi,month_selector,method="nearest"),
-        "TSIM_low_mpdi" : ravel_roi_time(TSIM_low_mpdi,roi,month_selector,method="nearest"),
-        "VOD_low_mpdi": ravel_roi_time(VOD_low_mpdi,roi,month_selector,method="nearest"),
-        "SM_low_mpdi": ravel_roi_time(SM_low_mpdi,roi,month_selector,method="nearest"),
-        "T_HOLMES": ravel_roi_time(T_HOLMES,roi,month_selector,method="nearest"),
-    })
+    for i in date_range.year:
+        # month_selector = (DELTA_T.time.dt.month == i)
+        month_selector = (DELTA_T.time.dt.year == 2018)
+        df = pd.DataFrame({
+            "DELTA_T": ravel_roi_time(DELTA_T,roi,month_selector,method="nearest"),
+            "F": ravel_roi_time(F,roi,month_selector,method="nearest"),
+            "T_KA": ravel_roi_time(T_KA,roi,month_selector,method="nearest"),
+            "TSIM_low_mpdi" : ravel_roi_time(TSIM_low_mpdi,roi,month_selector,method="nearest"),
+            "VOD_low_mpdi": ravel_roi_time(VOD_low_mpdi,roi,month_selector,method="nearest"),
+            "SM_low_mpdi": ravel_roi_time(SM_low_mpdi,roi,month_selector,method="nearest"),
+            "T_HOLMES": ravel_roi_time(T_HOLMES,roi,month_selector,method="nearest"),
+        })
 
-    plot_hexbin(df,
-                "T_KA",
-                "TSIM_low_mpdi",
-                color_of_points="F",
-                # xlim=[0.95,1.05], ylim=[265,320],   #F
-                xlim=[265,320], ylim=[265,320],          # T and T
-                # xlim=[None,None], ylim=[None,None],
-                # cbar_min= 0, cbar_max= 30,
-                title_string=f"month:{i} {region}",
-                )
+        plot_hexbin(df,
+                    "T_KA",
+                    "TSIM_low_mpdi",
+                    color_of_points="F",
+                    # xlim=[0.95,1.05], ylim=[265,320],   #F
+                    xlim=[265,320], ylim=[265,320],          # T and T
+                    # xlim=[None,None], ylim=[None,None],
+                    # cbar_min= 0, cbar_max= 30,
+                    title_string=f"month:{i} {region}",
+                    )
 

@@ -15,7 +15,7 @@ if __name__=="__main__":
     HOLMES_T_NIGHT, HOLMES_T_DAY = calc_Holmes_temp(AMSR2_NIGHT), calc_Holmes_temp(AMSR2_DAY)
 
     ##
-    path_aux_t = "~/personal_data/lprm_daytime/Daytime_T_aux.nc"
+    path_aux_t = "~/personal_data/lprm_daytime/lprm_testing/T_aux/Daytime_T_aux_noMPDI_filter.nc"
     daytime_stats = xr.open_dataset(path_aux_t)
 
     T_KA = AMSR2_DAY["bt_36.5V"]
@@ -49,8 +49,6 @@ if __name__=="__main__":
 ##
     lat , lon =  35.352836, -103.32996
 
-
-
     plt.figure(figsize=(20,4))
     SM_DAY.sel(lat = lat, lon = lon, method = "nearest").plot(label ="SM_DAY")
     SM_DAY_new.sel(lat = lat, lon = lon, method = "nearest").plot(label ="SM_DAY_new")
@@ -64,8 +62,8 @@ if __name__=="__main__":
 
     encoding_dict = {"sm": compression_settings}
 
-    SM_DAY_new.to_netcdf("/home/ddkovacs/personal_data/lprm_daytime/"
-                     f"SM_DAY_reg.nc", encoding={"sm": compression_settings})
+    SM_DAY_new.to_netcdf("/home/ddkovacs/personal_data/lprm_daytime/lprm_testing/SM/"
+                     f"SM_DAY_reg_noMPDI_filter.nc", encoding={"sm": compression_settings})
 
 
 
