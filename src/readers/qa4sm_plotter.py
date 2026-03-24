@@ -49,16 +49,17 @@ def histogram_plot(fname,
     data = xr.open_dataset(data_path)
     _stat_data = data[statistics]
     stat_data = _stat_data.values.ravel()
-    data_clean = stat_data[~np.isnan(stat_data)]
+
+    _data_clean = stat_data[~np.isnan(stat_data)]
+    data_clean = np.where((_data_clean>xlim[0]) & (_data_clean<xlim[1]), _data_clean,np.nan)
 
     fig, ax = plt.subplots(figsize=(7, 5))
 
     n, bins, patches = ax.hist(data_clean, bins=250, color='#2c7bb6', edgecolor='white', alpha=0.9)
 
-    mean_val = np.mean(data_clean)
+    mean_val = np.nanmean(data_clean)
     ax.axvline(mean_val, color='#d7191c', linestyle='dashed', linewidth=2, label=f'Mean: {mean_val:.5f}')
 
-    # ax.set_title(statistics, fontsize=14, pad=15)
     ax.set_xlabel(statistics, fontsize=12)
     ax.set_ylabel('Frequency', fontsize=12)
 
@@ -76,7 +77,6 @@ def histogram_plot(fname,
 
 
 
-
 ref = 'SMx_NIGHT_ref'
 test1 = 'SMx_DAY_ref'
 test2 = 'SMx_DAY_regression'
@@ -85,12 +85,12 @@ fname_ref = f"0-{ref}.sm_with_1-{test1}.sm.nc"
 fname_regression = f"0-{ref}.sm_with_1-{test2}.sm.nc"
 
 
-metric=  "urmsd"
+metric=  "RMSD"
 qa_plotter(fname_ref, ref, test1, metric,
-           # value_range=(-0.15,0.15)
+           value_range=(0.01,0.4)
            )
 qa_plotter(fname_regression, ref, test2, metric,
-           # value_range=(-0.15,0.15)
+           value_range=(0.01,0.4)
            )
 
 histogram_plot(fname_ref,f"{metric}_between_0-{ref}_and_1-{test1}",
