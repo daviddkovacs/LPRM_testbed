@@ -12,6 +12,12 @@ path_datasets = ("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/0
 output_path = ("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/"
                "LPRM/07_debug/daytime_retrieval/MPDI_trick/evaluation/figs")
 
+plot_val_lut = {
+    "BIAS": (-0.05, 0.05),
+    "R" : (-1,1),
+    "urmsd": (0,0.35)
+}
+
 
 ##
 
@@ -50,16 +56,27 @@ def histogram_plot(fname,
     _stat_data = data[statistics]
     stat_data = _stat_data.values.ravel()
 
-    _data_clean = stat_data[~np.isnan(stat_data)]
-    data_clean = np.where((_data_clean>xlim[0]) & (_data_clean<xlim[1]), _data_clean,np.nan)
+    data_clean = stat_data[~np.isnan(stat_data)]
+    # data_clean = np.where((data_nonan==0.0), np.nan, data_nonan)
+    # data_clean = np.where((_data_clean>-0.001) & (_data_clean<0.001), np.nan,_data_clean,)
 
     fig, ax = plt.subplots(figsize=(7, 5))
 
-    n, bins, patches = ax.hist(data_clean, bins=250, color='#2c7bb6', edgecolor='white', alpha=0.9)
+    n, bins, patches = ax.hist(data_clean, bins=250, range=(xlim[0], xlim[1]),color='#2c7bb6', edgecolor='white', alpha=0.9)
 
     mean_val = np.nanmean(data_clean)
-    ax.axvline(mean_val, color='#d7191c', linestyle='dashed', linewidth=2, label=f'Mean: {mean_val:.5f}')
+    variance_val = np.nanvar(data_clean)
+    std_val = np.sqrt(np.nanvar(data_clean))
+    stats_text = (
+        f'Mean: {mean_val:.3}\n'
+        f'Variance: {variance_val:.3}\n'
+        f'Std: {std_val:.3}\n'
+    )
 
+    # Place it at x=5%, y=95% of the plot area (top-left)
+    ax.text(0.05, 0.95, stats_text, transform=ax.transAxes, fontsize=11,
+            verticalalignment='top',
+            bbox=dict(boxstyle='round,pad=0.5', facecolor='white', edgecolor='gray', alpha=0.8))
     ax.set_xlabel(statistics, fontsize=12)
     ax.set_ylabel('Frequency', fontsize=12)
 
@@ -76,29 +93,32 @@ def histogram_plot(fname,
     plt.show()
 
 
-
-ref = 'SMx_NIGHT_ref'
-test1 = 'SMx_DAY_ref'
-test2 = 'SMx_DAY_regression'
+band_current = "c1"
+ref = f'SM{band_current}_NIGHT_ref'
+test1 = f'SM{band_current}_DAY_ref'
+test2 = f'SM{band_current}_DAY_regression'
 
 fname_ref = f"0-{ref}.sm_with_1-{test1}.sm.nc"
 fname_regression = f"0-{ref}.sm_with_1-{test2}.sm.nc"
 
 
-metric=  "RMSD"
+metric=  "BIAS"
+minval = plot_val_lut[metric][0]
+maxval = plot_val_lut[metric][1]
+
 qa_plotter(fname_ref, ref, test1, metric,
-           value_range=(0.01,0.4)
+           value_range=(minval,maxval)
            )
 qa_plotter(fname_regression, ref, test2, metric,
-           value_range=(0.01,0.4)
+           value_range=(minval,maxval)
            )
 
 histogram_plot(fname_ref,f"{metric}_between_0-{ref}_and_1-{test1}",
-               xlim = [0,0.15],
+               xlim = [minval,maxval],
                # maxval  = 10000
                )
 histogram_plot(fname_regression,f"{metric}_between_0-{ref}_and_1-{test2}",
-               xlim = [0,0.15],
+               xlim = [minval,maxval],
                # maxval=10000
 
                )
@@ -144,4 +164,5 @@ metric_pretty_names = {
     'slopeURMSD': 'Theil-Sen slope of urmsd',
     'slopeBIAS': 'Theil-Sen slope of BIAS'
 }
+
 
