@@ -15,7 +15,7 @@ output_path = ("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_
                "LPRM/07_debug/daytime_retrieval/MPDI_trick/evaluation/figs")
 
 plot_val_lut = {
-    "BIAS": (-0.1, 0.1),
+    "BIAS": (-0.51, 0.51),
     "R" : (-1,1),
     "urmsd": (0,0.35),
     "status":(None,None)
@@ -122,7 +122,7 @@ test2_name = f'SM{band_current}_DAY_regression'
 fname_ref = f"0-{ref_name}.sm_with_1-{test1_name}.sm.nc" if ref_type =="LPRM" else f"0-{ref_name}_with_1-{test1_name}.sm.nc"
 fname_regression = f"0-{ref_name}.sm_with_1-{test2_name}.sm.nc" if ref_type =="LPRM" else f"0-{ref_name}_with_1-{test2_name}.sm.nc"
 
-metric=  "R"
+metric=  "BIAS"
 
 plot_obj_ref = import_single_obj(fname_ref)
 plot_obj_regression = import_single_obj(fname_regression)
