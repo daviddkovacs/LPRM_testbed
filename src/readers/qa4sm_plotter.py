@@ -66,19 +66,15 @@ def qa_plotter(obj, ref_name, test_name, metric, value_range = None):
     plt.show()
 
 
-def histogram_plot(fname,
+def histogram_plot(obj,
                    statistics,
                    xlim= [None,None],
                    maxval=None,
                    root_path = path_datasets,):
 
-    data = xr.open_dataset(data_path)
-    _stat_data = data[statistics]
-    stat_data = _stat_data.values.ravel()
+    stat_data[~np.isnan(stat_data)] = obj.df[statistics].values.ravel()
 
     data_clean = stat_data[~np.isnan(stat_data)]
-    # data_clean = np.where((data_nonan==0.0), np.nan, data_nonan)
-    # data_clean = np.where((_data_clean>-0.001) & (_data_clean<0.001), np.nan,_data_clean,)
 
     fig, ax = plt.subplots(figsize=(7, 5))
 
@@ -145,14 +141,14 @@ qa_plotter(plot_obj_regression,ref_name=ref_name,test_name=test2_name, metric=me
            value_range=[ plot_val_lut[metric][0], plot_val_lut[metric][1]])
 
 
-# histogram_plot(fname_ref,f"{metric}_between_0-{ref}_and_1-{test1}",
-#                xlim = [plot_val_lut[metric][0], plot_val_lut[metric][1]],
-#                # maxval  = 10000
-#                )
-# histogram_plot(fname_regression,f"{metric}_between_0-{ref}_and_1-{test2}",
-#                xlim = [plot_val_lut[metric][0], plot_val_lut[metric][1]],
-#                # maxval=10000
-#                )
+histogram_plot(plot_obj_ref_masked,f"{metric}_between_0-{ref_name}_and_1-{test1_name}",
+               xlim = [plot_val_lut[metric][0], plot_val_lut[metric][1]],
+               # maxval  = 10000
+               )
+histogram_plot(plot_obj_regression,f"{metric}_between_0-{ref_name}_and_1-{test2_name}",
+               xlim = [plot_val_lut[metric][0], plot_val_lut[metric][1]],
+               # maxval=10000
+               )
 
 ##
 metric_pretty_names = {
