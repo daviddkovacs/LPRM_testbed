@@ -72,9 +72,11 @@ def histogram_plot(obj,
                    maxval=None,
                    root_path = path_datasets,):
 
-    stat_data[~np.isnan(stat_data)] = obj.df[statistics].values.ravel()
+    stat_data = obj.df[statistics].values.ravel()
 
     data_clean = stat_data[~np.isnan(stat_data)]
+    # data_clean = np.where((data_nonan==0.0), np.nan, data_nonan)
+    # data_clean = np.where((_data_clean>-0.001) & (_data_clean<0.001), np.nan,_data_clean,)
 
     fig, ax = plt.subplots(figsize=(7, 5))
 
