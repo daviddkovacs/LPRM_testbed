@@ -34,23 +34,17 @@ def import_single_obj(filename,
     return plot_obj
 
 
-
-def obj_masker(obj_ref,
-               obj_mask,
-               var,
-               ):
+def obj_masker(obj_ref, obj_mask, var):
     _obj_ref = copy.copy(obj_ref)
-    _obj_mask = copy.copy(obj_mask)
 
-    ref_variables_string = [col for col in _obj_ref.df.columns if var in col][0]
-    xr_ref = _obj_ref.df[ref_variables_string]
+    _obj_ref.df = _obj_ref.df.copy()
 
-    mask_variable_string = [col for col in _obj_mask.df.columns if var in col][0] # the ugliest code ive ever done
-    xr_mask = _obj_mask.df[mask_variable_string]
+    ref_col = [col for col in _obj_ref.df.columns if col.startswith(f"{var}_between")][0]
+    mask_col = [col for col in obj_mask.df.columns if col.startswith(f"{var}_between")][0]
 
-    x_ref_masked = xr_ref.mask(xr_mask.isna())
+    is_nan_mask = obj_mask.df[mask_col].isna()
 
-    _obj_ref.df[ref_variables_string] = x_ref_masked
+    _obj_ref.df = _obj_ref.df.mask(is_nan_mask, axis=0)
 
     return _obj_ref
 
@@ -70,7 +64,7 @@ def histogram_plot(obj,
                    statistics,
                    xlim= [None,None],
                    maxval=None,
-                   root_path = path_datasets,):
+                   ):
 
     stat_data = obj.df[statistics].values.ravel()
 
@@ -114,18 +108,21 @@ def histogram_plot(obj,
 
 band_current = "c1"
 era_var = "swvl1"
-ref_type = "LPRM"
+ref_type = "ERA5"
 reference_dict = {"LPRM":f'SM{band_current}_NIGHT_ref',
                   "ERA5":f"ERA5_LAND.{era_var}"}
+
+ref_name_dict = {"LPRM":f'SM{band_current}_NIGHT_ref',
+                  "ERA5":f"ERA5_LAND"}
 
 ref_name = reference_dict[ref_type]
 test1_name = f'SM{band_current}_DAY_ref'
 test2_name = f'SM{band_current}_DAY_regression'
 
-fname_ref = f"0-{ref_name}.sm_with_1-{test1_name}.sm.nc"
-fname_regression = f"0-{ref_name}.sm_with_1-{test2_name}.sm.nc"
+fname_ref = f"0-{ref_name}.sm_with_1-{test1_name}.sm.nc" if ref_type =="LPRM" else f"0-{ref_name}_with_1-{test1_name}.sm.nc"
+fname_regression = f"0-{ref_name}.sm_with_1-{test2_name}.sm.nc" if ref_type =="LPRM" else f"0-{ref_name}_with_1-{test2_name}.sm.nc"
 
-metric=  "BIAS"
+metric=  "R"
 
 plot_obj_ref = import_single_obj(fname_ref)
 plot_obj_regression = import_single_obj(fname_regression)
@@ -135,19 +132,19 @@ plot_obj_ref_masked = obj_masker(obj_ref=plot_obj_ref,
                                 obj_mask=plot_obj_regression,
                                  var=metric)
 
-qa_plotter(plot_obj_ref_masked,ref_name=ref_name,test_name=test1_name, metric=metric,
+qa_plotter(plot_obj_ref_masked,ref_name=ref_name_dict[ref_type],test_name=test1_name, metric=metric,
            value_range=[ plot_val_lut[metric][0], plot_val_lut[metric][1]])
 
 
-qa_plotter(plot_obj_regression,ref_name=ref_name,test_name=test2_name, metric=metric,
+qa_plotter(plot_obj_regression,ref_name=ref_name_dict[ref_type],test_name=test2_name, metric=metric,
            value_range=[ plot_val_lut[metric][0], plot_val_lut[metric][1]])
 
 
-histogram_plot(plot_obj_ref_masked,f"{metric}_between_0-{ref_name}_and_1-{test1_name}",
+histogram_plot(plot_obj_ref_masked,f"{metric}_between_0-{ref_name_dict[ref_type]}_and_1-{test1_name}",
                xlim = [plot_val_lut[metric][0], plot_val_lut[metric][1]],
                # maxval  = 10000
                )
-histogram_plot(plot_obj_regression,f"{metric}_between_0-{ref_name}_and_1-{test2_name}",
+histogram_plot(plot_obj_regression,f"{metric}_between_0-{ref_name_dict[ref_type]}_and_1-{test2_name}",
                xlim = [plot_val_lut[metric][0], plot_val_lut[metric][1]],
                # maxval=10000
                )
