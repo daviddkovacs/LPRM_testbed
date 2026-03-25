@@ -1,3 +1,5 @@
+import copy
+
 from qa4sm_reader.custom_user_plot_generator import CustomPlotObject
 import os
 import matplotlib.pyplot as plt
@@ -22,25 +24,43 @@ plot_val_lut = {
 
 ##
 
-def import_plot_obj(filename, root_path = path_datasets ):
+def import_single_obj(filename,
+                      root_path= path_datasets):
 
-    dataset_name = os.path.join(root_path, filename,)
-
-    dataset_path = os.path.join(os.getcwd(), 'data', dataset_name)
-
-    plot_obj = CustomPlotObject(dataset_path)
-    plot_obj.display_metrics_and_datasets()
+    path = os.path.join(root_path, filename,)
+    dataset_ref = os.path.join(os.getcwd(), 'data', path)
+    plot_obj = CustomPlotObject(dataset_ref)
 
     return plot_obj
 
 
-def qa_plotter(fname,ref,test, metric, value_range = None):
 
-    plot_obj = import_plot_obj(fname)
-    plot_obj.plot_map(metric = metric,
+def obj_masker(obj_ref,
+               obj_mask,
+               var,
+               ):
+    _obj_ref = copy.copy(obj_ref)
+    _obj_mask = copy.copy(obj_mask)
+
+    ref_variables_string = [col for col in _obj_ref.df.columns if var in col][0]
+    xr_ref = _obj_ref.df[ref_variables_string]
+
+    mask_variable_string = [col for col in _obj_mask.df.columns if var in col][0] # the ugliest code ive ever done
+    xr_mask = _obj_mask.df[mask_variable_string]
+
+    x_ref_masked = xr_ref.mask(xr_mask.isna())
+
+    _obj_ref.df[ref_variables_string] = x_ref_masked
+
+    return _obj_ref
+
+
+def qa_plotter(obj, ref_name, test_name, metric, value_range = None):
+
+    obj.plot_map(metric = metric,
                       output_dir =output_path,
-                      dataset_list = [ref,test],
-                      title = f"{metric}:   {ref}  -  {test}",
+                      dataset_list = [ref_name,test_name],
+                      title = f"{metric}:   {ref_name}  -  {test_name}",
                       value_range=value_range
                       )
     plt.show()
@@ -52,7 +72,6 @@ def histogram_plot(fname,
                    maxval=None,
                    root_path = path_datasets,):
 
-    data_path = os.path.join(root_path,fname)
     data = xr.open_dataset(data_path)
     _stat_data = data[statistics]
     stat_data = _stat_data.values.ravel()
@@ -101,35 +120,39 @@ ref_type = "LPRM"
 reference_dict = {"LPRM":f'SM{band_current}_NIGHT_ref',
                   "ERA5":f"ERA5_LAND.{era_var}"}
 
-ref = reference_dict[ref_type]
-test1 = f'SM{band_current}_DAY_ref'
-test2 = f'SM{band_current}_DAY_regression'
+ref_name = reference_dict[ref_type]
+test1_name = f'SM{band_current}_DAY_ref'
+test2_name = f'SM{band_current}_DAY_regression'
 
-fname_ref = f"0-{ref}.sm_with_1-{test1}.sm.nc"
-fname_regression = f"0-{ref}.sm_with_1-{test2}.sm.nc"
+fname_ref = f"0-{ref_name}.sm_with_1-{test1_name}.sm.nc"
+fname_regression = f"0-{ref_name}.sm_with_1-{test2_name}.sm.nc"
 
+metric=  "BIAS"
 
-metric=  "urmsd"
-minval = plot_val_lut[metric][0]
-maxval = plot_val_lut[metric][1]
-
-qa_plotter(fname_ref, ref, test1, metric,
-           value_range=(minval,maxval)
-           )
-qa_plotter(fname_regression, ref, test2, metric,
-           value_range=(minval,maxval)
-           )
+plot_obj_ref = import_single_obj(fname_ref)
+plot_obj_regression = import_single_obj(fname_regression)
 
 
+plot_obj_ref_masked = obj_masker(obj_ref=plot_obj_ref,
+                                obj_mask=plot_obj_regression,
+                                 var="BIAS")
 
-histogram_plot(fname_ref,f"{metric}_between_0-{ref}_and_1-{test1}",
-               xlim = [minval,maxval],
-               # maxval  = 10000
-               )
-histogram_plot(fname_regression,f"{metric}_between_0-{ref}_and_1-{test2}",
-               xlim = [minval,maxval],
-               # maxval=10000
-               )
+qa_plotter(plot_obj_ref_masked,ref_name=ref_name,test_name=test1_name, metric=metric,
+           value_range=[ plot_val_lut[metric][0], plot_val_lut[metric][1]])
+
+
+qa_plotter(plot_obj_regression,ref_name=ref_name,test_name=test2_name, metric=metric,
+           value_range=[ plot_val_lut[metric][0], plot_val_lut[metric][1]])
+
+
+# histogram_plot(fname_ref,f"{metric}_between_0-{ref}_and_1-{test1}",
+#                xlim = [plot_val_lut[metric][0], plot_val_lut[metric][1]],
+#                # maxval  = 10000
+#                )
+# histogram_plot(fname_regression,f"{metric}_between_0-{ref}_and_1-{test2}",
+#                xlim = [plot_val_lut[metric][0], plot_val_lut[metric][1]],
+#                # maxval=10000
+#                )
 
 ##
 metric_pretty_names = {
