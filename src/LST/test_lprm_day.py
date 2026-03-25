@@ -1,8 +1,8 @@
 import matplotlib.pyplot as plt
-
 from mpdi_differences import load_AMSR2_daily, retrieve_LPRM, calc_Holmes_temp
 import xarray as xr
 from plot_functions import world_map
+
 ##
 if __name__=="__main__":
 
@@ -15,7 +15,10 @@ if __name__=="__main__":
     HOLMES_T_NIGHT, HOLMES_T_DAY = calc_Holmes_temp(AMSR2_NIGHT), calc_Holmes_temp(AMSR2_DAY)
 
     ##
-    path_aux_t = "~/personal_data/lprm_daytime/lprm_testing/T_aux/Daytime_T_aux_noMPDI_filter.nc"
+    band_current = "x"
+
+    path_aux_t = (f"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/MPDI_trick/lprm_testing"
+                  f"/T_aux/Daytime_T_aux_{band_current}.nc")
     daytime_stats = xr.open_dataset(path_aux_t)
 
     T_KA = AMSR2_DAY["bt_36.5V"]
@@ -26,7 +29,6 @@ if __name__=="__main__":
     T_DAYTIME = (T_KA * slope + intercept).compute()
 
 ##
-    band_current = "x"
     SM_NIGHT, VOD_NIGHT,_ = retrieve_LPRM(TB_DATASET=AMSR2_NIGHT,
                                           SURFACE_T=HOLMES_T_NIGHT,
                                           band=band_current)
@@ -41,20 +43,18 @@ if __name__=="__main__":
                                        SURFACE_T=HOLMES_T_DAY,
                                        band=band_current)
 
-    SM_DAY_new, VOD_DAY_new, _ = retrieve_LPRM(TB_DATASET=AMSR2_DAY,
-                                               SURFACE_T=T_DAYTIME,
-                                               band=band_current)
+    SM_DAY_regression, VOD_DAY_regression, _ = retrieve_LPRM(TB_DATASET=AMSR2_DAY,
+                                                             SURFACE_T=T_DAYTIME,
+                                                             band=band_current)
 
 
 ##
-    lat , lon =  35.352836, -103.32996
+    lat , lon = -32.752114, 146.7064
 
     plt.figure(figsize=(20,4))
     SM_DAY.sel(lat = lat, lon = lon, method = "nearest").plot(label ="SM_DAY")
-    SM_DAY_new.sel(lat = lat, lon = lon, method = "nearest").plot(label ="SM_DAY_new")
+    SM_DAY_regression.sel(lat = lat, lon = lon, method ="nearest").plot(label ="SM_DAY_regression")
     SM_NIGHT.sel(lat = lat, lon = lon, method = "nearest").plot(label ="SM_NIGHT")
-    # (SM_DAY_new - SM_NIGHT).sel(lat = lat, lon = lon, method = "nearest").plot(label ="SM_DAY_new - SM_NIGHT")
-    plt.legend()
     plt.show()
 
 ##
@@ -62,8 +62,8 @@ if __name__=="__main__":
 
     encoding_dict = {"sm": compression_settings}
 
-    SM_DAY_new.to_netcdf("/home/ddkovacs/personal_data/lprm_daytime/lprm_testing/SM/"
-                     f"SM_DAY_reg_noMPDI_filter.nc", encoding={"sm": compression_settings})
+    SM_NIGHT.to_netcdf("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/MPDI_trick/lprm_testing/SM/"
+                     f"SM{band_current}_NIGHT_ref.nc", encoding={"sm": compression_settings})
 
 
 

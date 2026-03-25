@@ -301,15 +301,16 @@ def regression_wrapper(X_DATA,
 if __name__=="__main__":
 
     bbox = [-180, -90, 180, 90]
-    time_start = "2018-01-01"
+    year_start = "2018"
+    time_start = f"{year_start}-01-01"
     time_stop = "2019-01-01"
-    bandlist = ["c2", "x", "ku"]
+    bandlist = ["c1","c2", "x", "ku"]
 
     AMSR2_DAY, AMSR2_NIGHT = load_AMSR2_daily(bbox = bbox,time_start=time_start,time_stop=time_stop)
     HOLMES_T_NIGHT, HOLMES_T_DAY = calc_Holmes_temp(AMSR2_NIGHT), calc_Holmes_temp(AMSR2_DAY)
 
 ##
-    band_current = "x"
+    band_current = "ku"
     SM_NIGHT, VOD_NIGHT,_ = retrieve_LPRM(TB_DATASET=AMSR2_NIGHT, SURFACE_T=HOLMES_T_NIGHT, band=band_current)
     # Highly experimental! TSIM is obtained byrunning LPRM in reverse.
     # TB has to be corresponding, for T_SIM to work!!!! DAY-DAY NIGHT-NIGHT
@@ -319,7 +320,7 @@ if __name__=="__main__":
 
 ##
     dif_threshold = 0.00005
-    minimum_mpdi = 0.00001
+    minimum_mpdi = 0.01
 
     MPDI_DAY , MPDI_NIGHT = calc_MPDI_bands(AMSR2_DAY=AMSR2_DAY,AMSR2_NIGHT=AMSR2_NIGHT,
                                             list_of_bands=bandlist, minimum_mpdi=minimum_mpdi)
@@ -358,8 +359,8 @@ if __name__=="__main__":
 
     encoding_dict = {"sm": compression_settings}
 
-    _stat_da.to_netcdf("/home/ddkovacs/personal_data/lprm_daytime/lprm_testing/T_aux/"
-                     f"Daytime_T_aux_noMPDI_filter.nc", encoding={key : compression_settings for key in stat_da.var()})
+    # _stat_da.to_netcdf("/home/ddkovacs/personal_data/lprm_daytime/lprm_testing/T_aux/"
+    #                  f"Daytime_T_aux_{band_current}.nc", encoding={key : compression_settings for key in stat_da.var()})
 
 ##
     _density_plot_rois = {
@@ -375,10 +376,10 @@ if __name__=="__main__":
         ,
         "sahara":
             [
-                -6.563682229177971,
-                17.2166067599386,
-                27.705191507372177,
-                28.452234776822834
+                -11.088079487820153,
+                14.199665315164381,
+                12.8292385543796,
+                22.63947012882589
             ]
         ,
         "amazon":
@@ -415,7 +416,7 @@ if __name__=="__main__":
 
     }
 
-    region = "amazon"
+    region = "sahara"
     roi = _density_plot_rois[region]
 
     T_KA = AMSR2_DAY_low_mpdi["bt_36.5V"]
@@ -429,7 +430,7 @@ if __name__=="__main__":
 
     for i in date_range.year:
         # month_selector = (DELTA_T.time.dt.month == i)
-        month_selector = (DELTA_T.time.dt.year == 2018)
+        month_selector = (DELTA_T.time.dt.year == 2019)
         df = pd.DataFrame({
             "DELTA_T": ravel_roi_time(DELTA_T,roi,month_selector,method="nearest"),
             "F": ravel_roi_time(F,roi,month_selector,method="nearest"),
@@ -448,6 +449,6 @@ if __name__=="__main__":
                     xlim=[265,320], ylim=[265,320],          # T and T
                     # xlim=[None,None], ylim=[None,None],
                     # cbar_min= 0, cbar_max= 30,
-                    title_string=f"month:{i} {region}",
+                    title_string=f"year:{i} {region} band: {band_current}",
                     )
 

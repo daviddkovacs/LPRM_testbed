@@ -56,7 +56,8 @@ def usual_stats(x,y):
     r =x.corr(y)
     bias = (y - x).mean()
     rmse = np.sqrt(((y - x) ** 2).mean())
-    return {"r" : r , "bias" : bias , "rmse" : rmse}
+    ubrmse = np.sqrt((rmse**2-bias**2))
+    return {"r" : r , "bias" : bias , "rmse" : rmse, "ubrmse":ubrmse}
 
 
 def world_map(data,
@@ -67,7 +68,7 @@ def world_map(data,
               title_extra = ""
               ):
 
-    plt.figure(figsize=(20, 12))
+    plt.figure(figsize=(16, 6))
 
     p = data[variable].plot(
         cmap=cmap,
@@ -75,15 +76,17 @@ def world_map(data,
         vmax=cbar_max,
         cbar_kwargs={
             "orientation": "vertical",
-            "shrink": 0.9
+            # "shrink": 0.9,
+            "pad": 0.01
         }
     )
     p.colorbar.set_label(variable, fontsize=16, weight='bold')
-
     p.colorbar.ax.tick_params(labelsize=12)
-    plt.title(f"{variable} T_KA-T_SIM {title_extra}deg", fontsize=25, pad=15)
-    plt.xlabel("Longitude", fontsize=20)
-    plt.ylabel("Latitude", fontsize=20)
+    plt.title(f"{variable} {title_extra}", fontsize=20, pad=15)
+    plt.xlabel("Longitude (°)", fontsize=15)
+    plt.ylabel("Latitude (°)", fontsize=15)
+    plt.ylim(bottom=-60)
+    plt.ylim(top=85)
     plt.tight_layout()
     plt.show()
 
@@ -116,7 +119,7 @@ def plot_hexbin(df, x_col, y_col,
                 title_string="", ax=None, show_colorbar=True,
                 bins = None, color_of_points = None,   ):
 
-    approx_localtime = approximate_local_time(utc_timeofday)
+    # approx_localtime = approximate_local_time(utc_timeofday)
     x = df[x_col]
     y = df[y_col]
 
@@ -146,7 +149,7 @@ def plot_hexbin(df, x_col, y_col,
     ax.set_ylabel(y_col)
     # fig.supxlabel(f"{x_col}", fontsize=16, y=0.05)
     # fig.supylabel(f"{y_col}", fontsize=16, x=0.05)
-    ax.set_title(f'{title_string}\napprox. {approx_localtime} local')
+    ax.set_title(f'{title_string}\n')
 
     regression_dict = regressor_calc(df, x_col, y_col)
 
