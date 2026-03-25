@@ -41,7 +41,7 @@ def load_AMSR2_daily(bbox,time_start,time_stop):
     return AMSR2_DAY, AMSR2_NIGHT
 
 
-def calc_MPDI_bands(AMSR2_DAY,AMSR2_NIGHT, list_of_bands=["c2", "x", "ku"], minimum_mpdi = 0.01):
+def calc_MPDI_bands(AMSR2_DAY,AMSR2_NIGHT, list_of_bands=["c1","c2", "x", "ku"], minimum_mpdi = 0.01):
     """
     We calculate MPDIs for different frequencies
     :param AMSR2_DAY: Daytime TB stack
