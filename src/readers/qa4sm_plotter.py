@@ -133,7 +133,7 @@ plot_obj_regression = import_single_obj(fname_regression)
 
 plot_obj_ref_masked = obj_masker(obj_ref=plot_obj_ref,
                                 obj_mask=plot_obj_regression,
-                                 var="BIAS")
+                                 var=metric)
 
 qa_plotter(plot_obj_ref_masked,ref_name=ref_name,test_name=test1_name, metric=metric,
            value_range=[ plot_val_lut[metric][0], plot_val_lut[metric][1]])
