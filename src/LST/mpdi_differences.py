@@ -254,6 +254,7 @@ def regression_process_pixel(lat_val,
         'r': stats_box["r"],
         'rmse': stats_box["rmse"],
         'bias': stats_box["bias"],
+        'ubrmse': stats_box["ubrmse"],
         'n': len(df_box),
         'slope': regression_statistics["m"],
         'intercept': regression_statistics["c"]
@@ -343,11 +344,12 @@ if __name__=="__main__":
     stat_da = regression_wrapper(T_KA,TSIM_low_mpdi,resolution=res)
 
 ##
-    world_map(stat_da, "intercept", cbar_min=0,cbar_max=100, cmap="viridis", title_extra = str(res))
-    world_map(stat_da, "slope", cbar_min=0.8,cbar_max=1.1, cmap="RdYlGn",title_extra = str(res))
-    world_map(stat_da, "r", cbar_min=0.5,cbar_max=1, cmap="coolwarm",title_extra = str(res))
-    world_map(stat_da, "rmse", cbar_min=0,cbar_max=25, cmap="YlGn",title_extra = str(res))
-    world_map(stat_da, "bias", cbar_min=0,cbar_max=25, cmap="Purples",title_extra = str(res))
+    world_map(stat_da, "intercept", cbar_min=0,cbar_max=100, cmap="viridis", title_extra = f"{year_start} {band_current}")
+    world_map(stat_da, "slope", cbar_min=0.8,cbar_max=1.1, cmap="RdYlGn",title_extra = f"{year_start} {band_current}")
+    world_map(stat_da, "r", cbar_min=0.5,cbar_max=1, cmap="coolwarm",title_extra = f"{year_start} {band_current}")
+    world_map(stat_da, "rmse", cbar_min=0,cbar_max=25, cmap="YlGn",title_extra = f"{year_start} {band_current}")
+    world_map(stat_da, "bias", cbar_min=0,cbar_max=25, cmap="Purples",title_extra = f"{year_start} {band_current}")
+    world_map(stat_da, "ubrmse", cbar_min=0,cbar_max=5, cmap="Purples",title_extra = f"{year_start} {band_current}")
 
 ##
     highres_coords = HOLMES_T_DAY.isel(time =0)
