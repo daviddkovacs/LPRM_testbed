@@ -13,9 +13,10 @@ output_path = ("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_
                "LPRM/07_debug/daytime_retrieval/MPDI_trick/evaluation/figs")
 
 plot_val_lut = {
-    "BIAS": (-0.05, 0.05),
+    "BIAS": (-0.1, 0.1),
     "R" : (-1,1),
-    "urmsd": (0,0.35)
+    "urmsd": (0,0.35),
+    "status":(None,None)
 }
 
 
@@ -67,10 +68,12 @@ def histogram_plot(fname,
     mean_val = np.nanmean(data_clean)
     variance_val = np.nanvar(data_clean)
     std_val = np.sqrt(np.nanvar(data_clean))
+    len_val = len(data_clean)
     stats_text = (
         f'Mean: {mean_val:.3}\n'
         f'Variance: {variance_val:.3}\n'
         f'Std: {std_val:.3}\n'
+        f'#: {len_val}'
     )
 
     # Place it at x=5%, y=95% of the plot area (top-left)
@@ -92,9 +95,13 @@ def histogram_plot(fname,
     plt.tight_layout()
     plt.show()
 
-
 band_current = "c1"
-ref = f'SM{band_current}_NIGHT_ref'
+era_var = "swvl1"
+ref_type = "LPRM"
+reference_dict = {"LPRM":f'SM{band_current}_NIGHT_ref',
+                  "ERA5":f"ERA5_LAND.{era_var}"}
+
+ref = reference_dict[ref_type]
 test1 = f'SM{band_current}_DAY_ref'
 test2 = f'SM{band_current}_DAY_regression'
 
@@ -102,7 +109,7 @@ fname_ref = f"0-{ref}.sm_with_1-{test1}.sm.nc"
 fname_regression = f"0-{ref}.sm_with_1-{test2}.sm.nc"
 
 
-metric=  "BIAS"
+metric=  "urmsd"
 minval = plot_val_lut[metric][0]
 maxval = plot_val_lut[metric][1]
 
@@ -113,6 +120,8 @@ qa_plotter(fname_regression, ref, test2, metric,
            value_range=(minval,maxval)
            )
 
+
+
 histogram_plot(fname_ref,f"{metric}_between_0-{ref}_and_1-{test1}",
                xlim = [minval,maxval],
                # maxval  = 10000
@@ -120,7 +129,6 @@ histogram_plot(fname_ref,f"{metric}_between_0-{ref}_and_1-{test1}",
 histogram_plot(fname_regression,f"{metric}_between_0-{ref}_and_1-{test2}",
                xlim = [minval,maxval],
                # maxval=10000
-
                )
 
 ##
