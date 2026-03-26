@@ -1,6 +1,5 @@
 from datacube_loader import MICROWAVE_datacube
-from datacube_utilities import (mpdi, calc_Holmes_temp, frequencies,density_plot_rois,
-                                 ravel_roi_time)
+from datacube_utilities import (mpdi, calc_Holmes_temp, frequencies, ravel_roi_time)
 import pandas as pd
 import matplotlib.pyplot as plt
 import lprm.retrieval.lprm_v6_1.par100m_v6_1 as par100
@@ -13,9 +12,10 @@ import numpy as np
 from plot_functions import plot_hexbin, usual_stats, regressor_calc, world_map
 from joblib import Parallel, delayed
 import itertools
+from lprm.satellite_specs import SensorSpecifics, get_specs
 
 
-def load_TB_daily(bbox,time_start,time_stop,sensor ="AMSR2", file_pattern= "amsr2_l1bt_*.nc"):
+def load_TB_daily(bbox,time_start,time_stop,sensor ="AMSR2"):
     """
     Load day/night TBs. we need to re-assign the time dimension, as MICROWAVE_datacube assigned the average scantime
     values within bbox (skews observation times when bbox is global)
@@ -25,13 +25,16 @@ def load_TB_daily(bbox,time_start,time_stop,sensor ="AMSR2", file_pattern= "amsr
     :param file_pattern: str AMSR2: "amsr2_l1bt_*.nc"
     :return: xr Dataset of day and night TBs with daily timestamps
     """
+    nested_group_name = "S1" if sensor == "GMI" else None
+    file_pattern = f"{sensor.lower()}_l1bt_*.nc"
 
     TB_DAY = MICROWAVE_datacube(bbox=bbox,
                                 overpass="day",
                                 time_start=time_start,
                                 time_stop=time_stop,
                                 sensor=sensor,
-                                file_pattern=file_pattern
+                                file_pattern=file_pattern,
+                                nested_group_name=nested_group_name,
                                 )
 
     TB_NIGHT = MICROWAVE_datacube(bbox=bbox,
@@ -39,8 +42,9 @@ def load_TB_daily(bbox,time_start,time_stop,sensor ="AMSR2", file_pattern= "amsr
                                   time_start=time_start,
                                   time_stop=time_stop,
                                   sensor=sensor,
-                                  file_pattern=file_pattern
-                                  )
+                                  file_pattern=file_pattern,
+                                  nested_group_name = nested_group_name,
+    )
 
 
     TB_DAY['time'] = pd.to_datetime(TB_DAY.time.dt.date.values)
@@ -86,16 +90,17 @@ def calc_MPDI_difference(MPDI_day, MPDI_night, list_of_bands=["c2", "x", "ku"]):
     return MPDI_difference_dict
 
 
-def retrieve_LPRM(TB_DATASET, SURFACE_T, band, SM_input = None, VOD_input = None):
+def retrieve_LPRM(TB_DATASET, SURFACE_T, band, SM_input = None, VOD_input = None, sensor = "AMSR2"):
     """
     Retrieve LPRM, traditional method. Input is Brightness temps, Holmes "KA" temp and band
     :return: SM and VOD datasets
     """
     times = TB_DATASET.time
-    inc_angle = 55.0
+    sensor_specs = get_specs(sensor)
+    inc_angle = sensor_specs.incidence_angle[0]
 
     band = band.upper()
-    freq = frequencies[band.upper()]
+    freq = sensor_specs.frequencies[band.upper()]
 
     lprm_list_sm = []
     lprm_list_vod = []
@@ -311,18 +316,22 @@ if __name__=="__main__":
     time_start = f"{year_start}-01-01"
     time_stop = "2019-01-01"
     bandlist = ["c1","c2", "x", "ku"]
+    sensor = "GMI"
 
-    TB_DAY, TB_NIGHT = load_TB_daily(bbox=bbox, time_start=time_start, time_stop=time_stop)
-    HOLMES_T_NIGHT, HOLMES_T_DAY = calc_Holmes_temp(TB_NIGHT), calc_Holmes_temp(TB_DAY)
+
+    TB_DAY, TB_NIGHT = load_TB_daily(bbox=bbox, time_start=time_start, time_stop=time_stop,
+                                     sensor=sensor,
+                                     )
+    HOLMES_T_NIGHT, HOLMES_T_DAY = calc_Holmes_temp(TB_NIGHT, sensor=sensor), calc_Holmes_temp(TB_DAY, sensor=sensor)
 
 ##
     band_current = "ku"
-    SM_NIGHT, VOD_NIGHT,_ = retrieve_LPRM(TB_DATASET=TB_NIGHT, SURFACE_T=HOLMES_T_NIGHT, band=band_current)
+    SM_NIGHT, VOD_NIGHT,_ = retrieve_LPRM(TB_DATASET=TB_NIGHT, SURFACE_T=HOLMES_T_NIGHT, band=band_current, sensor=sensor)
     # Highly experimental! TSIM is obtained byrunning LPRM in reverse.
     # TB has to be corresponding, for T_SIM to work!!!! DAY-DAY NIGHT-NIGHT
     # SURFACE_T doesnt matter if SM_input is True.
     _, _, TSIM_DAY = retrieve_LPRM(TB_DATASET=TB_DAY, SURFACE_T=HOLMES_T_DAY, band=band_current,
-                                   SM_input=SM_NIGHT, VOD_input=VOD_NIGHT)
+                                   SM_input=SM_NIGHT, VOD_input=VOD_NIGHT, sensor=sensor)
 
 ##
     dif_threshold = 0.00005

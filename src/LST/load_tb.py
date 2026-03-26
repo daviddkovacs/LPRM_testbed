@@ -40,7 +40,8 @@ def open_mw_sensor(path,
                resolution: Literal["coarse_resolution","medium_resolution"],
                time_start: str = "2024-01-01",
                time_stop: str = "2025-01-01",
-               bbox : List[float] = None
+               bbox : List[float] = None,
+                   nested_group_name: str = None
                ):
 
     folder = os.path.join(path,resolution,sensor,overpass,subdir_pattern,file_pattern)
@@ -59,6 +60,7 @@ def open_mw_sensor(path,
                                 join = "outer",
                                 concat_dim = "time",
                                 chunks = "auto",
+                                group = nested_group_name,
                                 decode_timedelta = False)
 
     dataset_cropped = crop2roi(dataset, bbox)

@@ -54,6 +54,7 @@ def MICROWAVE_datacube(
         time_start="2024-01-01",
         time_stop="2025-01-01",
         file_pattern="amsr2_l1bt_*.nc",
+        nested_group_name = None,
 
 ):
     """
@@ -71,17 +72,18 @@ def MICROWAVE_datacube(
         TB_stack = open_mw_sensor(path=path, sensor=sensor, overpass=overpass, date_pattern=r"_(\d{8})_",
                                      subdir_pattern=f"20*", file_pattern=file_pattern,
                                      resolution="coarse_resolution", time_start=time_start, time_stop=time_stop,
-                                     bbox=bbox)
+                                     bbox=bbox, nested_group_name=nested_group_name)
     elif overpass == "daynight":
         day_tb = open_mw_sensor(path=path, sensor=sensor, overpass="day", date_pattern=r"_(\d{8})_",
                                 subdir_pattern=f"20*", file_pattern=file_pattern,
                                 resolution="coarse_resolution", time_start=time_start, time_stop=time_stop,
-                                bbox=bbox)
+                                bbox=bbox, nested_group_name=nested_group_name)
 
         night_tb = open_mw_sensor(path=path, sensor=sensor, overpass="night", date_pattern=r"_(\d{8})_",
                                   subdir_pattern=f"20*", file_pattern=file_pattern,
                                   resolution="coarse_resolution", time_start=time_start, time_stop=time_stop,
-                                  bbox=bbox)
+                                  bbox=bbox, nested_group_name=nested_group_name)
+
         TB_stack = xr.concat([day_tb, night_tb], dim='time').sortby('time')
 
 
