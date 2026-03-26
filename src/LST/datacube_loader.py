@@ -1,5 +1,5 @@
 import xarray as xr
-from LST.load_amsr2 import open_amsr2
+from LST.load_tb import open_mw_sensor
 from LST.load_modis import open_modis,ndvi_calc
 import os
 from typing import Literal, List
@@ -50,9 +50,11 @@ def MICROWAVE_datacube(
         bbox: List[float],
         path=path_bt_climers01_local,
         sensor="AMSR2",
-        overpass:Literal["day","night","daynight"] = "day",
+        overpass:Literal["day","night","daynight"] = "daynight",
         time_start="2024-01-01",
         time_stop="2025-01-01",
+        file_pattern="amsr2_l1bt_*.nc",
+
 ):
     """
     Function to load AMSR2 Regridded data on the 0.25 or 0.1 CCI grid.
@@ -66,43 +68,22 @@ def MICROWAVE_datacube(
     :return: Brightness temperatures loaded as an Xarray Datacube.
     """
     if overpass == "day" or overpass == "night":
-        AMSR2_stack = open_amsr2(path=path,
-                                         sensor=sensor,
-                                         overpass=overpass,
-                                         subdir_pattern=f"20*",
-                                         file_pattern="amsr2_l1bt_*.nc",
-                                         date_pattern=r"_(\d{8})_",
-                                         time_start=time_start,
-                                         time_stop=time_stop,
-                                         resolution = "coarse_resolution",
-                                         bbox=bbox
-                                         )
+        TB_stack = open_mw_sensor(path=path, sensor=sensor, overpass=overpass, date_pattern=r"_(\d{8})_",
+                                     subdir_pattern=f"20*", file_pattern=file_pattern,
+                                     resolution="coarse_resolution", time_start=time_start, time_stop=time_stop,
+                                     bbox=bbox)
     elif overpass == "daynight":
-        day_amsr2 = open_amsr2(path=path,
-                                         sensor=sensor,
-                                         overpass="day",
-                                         subdir_pattern=f"20*",
-                                         file_pattern="amsr2_l1bt_*.nc",
-                                         date_pattern=r"_(\d{8})_",
-                                         time_start=time_start,
-                                         time_stop=time_stop,
-                                         resolution = "coarse_resolution",
-                                         bbox=bbox
-                                         )
+        day_tb = open_mw_sensor(path=path, sensor=sensor, overpass="day", date_pattern=r"_(\d{8})_",
+                                subdir_pattern=f"20*", file_pattern=file_pattern,
+                                resolution="coarse_resolution", time_start=time_start, time_stop=time_stop,
+                                bbox=bbox)
 
-        night_amsr2 = open_amsr2(path=path,
-                                         sensor=sensor,
-                                         overpass="night",
-                                         subdir_pattern=f"20*",
-                                         file_pattern="amsr2_l1bt_*.nc",
-                                         date_pattern=r"_(\d{8})_",
-                                         time_start=time_start,
-                                         time_stop=time_stop,
-                                         resolution = "coarse_resolution",
-                                         bbox=bbox
-                                         )
-        AMSR2_stack = xr.concat([day_amsr2, night_amsr2], dim='time').sortby('time')
+        night_tb = open_mw_sensor(path=path, sensor=sensor, overpass="night", date_pattern=r"_(\d{8})_",
+                                  subdir_pattern=f"20*", file_pattern=file_pattern,
+                                  resolution="coarse_resolution", time_start=time_start, time_stop=time_stop,
+                                  bbox=bbox)
+        TB_stack = xr.concat([day_tb, night_tb], dim='time').sortby('time')
 
 
-    return AMSR2_stack
+    return TB_stack
 

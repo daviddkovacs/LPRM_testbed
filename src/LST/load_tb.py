@@ -31,7 +31,7 @@ def assign_time_of_day(dataset, dates):
     return dataset_clean
 
 
-def open_amsr2(path,
+def open_mw_sensor(path,
                sensor,
                overpass,
                date_pattern,

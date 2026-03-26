@@ -14,38 +14,46 @@ from plot_functions import plot_hexbin, usual_stats, regressor_calc, world_map
 from joblib import Parallel, delayed
 import itertools
 
-def load_AMSR2_daily(bbox,time_start,time_stop):
+
+def load_TB_daily(bbox,time_start,time_stop,sensor ="AMSR2", file_pattern= "amsr2_l1bt_*.nc"):
     """
-    Load day/night AMSR2 TBs. we need to re-assign the time dimension, as MICROWAVE_datacube assigned the average scantime
+    Load day/night TBs. we need to re-assign the time dimension, as MICROWAVE_datacube assigned the average scantime
     values within bbox (skews observation times when bbox is global)
     :param bbox: List[min_lon,min_lat,max_lon,max_lat]
     :param time_start: date
     :param time_stop: date
+    :param file_pattern: str AMSR2: "amsr2_l1bt_*.nc"
     :return: xr Dataset of day and night TBs with daily timestamps
     """
 
-    AMSR2_DAY = MICROWAVE_datacube(bbox=bbox,
-                                  overpass="day",
-                                  time_start=time_start,
-                                  time_stop=time_stop)
+    TB_DAY = MICROWAVE_datacube(bbox=bbox,
+                                overpass="day",
+                                time_start=time_start,
+                                time_stop=time_stop,
+                                sensor=sensor,
+                                file_pattern=file_pattern
+                                )
 
-    AMSR2_NIGHT = MICROWAVE_datacube(bbox=bbox,
+    TB_NIGHT = MICROWAVE_datacube(bbox=bbox,
                                   overpass="night",
                                   time_start=time_start,
-                                  time_stop=time_stop)
+                                  time_stop=time_stop,
+                                  sensor=sensor,
+                                  file_pattern=file_pattern
+                                  )
 
 
-    AMSR2_DAY['time'] = pd.to_datetime(AMSR2_DAY.time.dt.date.values)
-    AMSR2_NIGHT['time'] = pd.to_datetime(AMSR2_NIGHT.time.dt.date.values)
+    TB_DAY['time'] = pd.to_datetime(TB_DAY.time.dt.date.values)
+    TB_NIGHT['time'] = pd.to_datetime(TB_NIGHT.time.dt.date.values)
 
-    return AMSR2_DAY, AMSR2_NIGHT
+    return TB_DAY, TB_NIGHT
 
 
-def calc_MPDI_bands(AMSR2_DAY,AMSR2_NIGHT, list_of_bands=["c1","c2", "x", "ku"], minimum_mpdi = 0.01):
+def calc_MPDI_bands(TB_DAY,TB_NIGHT, list_of_bands=["c1","c2", "x", "ku"], minimum_mpdi = 0.01):
     """
     We calculate MPDIs for different frequencies
-    :param AMSR2_DAY: Daytime TB stack
-    :param AMSR2_NIGHT: Nighttime TB stack
+    :param TB_DAY: Daytime TB stack
+    :param TB_NIGHT: Nighttime TB stack
     :return: Dictionary with keys as bands and values as MPDI datasets
     """
 
@@ -53,10 +61,10 @@ def calc_MPDI_bands(AMSR2_DAY,AMSR2_NIGHT, list_of_bands=["c1","c2", "x", "ku"],
     MPDI_NIGHT_dict = {}
 
     for band in list_of_bands:
-        _mpdi_day = mpdi(AMSR2_DAY,band)
+        _mpdi_day = mpdi(TB_DAY,band)
         MPDI_DAY_dict[band] = _mpdi_day.where(_mpdi_day>minimum_mpdi)
 
-        _mpdi_night =  mpdi(AMSR2_NIGHT,band)
+        _mpdi_night =  mpdi(TB_NIGHT,band)
         MPDI_NIGHT_dict[band] = _mpdi_night.where(_mpdi_night>minimum_mpdi)
 
     return MPDI_DAY_dict, MPDI_NIGHT_dict
@@ -76,6 +84,7 @@ def calc_MPDI_difference(MPDI_day, MPDI_night, list_of_bands=["c2", "x", "ku"]):
     for band in list_of_bands:
         MPDI_difference_dict[band] = MPDI_night[band] - MPDI_day[band]
     return MPDI_difference_dict
+
 
 def retrieve_LPRM(TB_DATASET, SURFACE_T, band, SM_input = None, VOD_input = None):
     """
@@ -207,6 +216,7 @@ def get_empty_grid(resolution):
     )
     return empty_grid
 
+
 def regression_process_pixel(lat_val,
                              lon_val,
                              X_DATA,
@@ -238,7 +248,7 @@ def regression_process_pixel(lat_val,
 
     if df_box.empty:
         result.update({'r': np.nan, 'rmse': np.nan, 'bias': np.nan,
-                       'n': np.nan, 'slope': np.nan, 'intercept': np.nan})
+                       'n': np.nan, 'slope': np.nan, 'intercept': np.nan, "ubrmse": np.nan})
         return result
 
     stats_box = usual_stats(df_box[x_var], df_box[y_var])
@@ -247,7 +257,7 @@ def regression_process_pixel(lat_val,
         regression_statistics = regressor_calc(df_box, x_var, y_var)
     except:
         result.update({'r': np.nan, 'rmse': np.nan, 'bias': np.nan,
-                       'n': np.nan, 'slope':  np.nan, 'intercept': np.nan})
+                       'n': np.nan, 'slope':  np.nan, 'intercept': np.nan,"ubrmse": np.nan})
         return result
 
     result.update({
@@ -263,11 +273,7 @@ def regression_process_pixel(lat_val,
     return result
 
 
-def regression_wrapper(X_DATA,
-                       Y_DATA,
-                       resolution =5,
-                       bounds = [ -180,-90,180,90 ],
-                       ):
+def regression_wrapper(X_DATA,Y_DATA, resolution =5, bounds = [ -180,-90,180,90 ],):
     """
     This function wraps the parralel processor and its functionalities.
     :param X_DATA: X axis of the scatter (usually T_KA)
@@ -306,23 +312,23 @@ if __name__=="__main__":
     time_stop = "2019-01-01"
     bandlist = ["c1","c2", "x", "ku"]
 
-    AMSR2_DAY, AMSR2_NIGHT = load_AMSR2_daily(bbox = bbox,time_start=time_start,time_stop=time_stop)
-    HOLMES_T_NIGHT, HOLMES_T_DAY = calc_Holmes_temp(AMSR2_NIGHT), calc_Holmes_temp(AMSR2_DAY)
+    TB_DAY, TB_NIGHT = load_TB_daily(bbox=bbox, time_start=time_start, time_stop=time_stop)
+    HOLMES_T_NIGHT, HOLMES_T_DAY = calc_Holmes_temp(TB_NIGHT), calc_Holmes_temp(TB_DAY)
 
 ##
     band_current = "ku"
-    SM_NIGHT, VOD_NIGHT,_ = retrieve_LPRM(TB_DATASET=AMSR2_NIGHT, SURFACE_T=HOLMES_T_NIGHT, band=band_current)
+    SM_NIGHT, VOD_NIGHT,_ = retrieve_LPRM(TB_DATASET=TB_NIGHT, SURFACE_T=HOLMES_T_NIGHT, band=band_current)
     # Highly experimental! TSIM is obtained byrunning LPRM in reverse.
     # TB has to be corresponding, for T_SIM to work!!!! DAY-DAY NIGHT-NIGHT
     # SURFACE_T doesnt matter if SM_input is True.
-    _, _, TSIM_DAY = retrieve_LPRM(TB_DATASET=AMSR2_DAY, SURFACE_T=HOLMES_T_DAY, band=band_current,
+    _, _, TSIM_DAY = retrieve_LPRM(TB_DATASET=TB_DAY, SURFACE_T=HOLMES_T_DAY, band=band_current,
                                    SM_input=SM_NIGHT, VOD_input=VOD_NIGHT)
 
 ##
     dif_threshold = 0.00005
     minimum_mpdi = 0.01
 
-    MPDI_DAY , MPDI_NIGHT = calc_MPDI_bands(AMSR2_DAY=AMSR2_DAY,AMSR2_NIGHT=AMSR2_NIGHT,
+    MPDI_DAY , MPDI_NIGHT = calc_MPDI_bands(TB_DAY=TB_DAY,TB_NIGHT=TB_NIGHT,
                                             list_of_bands=bandlist, minimum_mpdi=minimum_mpdi)
     MPDI_deltas = calc_MPDI_difference(MPDI_day=MPDI_DAY,
                                        MPDI_night=MPDI_NIGHT,
@@ -335,10 +341,10 @@ if __name__=="__main__":
 
     SM_low_mpdi = xr.where((low_mpdi_mask==1),SM_NIGHT,np.nan)
     VOD_low_mpdi = xr.where((low_mpdi_mask==1),VOD_NIGHT,np.nan)
-    AMSR2_DAY_low_mpdi = xr.where((low_mpdi_mask==1),AMSR2_DAY,np.nan)
+    TB_DAY_low_mpdi = xr.where((low_mpdi_mask==1),TB_DAY,np.nan)
     TSIM_low_mpdi = xr.where((low_mpdi_mask==1),TSIM_DAY,np.nan)
 
-    T_KA = AMSR2_DAY_low_mpdi["bt_36.5V"]
+    T_KA = TB_DAY_low_mpdi["bt_36.5V"]
 
 ##
     res = 1
@@ -419,26 +425,26 @@ if __name__=="__main__":
     region = "sahara"
     roi = _density_plot_rois[region]
 
-    T_KA = AMSR2_DAY_low_mpdi["bt_36.5V"]
+    T_KA = TB_DAY_low_mpdi["bt_36.5V"]
     T_HOLMES = T_KA * 0.893 + 44.8
     DELTA_T = TSIM_low_mpdi - T_KA
 
-    F = (AMSR2_DAY_low_mpdi[f"bt_{frequencies["ku".upper()]}H"]
-         /AMSR2_DAY_low_mpdi[f"bt_{frequencies["ka".upper()]}V"])
+    F = (TB_DAY_low_mpdi[f"bt_{frequencies["ku".upper()]}H"]
+         /TB_DAY_low_mpdi[f"bt_{frequencies["ka".upper()]}V"])
 
-    date_range = pd.date_range(start="2018-01-01",end="2018-12-01",freq="MS")
+    date_range = pd.date_range(start=time_start,end=time_stop,freq="MS")
 
     for i in date_range.year:
-        # month_selector = (DELTA_T.time.dt.month == i)
-        month_selector = (DELTA_T.time.dt.year == 2019)
+        # time_selector = (DELTA_T.time.dt.month == i)
+        time_selector = (DELTA_T.time.dt.year == int(year_start))
         df = pd.DataFrame({
-            "DELTA_T": ravel_roi_time(DELTA_T,roi,month_selector,method="nearest"),
-            "F": ravel_roi_time(F,roi,month_selector,method="nearest"),
-            "T_KA": ravel_roi_time(T_KA,roi,month_selector,method="nearest"),
-            "TSIM_low_mpdi" : ravel_roi_time(TSIM_low_mpdi,roi,month_selector,method="nearest"),
-            "VOD_low_mpdi": ravel_roi_time(VOD_low_mpdi,roi,month_selector,method="nearest"),
-            "SM_low_mpdi": ravel_roi_time(SM_low_mpdi,roi,month_selector,method="nearest"),
-            "T_HOLMES": ravel_roi_time(T_HOLMES,roi,month_selector,method="nearest"),
+            "DELTA_T": ravel_roi_time(DELTA_T, roi, time_selector, method="nearest"),
+            "F": ravel_roi_time(F, roi, time_selector, method="nearest"),
+            "T_KA": ravel_roi_time(T_KA, roi, time_selector, method="nearest"),
+            "TSIM_low_mpdi" : ravel_roi_time(TSIM_low_mpdi, roi, time_selector, method="nearest"),
+            "VOD_low_mpdi": ravel_roi_time(VOD_low_mpdi, roi, time_selector, method="nearest"),
+            "SM_low_mpdi": ravel_roi_time(SM_low_mpdi, roi, time_selector, method="nearest"),
+            "T_HOLMES": ravel_roi_time(T_HOLMES, roi, time_selector, method="nearest"),
         })
 
         plot_hexbin(df,
