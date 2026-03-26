@@ -322,7 +322,7 @@ if __name__=="__main__":
     time_start = f"{year_start}-01-01"
     time_stop = "2019-01-01"
     bandlist = [ "x", "ku"]
-    sensor = "AMSR2"
+    sensor = "GMI"
 
 
     TB_DAY, TB_NIGHT = load_TB_daily(bbox=bbox, time_start=time_start, time_stop=time_stop,
@@ -362,7 +362,7 @@ if __name__=="__main__":
     T_KA = get_sensor_band(TB_DAY_low_mpdi,sensor,"KA","V")
 
 ##
-    res = 1
+    res = 5
     stat_da = regression_wrapper(T_KA,TSIM_low_mpdi,resolution=res)
 
 ##

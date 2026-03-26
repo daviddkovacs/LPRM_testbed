@@ -70,6 +70,6 @@ def open_mw_sensor(path,
     res_dict = {"coarse_resolution" : 0.25,
                 "medium_resolution":  0.1}
     dataset_complete = dataset_time_of_day.assign_attrs(resolution = res_dict[resolution])
-    print(f"Loading dataset finished (AMSR2 {overpass})")
+    print(f"Loading dataset finished ({sensor} {overpass})")
 
     return dataset_complete
