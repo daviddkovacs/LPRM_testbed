@@ -53,7 +53,7 @@ def load_TB_daily(bbox,time_start,time_stop,sensor ="AMSR2"):
     return TB_DAY, TB_NIGHT
 
 
-def calc_MPDI_bands(TB_DAY,TB_NIGHT, list_of_bands=["c1","c2", "x", "ku"], minimum_mpdi = 0.01):
+def calc_MPDI_bands(TB_DAY,TB_NIGHT, list_of_bands=["c1","c2", "x", "ku"], minimum_mpdi = 0.01, sensor ="AMSR2"):
     """
     We calculate MPDIs for different frequencies
     :param TB_DAY: Daytime TB stack
@@ -65,10 +65,10 @@ def calc_MPDI_bands(TB_DAY,TB_NIGHT, list_of_bands=["c1","c2", "x", "ku"], minim
     MPDI_NIGHT_dict = {}
 
     for band in list_of_bands:
-        _mpdi_day = mpdi(TB_DAY,band)
+        _mpdi_day = mpdi(TB_DAY, band, sensor=sensor)
         MPDI_DAY_dict[band] = _mpdi_day.where(_mpdi_day>minimum_mpdi)
 
-        _mpdi_night =  mpdi(TB_NIGHT,band)
+        _mpdi_night = mpdi(TB_NIGHT, band, sensor=sensor)
         MPDI_NIGHT_dict[band] = _mpdi_night.where(_mpdi_night>minimum_mpdi)
 
     return MPDI_DAY_dict, MPDI_NIGHT_dict
@@ -307,6 +307,12 @@ def regression_wrapper(X_DATA,Y_DATA, resolution =5, bounds = [ -180,-90,180,90 
 
     return stat_da
 
+def get_sensor_band(TB,sensor, band, pol):
+
+    freq = get_specs(sensor).frequencies[band.upper() if band.upper()!="KA" else "Ka"]
+    _TB = TB[f"bt_{freq}{pol}"]
+    return _TB
+
 
 ##
 if __name__=="__main__":
@@ -315,8 +321,8 @@ if __name__=="__main__":
     year_start = "2018"
     time_start = f"{year_start}-01-01"
     time_stop = "2019-01-01"
-    bandlist = ["c1","c2", "x", "ku"]
-    sensor = "GMI"
+    bandlist = [ "x", "ku"]
+    sensor = "AMSR2"
 
 
     TB_DAY, TB_NIGHT = load_TB_daily(bbox=bbox, time_start=time_start, time_stop=time_stop,
@@ -325,7 +331,7 @@ if __name__=="__main__":
     HOLMES_T_NIGHT, HOLMES_T_DAY = calc_Holmes_temp(TB_NIGHT, sensor=sensor), calc_Holmes_temp(TB_DAY, sensor=sensor)
 
 ##
-    band_current = "ku"
+    band_current = "x"
     SM_NIGHT, VOD_NIGHT,_ = retrieve_LPRM(TB_DATASET=TB_NIGHT, SURFACE_T=HOLMES_T_NIGHT, band=band_current, sensor=sensor)
     # Highly experimental! TSIM is obtained byrunning LPRM in reverse.
     # TB has to be corresponding, for T_SIM to work!!!! DAY-DAY NIGHT-NIGHT
@@ -338,7 +344,7 @@ if __name__=="__main__":
     minimum_mpdi = 0.01
 
     MPDI_DAY , MPDI_NIGHT = calc_MPDI_bands(TB_DAY=TB_DAY,TB_NIGHT=TB_NIGHT,
-                                            list_of_bands=bandlist, minimum_mpdi=minimum_mpdi)
+                                            list_of_bands=bandlist, minimum_mpdi=minimum_mpdi, sensor=sensor)
     MPDI_deltas = calc_MPDI_difference(MPDI_day=MPDI_DAY,
                                        MPDI_night=MPDI_NIGHT,
                                        list_of_bands=bandlist)
@@ -353,7 +359,7 @@ if __name__=="__main__":
     TB_DAY_low_mpdi = xr.where((low_mpdi_mask==1),TB_DAY,np.nan)
     TSIM_low_mpdi = xr.where((low_mpdi_mask==1),TSIM_DAY,np.nan)
 
-    T_KA = TB_DAY_low_mpdi["bt_36.5V"]
+    T_KA = get_sensor_band(TB_DAY_low_mpdi,sensor,"KA","V")
 
 ##
     res = 1

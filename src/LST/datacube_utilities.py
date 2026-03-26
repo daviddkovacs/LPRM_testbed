@@ -16,20 +16,22 @@ def calc_Holmes_temp(TB, sensor ="AMSR2"):
     return TSURF
 
 
-def MW_fraction(AMSR2, num = "ku", denom = "ka"):
+def MW_fraction(TB, num = "ku", denom = "ka"):
     """
     Calculate ratio, as seen in SSM/I Cal/Val document
     https://apps.dtic.mil/sti/tr/pdf/ADA274626.pdf
     https://www.tandfonline.com/doi/epdf/10.1080/014311698215603?needAccess=true
     """
-    return (AMSR2[f"bt_{frequencies[num.upper()]}H"] / AMSR2[f"bt_{frequencies[denom.upper()]}V"])
+    return (TB[f"bt_{frequencies[num.upper()]}H"] / TB[f"bt_{frequencies[denom.upper()]}V"])
 
 
-def mpdi(AMSR2, band):
+def mpdi(TB, band, sensor = "AMSR2"):
     """
     calculate MPDI for AMSR2 BTs. Also accepts frequencies, to select band.
     """
-    btv, bth = AMSR2[f"bt_{frequencies[band.upper()]}V"], AMSR2[f"bt_{frequencies[band.upper()]}H"]
+    sensor_spec = get_specs(sensor=sensor)
+    band_sensor = sensor_spec.frequencies[band.upper()]
+    btv, bth = TB[f"bt_{band_sensor}V"], TB[f"bt_{band_sensor}H"]
     return ((btv-bth)/(btv+bth))
 
 

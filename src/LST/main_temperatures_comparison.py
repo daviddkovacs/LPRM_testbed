@@ -144,7 +144,7 @@ def ASMR2_arrays(AMSR2_datacube_daynight,
     AMSR_Wv = AMSR2_datacube["bt_89.0V"]
     AMSR_Wh = AMSR2_datacube["bt_89.0H"]
 
-    fraction = MW_fraction(AMSR2_datacube,num=numerator_Hpol,denom=denominator_Vpol)
+    fraction = MW_fraction(AMSR2_datacube, num=numerator_Hpol, denom=denominator_Vpol)
 
     _mpdi_eve = AMSR2_MPDI_eve.values.ravel()
     _mpdi_mor = AMSR2_MPDI_mor.values.ravel()
