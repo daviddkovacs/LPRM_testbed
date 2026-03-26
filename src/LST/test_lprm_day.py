@@ -11,8 +11,7 @@ if __name__=="__main__":
     time_stop = "2019-01-01"
     bandlist = ["c2", "x", "ku"]
 
-    AMSR2_DAY, AMSR2_NIGHT = load_TB_daily(bbox=bbox, time_start=time_start, time_stop=time_stop,
-                                           sensor="GMI", file_pattern="gmi_l1bt_*.nc")
+    AMSR2_DAY, AMSR2_NIGHT = load_TB_daily(bbox=bbox, time_start=time_start, time_stop=time_stop,)
     HOLMES_T_NIGHT, HOLMES_T_DAY = calc_Holmes_temp(AMSR2_NIGHT), calc_Holmes_temp(AMSR2_DAY)
 
     ##
