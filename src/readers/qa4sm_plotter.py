@@ -25,10 +25,13 @@ plot_val_lut = {
 
 def import_single_obj(filename_ref,
                       filename_test,
-                      sm_var,
+                      ref_type,
                       root_path=path_datasets):
 
-    filename = f"0-{filename_ref}.{sm_var}_with_1-{filename_test}.{sm_var}.nc"
+    sm_var_name = {"LPRM": "sm",
+                   "ERA5": "swvl1"}
+
+    filename = f"0-{filename_ref}.{sm_var_name[ref_type]}_with_1-{filename_test}.sm.nc"
 
     path = os.path.join(root_path, filename,)
     dataset_ref = os.path.join(os.getcwd(), 'data', path)
@@ -52,11 +55,11 @@ def obj_masker(obj_ref, obj_mask, var):
     return _obj_ref
 
 
-def qa_plotter(obj, ref_name, test_name, metric, value_range = None):
+def qa_plotter(obj, ref_name, test_name, metric, value_range = None, title_additional = ""):
     obj.plot_map(metric = metric,
                       output_dir =None,
                       dataset_list = [ref_name,test_name],
-                      title = f"{metric}:   {ref_name}  -  {test_name}",
+                      title = f"{title_additional} {metric}:   {ref_name}  -  {test_name}",
                       value_range=value_range
                       )
     plt.subplots_adjust(bottom=0.15)
@@ -114,23 +117,26 @@ def histogram_plot(obj,
 
 
 band_current = "c1"
-ref_type = "LPRM"
-metric=  "urmsd"
+ref_type = "ERA5"
+metric=  "R"
 
 sm_var_name = {"LPRM" : "sm",
                "ERA5" : "swvl1"}
 
-reference_filename = f"SM{band_current}_NIGHT_ref"
+ref_fname_dict = {"LPRM": f"SM{band_current}_NIGHT_ref",
+                  "ERA5": f"ERA5_LAND"}
+
+reference_filename = ref_fname_dict[ref_type]
 day_ref_filename = f"SM{band_current}_DAY_ref"
 day_regression_filename = f"SM{band_current}_DAY_regression"
 
 plot_obj_ref = import_single_obj(reference_filename,
                                  day_ref_filename,
-                                 sm_var=sm_var_name[ref_type])
+                                 ref_type)
 
 plot_obj_regression = import_single_obj(reference_filename,
                                         day_regression_filename,
-                                        sm_var=sm_var_name[ref_type])
+                                        ref_type)
 
 
 plot_obj_ref_masked = obj_masker(obj_ref=plot_obj_ref,
@@ -141,14 +147,15 @@ qa_plotter(plot_obj_ref_masked,
            ref_name=reference_filename,
            test_name=day_ref_filename,
            metric=metric,
-           value_range=[plot_val_lut[metric][0], plot_val_lut[metric][1]])
-
+           value_range=[plot_val_lut[metric][0], plot_val_lut[metric][1]],
+           title_additional="2024")
 
 qa_plotter(plot_obj_regression,
            ref_name=reference_filename,
            test_name=day_regression_filename,
            metric=metric,
-           value_range=[plot_val_lut[metric][0], plot_val_lut[metric][1]])
+           value_range=[plot_val_lut[metric][0], plot_val_lut[metric][1]],
+           title_additional="2024")
 
 
 histogram_plot(plot_obj_ref_masked,
