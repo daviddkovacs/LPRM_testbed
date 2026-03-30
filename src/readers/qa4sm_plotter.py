@@ -6,16 +6,16 @@ import matplotlib.pyplot as plt
 import xarray as xr
 import numpy as np
 
-path_datasets = ("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/"
-                 "LPRM/07_debug/daytime_retrieval/MPDI_trick/evaluation/qa4sm_netcdfs")
-
+# path_datasets = ("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/"
+#                  "LPRM/07_debug/daytime_retrieval/MPDI_trick/evaluation/qa4sm_netcdfs")
+path_datasets = "/home/david/personal_data_thinkpad/lprm_brainstorm/plots/qa4sm_stat_data"
 
 # dataset_name = os.path.join(path_datasets,"qa4sm_netcdfs", "
 output_path = ("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/"
                "LPRM/07_debug/daytime_retrieval/MPDI_trick/evaluation/figs")
 
 plot_val_lut = {
-    "BIAS": (-0.51, 0.51),
+    "BIAS": (-0.25, 0.25),
     "R" : (-1,1),
     "urmsd": (0,0.35),
     "status":(None,None)
@@ -50,13 +50,13 @@ def obj_masker(obj_ref, obj_mask, var):
 
 
 def qa_plotter(obj, ref_name, test_name, metric, value_range = None):
-
     obj.plot_map(metric = metric,
-                      output_dir =output_path,
+                      output_dir =None,
                       dataset_list = [ref_name,test_name],
                       title = f"{metric}:   {ref_name}  -  {test_name}",
                       value_range=value_range
                       )
+    plt.subplots_adjust(bottom=0.15)
     plt.show()
 
 
@@ -103,26 +103,26 @@ def histogram_plot(obj,
     ax.set_xlim(xlim)
     ax.set_ylim([0,maxval])
 
-    plt.tight_layout()
+    # plt.tight_layout()
     plt.show()
 
 band_current = "c1"
 era_var = "swvl1"
-ref_type = "ERA5"
-reference_dict = {"LPRM":f'SM{band_current}_NIGHT_ref',
+ref_type = "LPRM"
+reference_dict = {"LPRM":f'SM{band_current}_AMSR2_T_NIGHT_ref_',
                   "ERA5":f"ERA5_LAND.{era_var}"}
 
-ref_name_dict = {"LPRM":f'SM{band_current}_NIGHT_ref',
+ref_name_dict = {"LPRM":f'SM{band_current}_AMSR2_T_NIGHT_ref_',
                   "ERA5":f"ERA5_LAND"}
 
 ref_name = reference_dict[ref_type]
-test1_name = f'SM{band_current}_DAY_ref'
-test2_name = f'SM{band_current}_DAY_regression'
+test1_name = f'SM{band_current}_AMSR2_T_DAY_ref2024'
+test2_name = f'SM{band_current}_AMSR2_T_DAY_regression2024'
 
 fname_ref = f"0-{ref_name}.sm_with_1-{test1_name}.sm.nc" if ref_type =="LPRM" else f"0-{ref_name}_with_1-{test1_name}.sm.nc"
 fname_regression = f"0-{ref_name}.sm_with_1-{test2_name}.sm.nc" if ref_type =="LPRM" else f"0-{ref_name}_with_1-{test2_name}.sm.nc"
-
-metric=  "BIAS"
+2
+metric=  "R"
 
 plot_obj_ref = import_single_obj(fname_ref)
 plot_obj_regression = import_single_obj(fname_regression)
@@ -140,11 +140,11 @@ qa_plotter(plot_obj_regression,ref_name=ref_name_dict[ref_type],test_name=test2_
            value_range=[ plot_val_lut[metric][0], plot_val_lut[metric][1]])
 
 
-histogram_plot(plot_obj_ref_masked,f"{metric}_between_0-{ref_name_dict[ref_type]}_and_1-{test1_name}",
+histogram_plot(plot_obj_ref_masked,f"{metric}_between_0-{ref_name_dict[ref_type]}_and_1-{test1_name}_",
                xlim = [plot_val_lut[metric][0], plot_val_lut[metric][1]],
                # maxval  = 10000
                )
-histogram_plot(plot_obj_regression,f"{metric}_between_0-{ref_name_dict[ref_type]}_and_1-{test2_name}",
+histogram_plot(plot_obj_regression,f"{metric}_between_0-{ref_name_dict[ref_type]}_and_1-{test2_name}_",
                xlim = [plot_val_lut[metric][0], plot_val_lut[metric][1]],
                # maxval=10000
                )

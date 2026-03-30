@@ -17,7 +17,7 @@ if __name__=="__main__":
     HOLMES_T_NIGHT, HOLMES_T_DAY = calc_Holmes_temp(AMSR2_NIGHT), calc_Holmes_temp(AMSR2_DAY)
 
     ##
-    band_current = "c1"
+    band_current = "x"
 
     path_aux_t = (f"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/MPDI_trick/lprm_testing"
                   f"/T_aux/Daytime_T_aux_{band_current}.nc")
@@ -61,23 +61,17 @@ if __name__=="__main__":
 
 ##
     # path_shares = "/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/MPDI_trick/lprm_testing/SM/"
-    path_climers01 = "/home/david/personal_data/lprm_brainstorm/data/SM_VOD"
+    path_climers01 = "~/personal_data/lprm_daytime/retrieved_data"
     path_out = path_climers01
     compression_settings = {"zlib": True, "complevel": 5}
 
-    SM_NIGHT_ref.to_netcdf(os.path.join(path_out, f"SM{band_current}_AMSR2_T_NIGHT_ref_.nc"), encoding={"sm": compression_settings})
-
-    VOD_NIGHT_ref.to_netcdf(os.path.join(path_out, f"VOD{band_current}_AMSR2_T_NIGHT_ref_.nc"), encoding={"vod": compression_settings})
-##
+    SM_NIGHT_ref.to_netcdf(os.path.join(path_out, f"SM{band_current}_AMSR2_T_NIGHT_ref.nc"), encoding={"sm": compression_settings})
+    VOD_NIGHT_ref.to_netcdf(os.path.join(path_out, f"VOD{band_current}_AMSR2_T_NIGHT_ref.nc"), encoding={"vod": compression_settings})
 
     SM_DAY_ref.to_netcdf(os.path.join(path_out, f"SM{band_current}_AMSR2_T_DAY_ref_.nc"),encoding={"sm": compression_settings})
-
     VOD_DAY_ref.to_netcdf(os.path.join(path_out, f"VOD{band_current}_AMSR2_T_DAY_ref_.nc"), encoding={"vod": compression_settings})
 
-##
-
     SM_DAY_regression.to_netcdf(os.path.join(path_out, f"SM{band_current}_AMSR2_T_DAY_regression_.nc"), encoding={"sm": compression_settings})
-
     VOD_DAY_regression.to_netcdf(os.path.join(path_out, f"VOD{band_current}_AMSR2_T_DAY_regression_.nc"), encoding={"vod": compression_settings})
 
 

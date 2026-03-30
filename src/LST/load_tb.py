@@ -64,12 +64,12 @@ def open_mw_sensor(path,
                                 decode_timedelta = False)
 
     dataset_cropped = crop2roi(dataset, bbox)
-    dataset_time_of_day  = assign_time_of_day(dataset = dataset_cropped,
-                                              dates = _dates[date_mask])
+    # dataset_time_of_day  = assign_time_of_day(dataset = dataset_cropped,
+    #                                           dates = _dates[date_mask])
 
     res_dict = {"coarse_resolution" : 0.25,
                 "medium_resolution":  0.1}
-    dataset_complete = dataset_time_of_day.assign_attrs(resolution = res_dict[resolution])
+    dataset_complete = dataset_cropped.assign_attrs(resolution = res_dict[resolution])
     print(f"Loading dataset finished ({sensor} {overpass})")
 
     return dataset_complete
