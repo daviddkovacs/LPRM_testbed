@@ -107,74 +107,77 @@ def retrieve_LPRM(TB_DATASET, SURFACE_T, band, SM_input = None, VOD_input = None
     lprm_list_tsim = []
 
     for t in times:
-        print(t.dt.date.item())
-        tb_map = TB_DATASET.sel(time = t).compute()
-        holmes_t = SURFACE_T.sel(time = t).compute()
+        try:
+            print(t.dt.date.item())
+            tb_map = TB_DATASET.sel(time = t).compute()
+            holmes_t = SURFACE_T.sel(time = t).compute()
 
-        if SM_input is not None:
-            sm_input = SM_input.sel(time = t).compute().values
-            vod_input = VOD_input.sel(time = t).compute().values
-        else:
-            sm_input = None
-            vod_input = None
-        aux_data_dict = {
-            "sand": load_aux_file(0.25, "SND"),
-            "clay": load_aux_file(0.25, "CLY"),
-            "bld": load_aux_file(0.25, "BLD"),
-        }
-        params = get_lprm_parameters_for_frequency(band, inc_angle)
+            if SM_input is not None:
+                sm_input = SM_input.sel(time = t).compute().values
+                vod_input = VOD_input.sel(time = t).compute().values
+            else:
+                sm_input = None
+                vod_input = None
+            aux_data_dict = {
+                "sand": load_aux_file(0.25, "SND"),
+                "clay": load_aux_file(0.25, "CLY"),
+                "bld": load_aux_file(0.25, "BLD"),
+            }
+            params = get_lprm_parameters_for_frequency(band, inc_angle)
 
-        sm, vod,tsim = par100.run_band(
-            tb_map[f"bt_{freq}V"].values,
-            tb_map[f"bt_{freq}H"].values,
-            holmes_t.values,
-            aux_data_dict["sand"],
-            aux_data_dict["clay"],
-            aux_data_dict["bld"],
-            params.Q,
-            params.w,
-            params.opt_atm,
-            inc_angle,
-            params.h1,
-            params.h2,
-            params.vod_Av,
-            params.vod_Bv,
-            float(freq),
-            params.temp_freeze,
-            False,
-            None,
-            SM_map_night = sm_input,
-            VOD_map_night = vod_input,
-        )
+            sm, vod,tsim = par100.run_band(
+                tb_map[f"bt_{freq}V"].values,
+                tb_map[f"bt_{freq}H"].values,
+                holmes_t.values,
+                aux_data_dict["sand"],
+                aux_data_dict["clay"],
+                aux_data_dict["bld"],
+                params.Q,
+                params.w,
+                params.opt_atm,
+                inc_angle,
+                params.h1,
+                params.h2,
+                params.vod_Av,
+                params.vod_Bv,
+                float(freq),
+                params.temp_freeze,
+                False,
+                None,
+                SM_map_night = sm_input,
+                VOD_map_night = vod_input,
+            )
 
-        sm_da = xr.DataArray(
-            data=sm,
-            coords=tb_map.coords,
-            dims=tb_map.dims,
-            name="sm"
-        )
-
-        vod_da = xr.DataArray(
-            data=vod,
-            coords=tb_map.coords,
-            dims=tb_map.dims,
-            name="vod"
-        )
-        sm_da = sm_da.where(sm_da>=0)
-        vod_da = vod_da.where(vod_da>=0)
-
-        if SM_input is not None:
-            tsim_da = xr.DataArray(
-                data=tsim,
+            sm_da = xr.DataArray(
+                data=sm,
                 coords=tb_map.coords,
                 dims=tb_map.dims,
-                name="tsim"
+                name="sm"
             )
-            tsim_da = tsim_da.where(tsim_da>=0)
-            lprm_list_tsim.append(tsim_da)
 
-        lprm_list_sm.append(sm_da)
-        lprm_list_vod.append(vod_da)
+            vod_da = xr.DataArray(
+                data=vod,
+                coords=tb_map.coords,
+                dims=tb_map.dims,
+                name="vod"
+            )
+            sm_da = sm_da.where(sm_da>=0)
+            vod_da = vod_da.where(vod_da>=0)
+
+            if SM_input is not None:
+                tsim_da = xr.DataArray(
+                    data=tsim,
+                    coords=tb_map.coords,
+                    dims=tb_map.dims,
+                    name="tsim"
+                )
+                tsim_da = tsim_da.where(tsim_da>=0)
+                lprm_list_tsim.append(tsim_da)
+
+            lprm_list_sm.append(sm_da)
+            lprm_list_vod.append(vod_da)
+        except Exception as e:
+            print(f"{e} {t.dt.date.item()}")
 
     SM_dataset = xr.concat(lprm_list_sm, dim = "time")
     VOD_dataset = xr.concat(lprm_list_vod, dim = "time")
@@ -318,11 +321,11 @@ def get_sensor_band(TB,sensor, band, pol):
 if __name__=="__main__":
 
     bbox = [-180, -90, 180, 90]
-    year_start = "2018"
+    year_start = "2020"
     time_start = f"{year_start}-01-01"
-    time_stop = "2019-01-01"
-    bandlist = [ "x", "ku"]
-    sensor = "GMI"
+    time_stop = "2025-01-01"
+    bandlist = ["c1", "x", "ku"]
+    sensor = "AMSR2"
 
 
     TB_DAY, TB_NIGHT = load_TB_daily(bbox=bbox, time_start=time_start, time_stop=time_stop,
@@ -362,16 +365,16 @@ if __name__=="__main__":
     T_KA = get_sensor_band(TB_DAY_low_mpdi,sensor,"KA","V")
 
 ##
-    res = 5
+    res = 1
     stat_da = regression_wrapper(T_KA,TSIM_low_mpdi,resolution=res)
 
 ##
-    world_map(stat_da, "intercept", cbar_min=0,cbar_max=100, cmap="viridis", title_extra = f"{year_start} {band_current}")
-    world_map(stat_da, "slope", cbar_min=0.8,cbar_max=1.1, cmap="RdYlGn",title_extra = f"{year_start} {band_current}")
-    world_map(stat_da, "r", cbar_min=0.5,cbar_max=1, cmap="coolwarm",title_extra = f"{year_start} {band_current}")
-    world_map(stat_da, "rmse", cbar_min=0,cbar_max=25, cmap="YlGn",title_extra = f"{year_start} {band_current}")
-    world_map(stat_da, "bias", cbar_min=0,cbar_max=25, cmap="Purples",title_extra = f"{year_start} {band_current}")
-    world_map(stat_da, "ubrmse", cbar_min=0,cbar_max=5, cmap="Purples",title_extra = f"{year_start} {band_current}")
+    world_map(stat_da, "intercept", cbar_min=0,cbar_max=100, cmap="viridis", title_extra = f"{time_stop} {sensor} {band_current}")
+    world_map(stat_da, "slope", cbar_min=0.8,cbar_max=1.1, cmap="RdYlGn",title_extra = f"{time_stop} {sensor} {band_current}")
+    # world_map(stat_da, "r", cbar_min=0.5,cbar_max=1, cmap="coolwarm",title_extra = f"{time_stop} {sensor} {band_current}")
+    # world_map(stat_da, "rmse", cbar_min=0,cbar_max=25, cmap="YlGn",title_extra = f"{year_start} {sensor} {band_current}")
+    # world_map(stat_da, "bias", cbar_min=0,cbar_max=25, cmap="Purples",title_extra = f"{year_start} {sensor} {band_current}")
+    # world_map(stat_da, "ubrmse", cbar_min=0,cbar_max=5, cmap="Purples",title_extra = f"{year_start} {sensor} {band_current}")
 
 ##
     highres_coords = HOLMES_T_DAY.isel(time =0)
@@ -440,36 +443,31 @@ if __name__=="__main__":
     region = "sahara"
     roi = _density_plot_rois[region]
 
-    T_KA = TB_DAY_low_mpdi["bt_36.5V"]
     T_HOLMES = T_KA * 0.893 + 44.8
     DELTA_T = TSIM_low_mpdi - T_KA
 
     F = (TB_DAY_low_mpdi[f"bt_{frequencies["ku".upper()]}H"]
          /TB_DAY_low_mpdi[f"bt_{frequencies["ka".upper()]}V"])
 
-    date_range = pd.date_range(start=time_start,end=time_stop,freq="MS")
+    time_selector = (DELTA_T.time.dt.year == int(year_start))
+    df = pd.DataFrame({
+        "DELTA_T": ravel_roi_time(DELTA_T, roi, time_selector, method="nearest"),
+        "F": ravel_roi_time(F, roi, time_selector, method="nearest"),
+        "T_KA": ravel_roi_time(T_KA, roi, time_selector, method="nearest"),
+        "TSIM_low_mpdi" : ravel_roi_time(TSIM_low_mpdi, roi, time_selector, method="nearest"),
+        "VOD_low_mpdi": ravel_roi_time(VOD_low_mpdi, roi, time_selector, method="nearest"),
+        "SM_low_mpdi": ravel_roi_time(SM_low_mpdi, roi, time_selector, method="nearest"),
+        "T_HOLMES": ravel_roi_time(T_HOLMES, roi, time_selector, method="nearest"),
+    })
 
-    for i in date_range.year:
-        # time_selector = (DELTA_T.time.dt.month == i)
-        time_selector = (DELTA_T.time.dt.year == int(year_start))
-        df = pd.DataFrame({
-            "DELTA_T": ravel_roi_time(DELTA_T, roi, time_selector, method="nearest"),
-            "F": ravel_roi_time(F, roi, time_selector, method="nearest"),
-            "T_KA": ravel_roi_time(T_KA, roi, time_selector, method="nearest"),
-            "TSIM_low_mpdi" : ravel_roi_time(TSIM_low_mpdi, roi, time_selector, method="nearest"),
-            "VOD_low_mpdi": ravel_roi_time(VOD_low_mpdi, roi, time_selector, method="nearest"),
-            "SM_low_mpdi": ravel_roi_time(SM_low_mpdi, roi, time_selector, method="nearest"),
-            "T_HOLMES": ravel_roi_time(T_HOLMES, roi, time_selector, method="nearest"),
-        })
-
-        plot_hexbin(df,
-                    "T_KA",
-                    "TSIM_low_mpdi",
-                    color_of_points="F",
-                    # xlim=[0.95,1.05], ylim=[265,320],   #F
-                    xlim=[265,320], ylim=[265,320],          # T and T
-                    # xlim=[None,None], ylim=[None,None],
-                    # cbar_min= 0, cbar_max= 30,
-                    title_string=f"year:{i} {region} band: {band_current}",
-                    )
+    plot_hexbin(df,
+                "T_KA",
+                "TSIM_low_mpdi",
+                color_of_points="F",
+                # xlim=[0.95,1.05], ylim=[265,320],   #F
+                xlim=[265,320], ylim=[265,320],          # T and T
+                # xlim=[None,None], ylim=[None,None],
+                # cbar_min= 0, cbar_max= 30,
+                title_string=f"year:{time_selector} {region} band: {band_current}",
+                )
 
