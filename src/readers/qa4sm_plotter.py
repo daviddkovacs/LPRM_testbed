@@ -6,9 +6,8 @@ import matplotlib.pyplot as plt
 import xarray as xr
 import numpy as np
 
-# path_datasets = ("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/"
-#                  "LPRM/07_debug/daytime_retrieval/MPDI_trick/evaluation/qa4sm_netcdfs")
-path_datasets = "/home/david/personal_data_thinkpad/lprm_brainstorm/plots/qa4sm_stat_data"
+path_datasets = ("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/"
+                 "LPRM/07_debug/daytime_retrieval/MPDI_trick/evaluation/qa4sm_netcdfs")
 
 # dataset_name = os.path.join(path_datasets,"qa4sm_netcdfs", "
 output_path = ("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/"
@@ -24,8 +23,12 @@ plot_val_lut = {
 
 ##
 
-def import_single_obj(filename,
-                      root_path= path_datasets):
+def import_single_obj(filename_ref,
+                      filename_test,
+                      sm_var,
+                      root_path=path_datasets):
+
+    filename = f"0-{filename_ref}.{sm_var}_with_1-{filename_test}.{sm_var}.nc"
 
     path = os.path.join(root_path, filename,)
     dataset_ref = os.path.join(os.getcwd(), 'data', path)
@@ -61,11 +64,14 @@ def qa_plotter(obj, ref_name, test_name, metric, value_range = None):
 
 
 def histogram_plot(obj,
-                   statistics,
+                   ref_name,
+                   test_name,
+                   metric,
                    xlim= [None,None],
                    maxval=None,
                    ):
 
+    statistics = f"{metric}_between_0-{ref_name}_and_1-{test_name}"
     stat_data = obj.df[statistics].values.ravel()
 
     data_clean = stat_data[~np.isnan(stat_data)]
@@ -106,47 +112,57 @@ def histogram_plot(obj,
     # plt.tight_layout()
     plt.show()
 
+
 band_current = "c1"
-era_var = "swvl1"
 ref_type = "LPRM"
-reference_dict = {"LPRM":f'SM{band_current}_AMSR2_T_NIGHT_ref_',
-                  "ERA5":f"ERA5_LAND.{era_var}"}
+metric=  "urmsd"
 
-ref_name_dict = {"LPRM":f'SM{band_current}_AMSR2_T_NIGHT_ref_',
-                  "ERA5":f"ERA5_LAND"}
+sm_var_name = {"LPRM" : "sm",
+               "ERA5" : "swvl1"}
 
-ref_name = reference_dict[ref_type]
-test1_name = f'SM{band_current}_AMSR2_T_DAY_ref2024'
-test2_name = f'SM{band_current}_AMSR2_T_DAY_regression2024'
+reference_filename = f"SM{band_current}_NIGHT_ref"
+day_ref_filename = f"SM{band_current}_DAY_ref"
+day_regression_filename = f"SM{band_current}_DAY_regression"
 
-fname_ref = f"0-{ref_name}.sm_with_1-{test1_name}.sm.nc" if ref_type =="LPRM" else f"0-{ref_name}_with_1-{test1_name}.sm.nc"
-fname_regression = f"0-{ref_name}.sm_with_1-{test2_name}.sm.nc" if ref_type =="LPRM" else f"0-{ref_name}_with_1-{test2_name}.sm.nc"
-2
-metric=  "R"
+plot_obj_ref = import_single_obj(reference_filename,
+                                 day_ref_filename,
+                                 sm_var=sm_var_name[ref_type])
 
-plot_obj_ref = import_single_obj(fname_ref)
-plot_obj_regression = import_single_obj(fname_regression)
+plot_obj_regression = import_single_obj(reference_filename,
+                                        day_regression_filename,
+                                        sm_var=sm_var_name[ref_type])
 
 
 plot_obj_ref_masked = obj_masker(obj_ref=plot_obj_ref,
                                 obj_mask=plot_obj_regression,
                                  var=metric)
 
-qa_plotter(plot_obj_ref_masked,ref_name=ref_name_dict[ref_type],test_name=test1_name, metric=metric,
-           value_range=[ plot_val_lut[metric][0], plot_val_lut[metric][1]])
+qa_plotter(plot_obj_ref_masked,
+           ref_name=reference_filename,
+           test_name=day_ref_filename,
+           metric=metric,
+           value_range=[plot_val_lut[metric][0], plot_val_lut[metric][1]])
 
 
-qa_plotter(plot_obj_regression,ref_name=ref_name_dict[ref_type],test_name=test2_name, metric=metric,
-           value_range=[ plot_val_lut[metric][0], plot_val_lut[metric][1]])
+qa_plotter(plot_obj_regression,
+           ref_name=reference_filename,
+           test_name=day_regression_filename,
+           metric=metric,
+           value_range=[plot_val_lut[metric][0], plot_val_lut[metric][1]])
 
 
-histogram_plot(plot_obj_ref_masked,f"{metric}_between_0-{ref_name_dict[ref_type]}_and_1-{test1_name}_",
+histogram_plot(plot_obj_ref_masked,
+               reference_filename,
+               day_ref_filename,
+               metric= metric,
                xlim = [plot_val_lut[metric][0], plot_val_lut[metric][1]],
-               # maxval  = 10000
                )
-histogram_plot(plot_obj_regression,f"{metric}_between_0-{ref_name_dict[ref_type]}_and_1-{test2_name}_",
+
+histogram_plot(plot_obj_regression,
+               reference_filename,
+               day_regression_filename,
+               metric= metric,
                xlim = [plot_val_lut[metric][0], plot_val_lut[metric][1]],
-               # maxval=10000
                )
 
 ##
