@@ -115,7 +115,7 @@ def regressor_calc(df,x_col,y_col,):
 def plot_hexbin(df, x_col, y_col,
                 xlim=[273, 325], ylim=[273, 325],
                 cbar_min = None, cbar_max = None,
-                plot_polyfit=True, utc_timeofday="",
+                plot_polyfit=True,
                 title_string="", ax=None, show_colorbar=True,
                 bins = None, color_of_points = None,   ):
 
