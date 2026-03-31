@@ -231,8 +231,6 @@ def regression_process_pixel(lat_val,
                              Y_DATA,
                              x_var="T_KA",
                              y_var="TSIM_low_mpdi",
-                             global_slope = 0.85,
-                             global_intercept = 58.07,
                              ):
     """
     Function to process regression on a single block o
@@ -310,6 +308,7 @@ def regression_wrapper(X_DATA,Y_DATA, resolution =5, bounds = [ -180,-90,180,90 
 
     return stat_da
 
+
 def get_sensor_band(TB,sensor, band, pol):
 
     freq = get_specs(sensor).frequencies[band.upper() if band.upper()!="KA" else "Ka"]
@@ -321,7 +320,7 @@ def get_sensor_band(TB,sensor, band, pol):
 if __name__=="__main__":
 
     bbox = [-180, -90, 180, 90]
-    year_start = "2020"
+    year_start = "2024"
     time_start = f"{year_start}-01-01"
     time_stop = "2025-01-01"
     bandlist = ["c1", "x", "ku"]
@@ -334,7 +333,7 @@ if __name__=="__main__":
     HOLMES_T_NIGHT, HOLMES_T_DAY = calc_Holmes_temp(TB_NIGHT, sensor=sensor), calc_Holmes_temp(TB_DAY, sensor=sensor)
 
 ##
-    band_current = "x"
+    band_current = "ku"
     SM_NIGHT, VOD_NIGHT,_ = retrieve_LPRM(TB_DATASET=TB_NIGHT, SURFACE_T=HOLMES_T_NIGHT, band=band_current, sensor=sensor)
     # Highly experimental! TSIM is obtained byrunning LPRM in reverse.
     # TB has to be corresponding, for T_SIM to work!!!! DAY-DAY NIGHT-NIGHT
@@ -344,7 +343,7 @@ if __name__=="__main__":
 
 ##
     dif_threshold = 0.00005
-    minimum_mpdi = 0.01
+    minimum_mpdi = 0.015
 
     MPDI_DAY , MPDI_NIGHT = calc_MPDI_bands(TB_DAY=TB_DAY,TB_NIGHT=TB_NIGHT,
                                             list_of_bands=bandlist, minimum_mpdi=minimum_mpdi, sensor=sensor)
@@ -383,8 +382,9 @@ if __name__=="__main__":
 
     encoding_dict = {"sm": compression_settings}
 
-    # _stat_da.to_netcdf("/home/ddkovacs/personal_data/lprm_daytime/lprm_testing/T_aux/"
-    #                  f"Daytime_T_aux_{band_current}.nc", encoding={key : compression_settings for key in stat_da.var()})
+    _stat_da.to_netcdf("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/"
+                       "07_data/LPRM/07_debug/daytime_retrieval/MPDI_trick/lprm_testing/T_aux"
+                     f"Daytime_T_aux_{band_current}_MPDI{minimum_mpdi}.nc", encoding={key : compression_settings for key in stat_da.var()})
 
 ##
     _density_plot_rois = {
@@ -396,7 +396,12 @@ if __name__=="__main__":
                 13.006449666672083
             ],
         "global":
-            [-180, -90, 180, 90]
+            [
+                2.558241571844661,
+                -27.901585373645382,
+                122.26017044881735,
+                66.05759899228326
+            ]
         ,
         "sahara":
             [
@@ -440,7 +445,7 @@ if __name__=="__main__":
 
     }
 
-    region = "sahara"
+    region = "deciduous_w_virginia"
     roi = _density_plot_rois[region]
 
     T_HOLMES = T_KA * 0.893 + 44.8
@@ -463,11 +468,11 @@ if __name__=="__main__":
     plot_hexbin(df,
                 "T_KA",
                 "TSIM_low_mpdi",
-                color_of_points="F",
+                color_of_points=None,
                 # xlim=[0.95,1.05], ylim=[265,320],   #F
                 xlim=[265,320], ylim=[265,320],          # T and T
                 # xlim=[None,None], ylim=[None,None],
                 # cbar_min= 0, cbar_max= 30,
-                title_string=f"year:{time_selector} {region} band: {band_current}",
+                title_string=f"year:{int(year_start)} {region} band: {band_current}",
                 )
 
