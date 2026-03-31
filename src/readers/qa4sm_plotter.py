@@ -1,6 +1,7 @@
 import copy
-
 from qa4sm_reader.custom_user_plot_generator import CustomPlotObject
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
 import os
 import matplotlib.pyplot as plt
 import xarray as xr
@@ -17,6 +18,13 @@ plot_val_lut = {
     "BIAS": (-0.25, 0.25),
     "R" : (-1,1),
     "urmsd": (0,0.35),
+    "status":(None,None)
+}
+
+color_lut = {
+    "BIAS": "PiYG",
+    "R" : "RdBu_r",
+    "urmsd": "PuOr",
     "status":(None,None)
 }
 
@@ -51,8 +59,9 @@ def obj_masker(obj_ref, obj_mask, var):
     is_nan_mask = obj_mask.df[mask_col].isna()
 
     _obj_ref.df = _obj_ref.df.mask(is_nan_mask, axis=0)
-
-    return _obj_ref
+    xr_ref =  _obj_ref.df.to_xarray()
+    xr_test =  obj_mask.df.to_xarray()
+    return _obj_ref, xr_ref,xr_test
 
 
 def qa_plotter(obj, ref_name, test_name, metric, value_range = None, title_additional = ""):
@@ -60,9 +69,49 @@ def qa_plotter(obj, ref_name, test_name, metric, value_range = None, title_addit
                       output_dir =None,
                       dataset_list = [ref_name,test_name],
                       title = f"{title_additional} {metric}:   {ref_name}  -  {test_name}",
+                 extent=[-180,180,-60,85],
                       value_range=value_range
                       )
     plt.subplots_adjust(bottom=0.15)
+    plt.show()
+
+
+def manual_plotter(dataset, fname_ref,fname_test, metric, values):
+
+    fig = plt.figure(figsize=(8, 6))
+    ax = plt.axes(projection=ccrs.Robinson())
+    ax.set_extent([-180, 180, -60, 90], crs=ccrs.PlateCarree())
+    ax.add_feature(cfeature.LAND, facecolor='lightgray', zorder=0)
+    ax.add_feature(cfeature.OCEAN, facecolor='white', zorder=0)
+    ax.coastlines(linewidth=0.5, zorder=2)
+    ax.add_feature(cfeature.BORDERS, linestyle=':', linewidth=0.5, zorder=2)
+
+    _variable = f'{metric}_between_0-{fname_ref}_and_1-{fname_test}'
+    plot_da = dataset[_variable]
+
+    if "regression" in fname_test:
+
+        plot_da = plot_da.where((values[0]+0.002 < plot_da) & (plot_da<values[1]))
+        x = 1
+    mesh = plot_da.plot.pcolormesh(
+        ax=ax,
+        transform=ccrs.PlateCarree(),
+        x='lon',
+        y='lat',
+        cmap=color_lut[metric],
+        vmin=values[0],
+        vmax=values[1],
+        add_colorbar=False,
+        zorder=1
+    )
+
+    cbar = plt.colorbar(mesh, ax=ax, orientation='horizontal', shrink=0.5, pad=0.05)
+    cbar.set_label(f"{metric}", fontsize=12)
+    cbar.ax.tick_params(labelsize=10)
+
+    plt.title(f"{metric}: {fname_ref} - {fname_test}", fontsize=15, pad=15)
+    plt.tight_layout()
+
     plt.show()
 
 
@@ -72,6 +121,7 @@ def histogram_plot(obj,
                    metric,
                    xlim= [None,None],
                    maxval=None,
+                   title = ""
                    ):
 
     statistics = f"{metric}_between_0-{ref_name}_and_1-{test_name}"
@@ -100,13 +150,12 @@ def histogram_plot(obj,
     ax.text(0.05, 0.95, stats_text, transform=ax.transAxes, fontsize=11,
             verticalalignment='top',
             bbox=dict(boxstyle='round,pad=0.5', facecolor='white', edgecolor='gray', alpha=0.8))
-    ax.set_xlabel(statistics, fontsize=12)
+    ax.set_xlabel(title, fontsize=12)
     ax.set_ylabel('Frequency', fontsize=12)
 
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
 
-    # ax.grid(axis='y', linestyle='--', alpha=0.7)
     ax.set_axisbelow(True)
     ax.legend()
     ax.set_xlim(xlim)
@@ -118,7 +167,7 @@ def histogram_plot(obj,
 
 band_current = "c1"
 ref_type = "ERA5"
-metric=  "R"
+metric=  "BIAS"
 
 sm_var_name = {"LPRM" : "sm",
                "ERA5" : "swvl1"}
@@ -139,23 +188,32 @@ plot_obj_regression = import_single_obj(reference_filename,
                                         ref_type)
 
 
-plot_obj_ref_masked = obj_masker(obj_ref=plot_obj_ref,
+plot_obj_ref_masked, xr_ref, xr_test  = obj_masker(obj_ref=plot_obj_ref,
                                 obj_mask=plot_obj_regression,
                                  var=metric)
 
-qa_plotter(plot_obj_ref_masked,
-           ref_name=reference_filename,
-           test_name=day_ref_filename,
-           metric=metric,
-           value_range=[plot_val_lut[metric][0], plot_val_lut[metric][1]],
-           title_additional="2024")
 
-qa_plotter(plot_obj_regression,
-           ref_name=reference_filename,
-           test_name=day_regression_filename,
-           metric=metric,
-           value_range=[plot_val_lut[metric][0], plot_val_lut[metric][1]],
-           title_additional="2024")
+manual_plotter(xr_ref,reference_filename,day_ref_filename,
+               metric,plot_val_lut[metric])
+manual_plotter(xr_test,reference_filename,day_regression_filename,
+               metric,plot_val_lut[metric])
+
+
+
+
+# qa_plotter(plot_obj_ref_masked,
+#            ref_name=reference_filename,
+#            test_name=day_ref_filename,
+#            metric=metric,
+#            value_range=[plot_val_lut[metric][0], plot_val_lut[metric][1]],
+#            title_additional="2024")
+#
+# qa_plotter(plot_obj_regression,
+#            ref_name=reference_filename,
+#            test_name=day_regression_filename,
+#            metric=metric,
+#            value_range=[plot_val_lut[metric][0], plot_val_lut[metric][1]],
+#            title_additional="2024")
 
 
 histogram_plot(plot_obj_ref_masked,
@@ -163,6 +221,9 @@ histogram_plot(plot_obj_ref_masked,
                day_ref_filename,
                metric= metric,
                xlim = [plot_val_lut[metric][0], plot_val_lut[metric][1]],
+               maxval=14000,
+               title= f"{metric}: {reference_filename} v. {day_ref_filename}",
+               # title= f"{metric}: LPRM Night v. {day_ref_filename}",
                )
 
 histogram_plot(plot_obj_regression,
@@ -170,6 +231,8 @@ histogram_plot(plot_obj_regression,
                day_regression_filename,
                metric= metric,
                xlim = [plot_val_lut[metric][0], plot_val_lut[metric][1]],
+               maxval=14000,
+               title= f"{metric}: {reference_filename} v. {day_regression_filename}"
                )
 
 ##
