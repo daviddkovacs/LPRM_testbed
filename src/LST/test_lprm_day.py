@@ -9,8 +9,8 @@ from plot_functions import world_map
 if __name__=="__main__":
 
     bbox = [-180, -90, 180, 90]
-    time_start = "2020-01-01"
-    time_stop = "2025-01-01"
+    time_start = "2015-01-01"
+    time_stop = "2020-01-01"
     bandlist = ["c1","c2", "x", "ku"]
 
     AMSR2_DAY, AMSR2_NIGHT = load_TB_daily(bbox=bbox, time_start=time_start, time_stop=time_stop,)
@@ -32,8 +32,8 @@ if __name__=="__main__":
 
 ##
     SM_NIGHT_ref, VOD_NIGHT_ref ,_ = retrieve_LPRM(TB_DATASET=AMSR2_NIGHT,
-                                          SURFACE_T=HOLMES_T_NIGHT,
-                                          band=band_current)
+                                                   SURFACE_T=HOLMES_T_NIGHT,
+                                                   band=band_current)
 
     # _, _,T_sim_day = retrieve_LPRM(TB_DATASET=AMSR2_DAY,
     #                                SURFACE_T=HOLMES_T_DAY,
@@ -54,25 +54,21 @@ if __name__=="__main__":
 
     plt.figure(figsize=(20,4))
     SM_DAY_ref.sel(lat = lat, lon = lon, method = "nearest").plot(label ="SM_DAY")
-    SM_DAY_regression.sel(lat = lat, lon = lon, method ="nearest").plot(label ="SM_DAY_regression")
+    # SM_DAY_regression.sel(lat = lat, lon = lon, method ="nearest").plot(label ="SM_DAY_regression")
     SM_NIGHT_ref.sel(lat = lat, lon = lon, method = "nearest").plot(label ="SM_NIGHT")
     plt.legend()
     plt.show()
 
 ##
-    # path_shares = "/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/MPDI_trick/lprm_testing/SM/"
-    path_climers01 = "~/personal_data/lprm_daytime/retrieved_data"
-    path_out = path_climers01
+    path_shares = "/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/MPDI_trick/lprm_testing/SM/"
+    path_out = path_shares
     compression_settings = {"zlib": True, "complevel": 5}
 
-    SM_NIGHT_ref.to_netcdf(os.path.join(path_out, f"SM{band_current}_AMSR2_T_NIGHT_ref.nc"), encoding={"sm": compression_settings})
-    VOD_NIGHT_ref.to_netcdf(os.path.join(path_out, f"VOD{band_current}_AMSR2_T_NIGHT_ref.nc"), encoding={"vod": compression_settings})
-
-    SM_DAY_ref.to_netcdf(os.path.join(path_out, f"SM{band_current}_AMSR2_T_DAY_ref_.nc"),encoding={"sm": compression_settings})
-    VOD_DAY_ref.to_netcdf(os.path.join(path_out, f"VOD{band_current}_AMSR2_T_DAY_ref_.nc"), encoding={"vod": compression_settings})
-
-    SM_DAY_regression.to_netcdf(os.path.join(path_out, f"SM{band_current}_AMSR2_T_DAY_regression_.nc"), encoding={"sm": compression_settings})
-    VOD_DAY_regression.to_netcdf(os.path.join(path_out, f"VOD{band_current}_AMSR2_T_DAY_regression_.nc"), encoding={"vod": compression_settings})
-
-
-
+    SM_NIGHT_ref.to_netcdf(os.path.join(path_out, f"SM{band_current}_NIGHT_ref.nc"), encoding={"sm": compression_settings})
+    # VOD_NIGHT_ref.to_netcdf(os.path.join(path_out, f"VOD{band_current}_NIGHT_ref.nc"), encoding={"vod": compression_settings})
+    #
+    # SM_DAY_ref.to_netcdf(os.path.join(path_out, f"SM{band_current}_DAY_ref.nc"),encoding={"sm": compression_settings})
+    # VOD_DAY_ref.to_netcdf(os.path.join(path_out, f"VOD{band_current}_DAY_ref.nc"), encoding={"vod": compression_settings})
+    #
+    # SM_DAY_regression.to_netcdf(os.path.join(path_out, f"SM{band_current}_DAY_regression.nc"), encoding={"sm": compression_settings})
+    # VOD_DAY_regression.to_netcdf(os.path.join(path_out, f"VOD{band_current}_DAY_regression.nc"), encoding={"vod": compression_settings})
