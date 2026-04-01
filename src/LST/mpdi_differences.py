@@ -206,10 +206,13 @@ def coarse_grid(DATA, resolution = 5):
     return DATA_coarse_grid
 
 
-def get_empty_grid(resolution):
+def get_empty_grid(resolution, COARSE_coords):
 
-    lats = np.arange(-87.5, 90, resolution)
-    lons = np.arange(-177.5, 180, resolution)
+    min_lat, max_lat = COARSE_coords.lat.min().item(), COARSE_coords.lat.max().item()
+    min_lon, max_lon = COARSE_coords.lon.min().item(), COARSE_coords.lon.max().item()
+
+    lats = np.arange(min_lat, max_lat, resolution)
+    lons = np.arange(min_lon, max_lon, resolution)
 
     empty_data = np.full( (len(lats), len(lons)), np.nan)
 
@@ -292,7 +295,7 @@ def regression_wrapper(X_DATA,Y_DATA, resolution =5, bounds = [ -180,-90,180,90 
     X_DATA_COARSE = coarse_grid(X_DATA, resolution=resolution).compute()
     Y_DATA_COARSE = coarse_grid(Y_DATA,resolution=resolution).compute()
 
-    empty_map = get_empty_grid(resolution=resolution)
+    empty_map = get_empty_grid(resolution=resolution, COARSE_coords = X_DATA_COARSE)
 
     lats = empty_map.lat[(empty_map.lat > bounds[1]) & (empty_map.lat < bounds[3])].values
     lons = empty_map.lon[(empty_map.lon > bounds[0]) & (empty_map.lon < bounds[2])].values
@@ -333,7 +336,7 @@ if __name__=="__main__":
     HOLMES_T_NIGHT, HOLMES_T_DAY = calc_Holmes_temp(TB_NIGHT, sensor=sensor), calc_Holmes_temp(TB_DAY, sensor=sensor)
 
 ##
-    band_current = "ku"
+    band_current = "x"
     SM_NIGHT, VOD_NIGHT,_ = retrieve_LPRM(TB_DATASET=TB_NIGHT, SURFACE_T=HOLMES_T_NIGHT, band=band_current, sensor=sensor)
     # Highly experimental! TSIM is obtained byrunning LPRM in reverse.
     # TB has to be corresponding, for T_SIM to work!!!! DAY-DAY NIGHT-NIGHT
@@ -343,7 +346,7 @@ if __name__=="__main__":
 
 ##
     dif_threshold = 0.00005
-    minimum_mpdi = 0.015
+    minimum_mpdi = 0.01
 
     MPDI_DAY , MPDI_NIGHT = calc_MPDI_bands(TB_DAY=TB_DAY,TB_NIGHT=TB_NIGHT,
                                             list_of_bands=bandlist, minimum_mpdi=minimum_mpdi, sensor=sensor)
@@ -380,10 +383,13 @@ if __name__=="__main__":
     _stat_da = stat_da.reindex_like(highres_coords, method="nearest" )
     compression_settings = {"zlib": True, "complevel": 5}
 
+    _stat_da = _stat_da.where(_stat_da["slope"]>0)
+    _stat_da = _stat_da.where((_stat_da["intercept"]<110)&((_stat_da["intercept"]>0)))
+
     encoding_dict = {"sm": compression_settings}
 
     _stat_da.to_netcdf("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/"
-                       "07_data/LPRM/07_debug/daytime_retrieval/MPDI_trick/lprm_testing/T_aux"
+                       "07_data/LPRM/07_debug/daytime_retrieval/MPDI_trick/lprm_testing/T_aux/"
                      f"Daytime_T_aux_{band_current}_MPDI{minimum_mpdi}.nc", encoding={key : compression_settings for key in stat_da.var()})
 
 ##
@@ -445,7 +451,7 @@ if __name__=="__main__":
 
     }
 
-    region = "deciduous_w_virginia"
+    region = "global"
     roi = _density_plot_rois[region]
 
     T_HOLMES = T_KA * 0.893 + 44.8
@@ -454,25 +460,28 @@ if __name__=="__main__":
     F = (TB_DAY_low_mpdi[f"bt_{frequencies["ku".upper()]}H"]
          /TB_DAY_low_mpdi[f"bt_{frequencies["ka".upper()]}V"])
 
+    _t_ka = f"$TB_{{Ka (V-pol)}}$"
+    _t_sim = f"$T_{{sim}}$"
+
     time_selector = (DELTA_T.time.dt.year == int(year_start))
     df = pd.DataFrame({
         "DELTA_T": ravel_roi_time(DELTA_T, roi, time_selector, method="nearest"),
         "F": ravel_roi_time(F, roi, time_selector, method="nearest"),
-        "T_KA": ravel_roi_time(T_KA, roi, time_selector, method="nearest"),
-        "TSIM_low_mpdi" : ravel_roi_time(TSIM_low_mpdi, roi, time_selector, method="nearest"),
+        _t_ka: ravel_roi_time(T_KA, roi, time_selector, method="nearest"),
+        _t_sim: ravel_roi_time(TSIM_low_mpdi, roi, time_selector, method="nearest"),
         "VOD_low_mpdi": ravel_roi_time(VOD_low_mpdi, roi, time_selector, method="nearest"),
         "SM_low_mpdi": ravel_roi_time(SM_low_mpdi, roi, time_selector, method="nearest"),
         "T_HOLMES": ravel_roi_time(T_HOLMES, roi, time_selector, method="nearest"),
     })
 
     plot_hexbin(df,
-                "T_KA",
-                "TSIM_low_mpdi",
+                _t_ka,
+                _t_sim,
                 color_of_points=None,
-                # xlim=[0.95,1.05], ylim=[265,320],   #F
-                xlim=[265,320], ylim=[265,320],          # T and T
+                # xlim=[0.95,1.05], ylim=[265,320],
+                xlim=[255,330], ylim=[255,330],
                 # xlim=[None,None], ylim=[None,None],
                 # cbar_min= 0, cbar_max= 30,
-                title_string=f"year:{int(year_start)} {region} band: {band_current}",
+                title_string=f"{_t_sim} against {_t_ka} over 2024 globally\nband: {band_current.upper()}",
                 )
 

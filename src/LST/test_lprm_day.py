@@ -9,18 +9,19 @@ from plot_functions import world_map
 if __name__=="__main__":
 
     bbox = [-180, -90, 180, 90]
-    time_start = "2015-01-01"
-    time_stop = "2020-01-01"
+    time_start = "2024-01-01"
+    time_stop = "2025-01-01"
     bandlist = ["c1","c2", "x", "ku"]
 
     AMSR2_DAY, AMSR2_NIGHT = load_TB_daily(bbox=bbox, time_start=time_start, time_stop=time_stop,)
     HOLMES_T_NIGHT, HOLMES_T_DAY = calc_Holmes_temp(AMSR2_NIGHT), calc_Holmes_temp(AMSR2_DAY)
 
     ##
-    band_current = "x"
+    band_current = "c1"
+    minimum_mpdi = 0.010
 
     path_aux_t = (f"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/MPDI_trick/lprm_testing"
-                  f"/T_aux/Daytime_T_aux_{band_current}.nc")
+                  f"/T_aux/Daytime_T_aux_{band_current}_MPDI{minimum_mpdi}.nc")
     daytime_stats = xr.open_dataset(path_aux_t)
 
     T_KA = AMSR2_DAY["bt_36.5V"]
@@ -35,11 +36,6 @@ if __name__=="__main__":
                                                    SURFACE_T=HOLMES_T_NIGHT,
                                                    band=band_current)
 
-    # _, _,T_sim_day = retrieve_LPRM(TB_DATASET=AMSR2_DAY,
-    #                                SURFACE_T=HOLMES_T_DAY,
-    #                                SM_input=SM_NIGHT,
-    #                                VOD_input=VOD_NIGHT,
-    #                                band=band_current)
 
     SM_DAY_ref, VOD_DAY_ref, _ = retrieve_LPRM(TB_DATASET=AMSR2_DAY,
                                        SURFACE_T=HOLMES_T_DAY,
@@ -50,25 +46,26 @@ if __name__=="__main__":
                                                              band=band_current)
 
 ##
-    lat , lon = -32.752114, 146.7064
+    bias = 10
+    lons = slice(430 - bias, 440 + bias)
+    lats = slice(490 - bias, 550 + bias)
+    sm_reg_normal = SM_DAY_regression.isel(time = 2)
 
-    plt.figure(figsize=(20,4))
-    SM_DAY_ref.sel(lat = lat, lon = lon, method = "nearest").plot(label ="SM_DAY")
-    # SM_DAY_regression.sel(lat = lat, lon = lon, method ="nearest").plot(label ="SM_DAY_regression")
-    SM_NIGHT_ref.sel(lat = lat, lon = lon, method = "nearest").plot(label ="SM_NIGHT")
-    plt.legend()
-    plt.show()
+    focus_sm = SM_DAY_regression.isel(time=5, lon=lons, lat=lats)
+    focus_slope = slope.isel(lon=lons, lat=lats)
 
-##
-    path_shares = "/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/MPDI_trick/lprm_testing/SM/"
+    ##
+    path_shares = (f"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/MPDI_trick/"
+                   f"lprm_testing/SM/MPDI_{minimum_mpdi}")
+
     path_out = path_shares
     compression_settings = {"zlib": True, "complevel": 5}
 
     SM_NIGHT_ref.to_netcdf(os.path.join(path_out, f"SM{band_current}_NIGHT_ref.nc"), encoding={"sm": compression_settings})
-    # VOD_NIGHT_ref.to_netcdf(os.path.join(path_out, f"VOD{band_current}_NIGHT_ref.nc"), encoding={"vod": compression_settings})
-    #
-    # SM_DAY_ref.to_netcdf(os.path.join(path_out, f"SM{band_current}_DAY_ref.nc"),encoding={"sm": compression_settings})
-    # VOD_DAY_ref.to_netcdf(os.path.join(path_out, f"VOD{band_current}_DAY_ref.nc"), encoding={"vod": compression_settings})
-    #
-    # SM_DAY_regression.to_netcdf(os.path.join(path_out, f"SM{band_current}_DAY_regression.nc"), encoding={"sm": compression_settings})
-    # VOD_DAY_regression.to_netcdf(os.path.join(path_out, f"VOD{band_current}_DAY_regression.nc"), encoding={"vod": compression_settings})
+    VOD_NIGHT_ref.to_netcdf(os.path.join(path_out, f"VOD{band_current}_NIGHT_ref.nc"), encoding={"vod": compression_settings})
+
+    SM_DAY_ref.to_netcdf(os.path.join(path_out, f"SM{band_current}_DAY_ref.nc"),encoding={"sm": compression_settings})
+    VOD_DAY_ref.to_netcdf(os.path.join(path_out, f"VOD{band_current}_DAY_ref.nc"), encoding={"vod": compression_settings})
+
+    SM_DAY_regression.to_netcdf(os.path.join(path_out, f"SM{band_current}_DAY_regression.nc"), encoding={"sm": compression_settings})
+    VOD_DAY_regression.to_netcdf(os.path.join(path_out, f"VOD{band_current}_DAY_regression.nc"), encoding={"vod": compression_settings})

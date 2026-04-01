@@ -15,19 +15,22 @@ output_path = ("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_
                "LPRM/07_debug/daytime_retrieval/MPDI_trick/evaluation/figs")
 
 plot_val_lut = {
-    "BIAS": (-0.25, 0.25),
+    "BIAS": (-0.1, 0.1),
     "R" : (-1,1),
     "urmsd": (0,0.35),
-    "status":(None,None)
+    "status":(None,None),
+    "slope": (0.7,1.1),
+    "intercept": (0,100),
 }
 
 color_lut = {
     "BIAS": "PiYG",
     "R" : "RdBu_r",
     "urmsd": "PuOr",
-    "status":(None,None)
+    "status":(None,None),
+    "slope":"RdYlGn",
+    "intercept":"viridis",
 }
-
 
 ##
 
@@ -64,35 +67,29 @@ def obj_masker(obj_ref, obj_mask, var):
     return _obj_ref, xr_ref,xr_test
 
 
-def qa_plotter(obj, ref_name, test_name, metric, value_range = None, title_additional = ""):
-    obj.plot_map(metric = metric,
-                      output_dir =None,
-                      dataset_list = [ref_name,test_name],
-                      title = f"{title_additional} {metric}:   {ref_name}  -  {test_name}",
-                 extent=[-180,180,-60,85],
-                      value_range=value_range
-                      )
-    plt.subplots_adjust(bottom=0.15)
-    plt.show()
 
+def manual_plotter(dataset, metric, fname_ref=None, fname_test=None, variable = None, title=""):
 
-def manual_plotter(dataset, fname_ref,fname_test, metric, values):
-
+    values = plot_val_lut[metric]
     fig = plt.figure(figsize=(8, 6))
-    ax = plt.axes(projection=ccrs.Robinson())
-    ax.set_extent([-180, 180, -60, 90], crs=ccrs.PlateCarree())
+    ax = plt.axes(projection=ccrs.PlateCarree())
+    ax.set_extent([-170, 180, -60, 90], crs=ccrs.PlateCarree())
     ax.add_feature(cfeature.LAND, facecolor='lightgray', zorder=0)
     ax.add_feature(cfeature.OCEAN, facecolor='white', zorder=0)
     ax.coastlines(linewidth=0.5, zorder=2)
     ax.add_feature(cfeature.BORDERS, linestyle=':', linewidth=0.5, zorder=2)
 
-    _variable = f'{metric}_between_0-{fname_ref}_and_1-{fname_test}'
+    if variable not in ["slope", "intercept"]:
+        _variable = f'{metric}_between_0-{fname_ref}_and_1-{fname_test}'
+    else:
+        _variable = variable
+
     plot_da = dataset[_variable]
 
-    if "regression" in fname_test:
+    if fname_test is not None:
+        if "regression" in fname_test:
+            plot_da = plot_da.where(values[0]+0.002 < plot_da)
 
-        plot_da = plot_da.where((values[0]+0.002 < plot_da) & (plot_da<values[1]))
-        x = 1
     mesh = plot_da.plot.pcolormesh(
         ax=ax,
         transform=ccrs.PlateCarree(),
@@ -109,7 +106,7 @@ def manual_plotter(dataset, fname_ref,fname_test, metric, values):
     cbar.set_label(f"{metric}", fontsize=12)
     cbar.ax.tick_params(labelsize=10)
 
-    plt.title(f"{metric}: {fname_ref} - {fname_test}", fontsize=15, pad=15)
+    plt.title(title, fontsize=15, pad=15)
     plt.tight_layout()
 
     plt.show()
@@ -128,8 +125,6 @@ def histogram_plot(obj,
     stat_data = obj.df[statistics].values.ravel()
 
     data_clean = stat_data[~np.isnan(stat_data)]
-    # data_clean = np.where((data_nonan==0.0), np.nan, data_nonan)
-    # data_clean = np.where((_data_clean>-0.001) & (_data_clean<0.001), np.nan,_data_clean,)
 
     fig, ax = plt.subplots(figsize=(7, 5))
 
@@ -146,7 +141,6 @@ def histogram_plot(obj,
         f'#: {len_val}'
     )
 
-    # Place it at x=5%, y=95% of the plot area (top-left)
     ax.text(0.05, 0.95, stats_text, transform=ax.transAxes, fontsize=11,
             verticalalignment='top',
             bbox=dict(boxstyle='round,pad=0.5', facecolor='white', edgecolor='gray', alpha=0.8))
@@ -165,75 +159,79 @@ def histogram_plot(obj,
     plt.show()
 
 
-band_current = "c1"
-ref_type = "ERA5"
-metric=  "BIAS"
+if __name__=="__main__":
 
-sm_var_name = {"LPRM" : "sm",
-               "ERA5" : "swvl1"}
+    band_current = "c1"
+    ref_type = "LPRM"
+    metric=  "urmsd"
 
-ref_fname_dict = {"LPRM": f"SM{band_current}_NIGHT_ref",
-                  "ERA5": f"ERA5_LAND"}
+    sm_var_name = {"LPRM" : "sm",
+                   "ERA5" : "swvl1"}
 
-reference_filename = ref_fname_dict[ref_type]
-day_ref_filename = f"SM{band_current}_DAY_ref"
-day_regression_filename = f"SM{band_current}_DAY_regression"
+    ref_fname_dict = {"LPRM": f"SM{band_current}_NIGHT_ref",
+                      "ERA5": f"ERA5_LAND"}
 
-plot_obj_ref = import_single_obj(reference_filename,
-                                 day_ref_filename,
-                                 ref_type)
+    reference_filename = ref_fname_dict[ref_type]
+    day_ref_filename = f"SM{band_current}_DAY_ref"
+    day_regression_filename = f"SM{band_current}_DAY_regression"
 
-plot_obj_regression = import_single_obj(reference_filename,
-                                        day_regression_filename,
-                                        ref_type)
+    plot_obj_ref = import_single_obj(reference_filename,
+                                     day_ref_filename,
+                                     ref_type)
 
-
-plot_obj_ref_masked, xr_ref, xr_test  = obj_masker(obj_ref=plot_obj_ref,
-                                obj_mask=plot_obj_regression,
-                                 var=metric)
+    plot_obj_regression = import_single_obj(reference_filename,
+                                            day_regression_filename,
+                                            ref_type)
 
 
-manual_plotter(xr_ref,reference_filename,day_ref_filename,
-               metric,plot_val_lut[metric])
-manual_plotter(xr_test,reference_filename,day_regression_filename,
-               metric,plot_val_lut[metric])
+    plot_obj_ref_masked, xr_ref, xr_test  = obj_masker(obj_ref=plot_obj_ref,
+                                    obj_mask=plot_obj_regression,
+                                     var=metric)
 
 
+    manual_plotter(xr_ref,
+                   metric,
+                   fname_ref = reference_filename,
+                   fname_test= day_ref_filename,
+                   title=f"{metric}: {reference_filename} - {day_ref_filename}"
+                   )
 
+    manual_plotter(xr_test,
+                   metric,
+                   fname_ref=reference_filename,
+                   fname_test=day_regression_filename,
+                   title=f"{metric}: {reference_filename} - {day_regression_filename}"
+                   )
 
-# qa_plotter(plot_obj_ref_masked,
-#            ref_name=reference_filename,
-#            test_name=day_ref_filename,
-#            metric=metric,
-#            value_range=[plot_val_lut[metric][0], plot_val_lut[metric][1]],
-#            title_additional="2024")
-#
-# qa_plotter(plot_obj_regression,
-#            ref_name=reference_filename,
-#            test_name=day_regression_filename,
-#            metric=metric,
-#            value_range=[plot_val_lut[metric][0], plot_val_lut[metric][1]],
-#            title_additional="2024")
+    histogram_plot(plot_obj_ref_masked,
+                   reference_filename,
+                   day_ref_filename,
+                   metric= metric,
+                   xlim = [plot_val_lut[metric][0], plot_val_lut[metric][1]],
+                   maxval=14000,
+                   title= f"{metric}: {reference_filename} v. {day_ref_filename}",
+                   # title= f"{metric}: LPRM Night v. {day_ref_filename}",
+                   )
 
+    histogram_plot(plot_obj_regression,
+                   reference_filename,
+                   day_regression_filename,
+                   metric= metric,
+                   xlim = [plot_val_lut[metric][0], plot_val_lut[metric][1]],
+                   maxval=14000,
+                   title= f"{metric}: {reference_filename} v. {day_regression_filename}"
+                   )
 
-histogram_plot(plot_obj_ref_masked,
-               reference_filename,
-               day_ref_filename,
-               metric= metric,
-               xlim = [plot_val_lut[metric][0], plot_val_lut[metric][1]],
-               maxval=14000,
-               title= f"{metric}: {reference_filename} v. {day_ref_filename}",
-               # title= f"{metric}: LPRM Night v. {day_ref_filename}",
-               )
+##
+    T_aux_path = ("/home/ddkovacs/shares/climers/Projects/"
+                  "CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/MPDI_trick/lprm_testing/T_aux")
 
-histogram_plot(plot_obj_regression,
-               reference_filename,
-               day_regression_filename,
-               metric= metric,
-               xlim = [plot_val_lut[metric][0], plot_val_lut[metric][1]],
-               maxval=14000,
-               title= f"{metric}: {reference_filename} v. {day_regression_filename}"
-               )
+    regression_band = "c1"
+
+    xr_taux = xr.open_dataset(os.path.join(T_aux_path,f"Daytime_T_aux_{regression_band}_MPDI0.01.nc"))
+    regression_var = "intercept"
+    manual_plotter(xr_taux,metric = regression_var,variable=regression_var,
+                   title=f"{regression_band.upper()}-band MPDI trick \n  {regression_var} T$_{{simulated}}$-T$_{{KaV}}$")
 
 ##
 metric_pretty_names = {
@@ -276,5 +274,24 @@ metric_pretty_names = {
     'slopeURMSD': 'Theil-Sen slope of urmsd',
     'slopeBIAS': 'Theil-Sen slope of BIAS'
 }
+
+
+##
+# check outliers:
+
+ref = xr.open_dataset("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/MPDI_trick/lprm_testing/SM/MPDI_0.01/SMc1_DAY_ref.nc")
+regression = xr.open_dataset("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/MPDI_trick/lprm_testing/SM/MPDI_0.01/SMc1_DAY_regression.nc")
+slope = xr_taux["slope"]
+intercept = xr_taux["intercept"]
+ref_sm = ref["sm"].isel(time = slice(0,200))
+regression_sm = regression["sm"].isel(time = slice(0,200))
+
+##
+bias = 10
+lons = slice(1000-bias,1275+bias)
+lats = slice(80-bias,91+bias)
+focus_sm = regression_sm.isel(time = 2, lon= lons, lat= lats)
+focus_slope = slope.isel(lon = lons, lat=  lats)
+focus_intercept = intercept.isel(lon = lons, lat=  lats)
 
 

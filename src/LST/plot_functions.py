@@ -103,7 +103,7 @@ def regressor_calc(df,x_col,y_col,):
     clean_df = df[[x_col, y_col]].dropna()
     x = clean_df[x_col].values
     y = clean_df[y_col].values
-    FUNCTION = HuberRegressor()
+    FUNCTION = HuberRegressor(max_iter=100)
     FUNCTION.fit(x.reshape(-1, 1), y)
     line_x = np.arange(x.min(), x.max(), 0.01)[:, np.newaxis]
     line_y = FUNCTION.predict(line_x)
@@ -136,7 +136,7 @@ def plot_hexbin(df, x_col, y_col,
         fig = ax.figure
         is_standalone = False
 
-    hb = ax.hexbin(x, y, C=_color, gridsize=100, cmap='inferno', mincnt=1, bins=bins, vmin=cbar_min, vmax=cbar_max)
+    hb = ax.hexbin(x, y, C=_color, gridsize=300, cmap='inferno', mincnt=1, bins=bins, vmin=cbar_min, vmax=cbar_max)
     ax.plot(xlim, ylim, 'k--', alpha=0.8, linewidth=1, zorder=10)
 
     if show_colorbar:
@@ -145,11 +145,11 @@ def plot_hexbin(df, x_col, y_col,
 
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
-    ax.set_xlabel(x_col)
-    ax.set_ylabel(y_col)
+    ax.set_xlabel(x_col, fontsize = 15)
+    ax.set_ylabel(y_col, fontsize = 15)
     # fig.supxlabel(f"{x_col}", fontsize=16, y=0.05)
     # fig.supylabel(f"{y_col}", fontsize=16, x=0.05)
-    ax.set_title(f'{title_string}\n')
+    ax.set_title(f'{title_string}')
 
     regression_dict = regressor_calc(df, x_col, y_col)
 
