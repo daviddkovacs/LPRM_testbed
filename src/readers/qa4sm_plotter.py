@@ -15,7 +15,7 @@ output_path = ("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_
                "LPRM/07_debug/daytime_retrieval/MPDI_trick/evaluation/figs")
 
 plot_val_lut = {
-    "BIAS": (-0.1, 0.1),
+    "BIAS": (-0.25, 0.25),
     "R" : (-1,1),
     "urmsd": (0,0.35),
     "status":(None,None),
@@ -162,8 +162,8 @@ def histogram_plot(obj,
 if __name__=="__main__":
 
     band_current = "c1"
-    ref_type = "LPRM"
-    metric=  "urmsd"
+    ref_type = "ERA5"
+    metric=  "BIAS"
 
     sm_var_name = {"LPRM" : "sm",
                    "ERA5" : "swvl1"}
@@ -208,7 +208,7 @@ if __name__=="__main__":
                    day_ref_filename,
                    metric= metric,
                    xlim = [plot_val_lut[metric][0], plot_val_lut[metric][1]],
-                   maxval=14000,
+                   maxval=6500,
                    title= f"{metric}: {reference_filename} v. {day_ref_filename}",
                    # title= f"{metric}: LPRM Night v. {day_ref_filename}",
                    )
@@ -218,7 +218,7 @@ if __name__=="__main__":
                    day_regression_filename,
                    metric= metric,
                    xlim = [plot_val_lut[metric][0], plot_val_lut[metric][1]],
-                   maxval=14000,
+                   maxval=6500,
                    title= f"{metric}: {reference_filename} v. {day_regression_filename}"
                    )
 
@@ -274,24 +274,3 @@ metric_pretty_names = {
     'slopeURMSD': 'Theil-Sen slope of urmsd',
     'slopeBIAS': 'Theil-Sen slope of BIAS'
 }
-
-
-##
-# check outliers:
-
-ref = xr.open_dataset("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/MPDI_trick/lprm_testing/SM/MPDI_0.01/SMc1_DAY_ref.nc")
-regression = xr.open_dataset("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/MPDI_trick/lprm_testing/SM/MPDI_0.01/SMc1_DAY_regression.nc")
-slope = xr_taux["slope"]
-intercept = xr_taux["intercept"]
-ref_sm = ref["sm"].isel(time = slice(0,200))
-regression_sm = regression["sm"].isel(time = slice(0,200))
-
-##
-bias = 10
-lons = slice(1000-bias,1275+bias)
-lats = slice(80-bias,91+bias)
-focus_sm = regression_sm.isel(time = 2, lon= lons, lat= lats)
-focus_slope = slope.isel(lon = lons, lat=  lats)
-focus_intercept = intercept.isel(lon = lons, lat=  lats)
-
-

@@ -336,7 +336,7 @@ if __name__=="__main__":
     HOLMES_T_NIGHT, HOLMES_T_DAY = calc_Holmes_temp(TB_NIGHT, sensor=sensor), calc_Holmes_temp(TB_DAY, sensor=sensor)
 
 ##
-    band_current = "x"
+    band_current = "c1"
     SM_NIGHT, VOD_NIGHT,_ = retrieve_LPRM(TB_DATASET=TB_NIGHT, SURFACE_T=HOLMES_T_NIGHT, band=band_current, sensor=sensor)
     # Highly experimental! TSIM is obtained byrunning LPRM in reverse.
     # TB has to be corresponding, for T_SIM to work!!!! DAY-DAY NIGHT-NIGHT
@@ -479,9 +479,9 @@ if __name__=="__main__":
                 _t_sim,
                 color_of_points=None,
                 # xlim=[0.95,1.05], ylim=[265,320],
-                xlim=[255,330], ylim=[255,330],
+                xlim=[255,340], ylim=[255,340],
                 # xlim=[None,None], ylim=[None,None],
                 # cbar_min= 0, cbar_max= 30,
-                title_string=f"{_t_sim} against {_t_ka} over 2024 globally\nband: {band_current.upper()}",
+                title_string=f"band: {band_current.upper()}",
                 )
 
