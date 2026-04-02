@@ -336,7 +336,7 @@ if __name__=="__main__":
     HOLMES_T_NIGHT, HOLMES_T_DAY = calc_Holmes_temp(TB_NIGHT, sensor=sensor), calc_Holmes_temp(TB_DAY, sensor=sensor)
 
 ##
-    band_current = "c1"
+    band_current = "x"
     SM_NIGHT, VOD_NIGHT,_ = retrieve_LPRM(TB_DATASET=TB_NIGHT, SURFACE_T=HOLMES_T_NIGHT, band=band_current, sensor=sensor)
     # Highly experimental! TSIM is obtained byrunning LPRM in reverse.
     # TB has to be corresponding, for T_SIM to work!!!! DAY-DAY NIGHT-NIGHT
@@ -365,14 +365,21 @@ if __name__=="__main__":
     TSIM_low_mpdi = xr.where((low_mpdi_mask==1),TSIM_DAY,np.nan)
 
     T_KA = get_sensor_band(TB_DAY_low_mpdi,sensor,"KA","V")
-
+    T_KH = get_sensor_band(TB_DAY_low_mpdi,sensor,"K","V")
+    T_KuH = get_sensor_band(TB_DAY_low_mpdi,sensor,"KU","H")
+    T_XH = get_sensor_band(TB_DAY_low_mpdi,sensor,"X","H")
+    T_C1H = get_sensor_band(TB_DAY_low_mpdi,sensor,"C1","H")
+    F = T_KH / T_KA
 ##
     res = 1
-    stat_da = regression_wrapper(T_KA,TSIM_low_mpdi,resolution=res)
+    # stat_da = regression_wrapper(T_KA,TSIM_low_mpdi,resolution=res)
+    stat_da = regression_wrapper(F,MPDI_NIGHT[band_current],resolution=res)
 
 ##
-    world_map(stat_da, "intercept", cbar_min=0,cbar_max=100, cmap="viridis", title_extra = f"{time_stop} {sensor} {band_current}")
-    world_map(stat_da, "slope", cbar_min=0.8,cbar_max=1.1, cmap="RdYlGn",title_extra = f"{time_stop} {sensor} {band_current}")
+    # world_map(stat_da, "intercept", cbar_min=0,cbar_max=100, cmap="viridis", title_extra = f"{sensor} {band_current}")
+    world_map(stat_da, "intercept", cbar_min=0,cbar_max=0.8, cmap="viridis", title_extra = f" F (KuH/KaV) vs. MPDI{band_current}")
+    # world_map(stat_da, "slope", cbar_min=0.8,cbar_max=1.1, cmap="RdYlGn",title_extra = f"{time_stop} {} {band_current}")
+    world_map(stat_da, "slope", cbar_min=-0.8,cbar_max=0.2, cmap="RdYlGn",title_extra = f" F (KuH/KaV) vs. MPDI{band_current}")
     # world_map(stat_da, "r", cbar_min=0.5,cbar_max=1, cmap="coolwarm",title_extra = f"{time_stop} {sensor} {band_current}")
     # world_map(stat_da, "rmse", cbar_min=0,cbar_max=25, cmap="YlGn",title_extra = f"{year_start} {sensor} {band_current}")
     # world_map(stat_da, "bias", cbar_min=0,cbar_max=25, cmap="Purples",title_extra = f"{year_start} {sensor} {band_current}")
@@ -388,9 +395,9 @@ if __name__=="__main__":
 
     encoding_dict = {"sm": compression_settings}
 
-    _stat_da.to_netcdf("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/"
-                       "07_data/LPRM/07_debug/daytime_retrieval/MPDI_trick/lprm_testing/T_aux/"
-                     f"Daytime_T_aux_{band_current}_MPDI{minimum_mpdi}.nc", encoding={key : compression_settings for key in stat_da.var()})
+    # _stat_da.to_netcdf("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/"
+    #                    "07_data/LPRM/07_debug/daytime_retrieval/MPDI_trick/lprm_testing/T_aux/"
+    #                  f"Daytime_T_aux_{band_current}_MPDI{minimum_mpdi}.nc", encoding={key : compression_settings for key in stat_da.var()})
 
 ##
     _density_plot_rois = {
@@ -447,18 +454,22 @@ if __name__=="__main__":
                 -35.50692205951431,
                 147.3312456957429,
                 -33.30894507250183
+            ],
+        "siberia":
+            [
+                98.48825732649834,
+                59.92631436042677,
+                115.826271303397,
+                64.04586721869993
             ]
 
     }
 
-    region = "global"
+    region = "siberia"
     roi = _density_plot_rois[region]
 
     T_HOLMES = T_KA * 0.893 + 44.8
     DELTA_T = TSIM_low_mpdi - T_KA
-
-    F = (TB_DAY_low_mpdi[f"bt_{frequencies["ku".upper()]}H"]
-         /TB_DAY_low_mpdi[f"bt_{frequencies["ka".upper()]}V"])
 
     _t_ka = f"$TB_{{Ka (V-pol)}}$"
     _t_sim = f"$T_{{sim}}$"
@@ -472,15 +483,16 @@ if __name__=="__main__":
         "VOD_low_mpdi": ravel_roi_time(VOD_low_mpdi, roi, time_selector, method="nearest"),
         "SM_low_mpdi": ravel_roi_time(SM_low_mpdi, roi, time_selector, method="nearest"),
         "T_HOLMES": ravel_roi_time(T_HOLMES, roi, time_selector, method="nearest"),
+        "MPDI_NIGHT": ravel_roi_time(MPDI_NIGHT[band_current], roi, time_selector, method="nearest"),
     })
 
     plot_hexbin(df,
-                _t_ka,
-                _t_sim,
+                "F",
+                "MPDI_NIGHT",
                 color_of_points=None,
                 # xlim=[0.95,1.05], ylim=[265,320],
-                xlim=[255,340], ylim=[255,340],
-                # xlim=[None,None], ylim=[None,None],
+                # xlim=[255,340], ylim=[255,340],
+                xlim=[None,None], ylim=[None,None],
                 # cbar_min= 0, cbar_max= 30,
                 title_string=f"band: {band_current.upper()}",
                 )

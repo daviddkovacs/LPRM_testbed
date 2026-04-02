@@ -111,6 +111,7 @@ def manual_plotter(dataset, metric, fname_ref=None, fname_test=None, variable = 
 
     plt.title(title, fontsize=15, pad=15)
     plt.tight_layout()
+    # plt.savefig("/home/ddkovacs/Desktop/x_intercept.png", dpi=300, bbox_inches='tight')
 
     plt.show()
 
@@ -158,7 +159,6 @@ def histogram_plot(obj,
     ax.set_xlim(xlim)
     ax.set_ylim([0,maxval])
 
-    # plt.tight_layout()
     plt.show()
 
 
@@ -230,7 +230,7 @@ if __name__=="__main__":
     T_aux_path = ("/home/ddkovacs/shares/climers/Projects/"
                   "CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/MPDI_trick/lprm_testing/T_aux")
 
-    regression_band = "c1"
+    regression_band = "x"
 
     xr_taux = xr.open_dataset(os.path.join(T_aux_path,f"Daytime_T_aux_{regression_band}_MPDI0.01.nc"))
     regression_var = "intercept"
@@ -348,5 +348,6 @@ if __name__=="__main__":
                ncol=2,  # Lay them out horizontally
                title='',
                framealpha=0.9)
+    # plt.savefig("/home/ddkovacs/Desktop/mpdi_comparison.png", dpi=300, bbox_inches='tight')
 
     plt.show()

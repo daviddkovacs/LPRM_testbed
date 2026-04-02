@@ -62,8 +62,8 @@ def usual_stats(x,y):
 
 def world_map(data,
               variable,
-              cbar_min = 0.8,
-              cbar_max = 1.1,
+              cbar_min = None,
+              cbar_max = None,
               cmap = "RdYlBu_r",
               title_extra = ""
               ):
