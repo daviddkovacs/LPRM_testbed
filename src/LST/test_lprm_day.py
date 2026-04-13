@@ -21,7 +21,7 @@ if __name__=="__main__":
     minimum_mpdi = 0.010
 
     path_aux_t = (f"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/MPDI_trick/lprm_testing"
-                  f"/T_aux/Daytime_T_aux_{band_current}_MPDI{minimum_mpdi}.nc")
+                  f"/T_aux/{band_current}_daytime_LST_regression.nc")
     daytime_stats = xr.open_dataset(path_aux_t)
 
     T_KA = AMSR2_DAY["bt_36.5V"]
