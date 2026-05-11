@@ -377,9 +377,9 @@ if __name__=="__main__":
 
 ##
     # world_map(stat_da, "intercept", cbar_min=0,cbar_max=100, cmap="viridis", title_extra = f"{sensor} {band_current}")
-    world_map(stat_da, "intercept", cbar_min=0,cbar_max=0.8, cmap="viridis", title_extra = f" F (KuH/KaV) vs. MPDI{band_current}")
+    world_map(stat_da, "intercept", cbar_min=0,cbar_max=0.8, cmap="viridis", title_extra = f" F (KH/KaV) vs. MPDI{band_current}")
     # world_map(stat_da, "slope", cbar_min=0.8,cbar_max=1.1, cmap="RdYlGn",title_extra = f"{time_stop} {} {band_current}")
-    world_map(stat_da, "slope", cbar_min=-0.8,cbar_max=0.2, cmap="RdYlGn",title_extra = f" F (KuH/KaV) vs. MPDI{band_current}")
+    world_map(stat_da, "slope", cbar_min=-0.8,cbar_max=0.5, cmap="RdYlGn",title_extra = f" F (KH/KaV) vs. MPDI{band_current}")
     # world_map(stat_da, "r", cbar_min=0.5,cbar_max=1, cmap="coolwarm",title_extra = f"{time_stop} {sensor} {band_current}")
     # world_map(stat_da, "rmse", cbar_min=0,cbar_max=25, cmap="YlGn",title_extra = f"{year_start} {sensor} {band_current}")
     # world_map(stat_da, "bias", cbar_min=0,cbar_max=25, cmap="Purples",title_extra = f"{year_start} {sensor} {band_current}")
