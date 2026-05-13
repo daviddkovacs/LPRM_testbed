@@ -15,7 +15,8 @@ import itertools
 from lprm.satellite_specs import SensorSpecifics, get_specs
 
 
-def load_TB_daily(bbox,time_start,time_stop,sensor ="AMSR2"):
+def load_TB_daily(bbox,time_start,time_stop,sensor ="AMSR2", file_pattern= None,
+                  path = None, date_pattern= None):
     """
     Load day/night TBs. we need to re-assign the time dimension, as MICROWAVE_datacube assigned the average scantime
     values within bbox (skews observation times when bbox is global)
@@ -26,7 +27,8 @@ def load_TB_daily(bbox,time_start,time_stop,sensor ="AMSR2"):
     :return: xr Dataset of day and night TBs with daily timestamps
     """
     nested_group_name = "S1" if sensor == "GMI" else None
-    file_pattern = f"{sensor.lower()}_l1bt_*.nc"
+    file_pattern = f"{sensor.lower()}_l1bt_*.nc" if file_pattern is None else file_pattern
+    _date_pattern = "_(\\d{8})_" if date_pattern is None else date_pattern
 
     TB_DAY = MICROWAVE_datacube(bbox=bbox,
                                 overpass="day",
@@ -35,6 +37,8 @@ def load_TB_daily(bbox,time_start,time_stop,sensor ="AMSR2"):
                                 sensor=sensor,
                                 file_pattern=file_pattern,
                                 nested_group_name=nested_group_name,
+                                path_user = path,
+                                date_pattern=_date_pattern
                                 )
 
     TB_NIGHT = MICROWAVE_datacube(bbox=bbox,
@@ -44,7 +48,9 @@ def load_TB_daily(bbox,time_start,time_stop,sensor ="AMSR2"):
                                   sensor=sensor,
                                   file_pattern=file_pattern,
                                   nested_group_name = nested_group_name,
-    )
+                                  path_user=path,
+                                  date_pattern=_date_pattern
+                                  )
 
 
     TB_DAY['time'] = pd.to_datetime(TB_DAY.time.dt.date.values)
@@ -53,7 +59,7 @@ def load_TB_daily(bbox,time_start,time_stop,sensor ="AMSR2"):
     return TB_DAY, TB_NIGHT
 
 
-def calc_MPDI_bands(TB_DAY,TB_NIGHT, list_of_bands=["c1","c2", "x", "ku"], minimum_mpdi = 0.01, sensor ="AMSR2"):
+def calc_MPDI_bands(TB_DAY,TB_NIGHT, list_of_bands=["l","c1","c2", "x", "ku"], minimum_mpdi = 0.01, sensor ="AMSR2"):
     """
     We calculate MPDIs for different frequencies
     :param TB_DAY: Daytime TB stack
@@ -65,16 +71,18 @@ def calc_MPDI_bands(TB_DAY,TB_NIGHT, list_of_bands=["c1","c2", "x", "ku"], minim
     MPDI_NIGHT_dict = {}
 
     for band in list_of_bands:
-        _mpdi_day = mpdi(TB_DAY, band, sensor=sensor)
-        MPDI_DAY_dict[band] = _mpdi_day.where(_mpdi_day>minimum_mpdi)
+        try:
+            _mpdi_day = mpdi(TB_DAY, band, sensor=sensor)
+            MPDI_DAY_dict[band] = _mpdi_day.where(_mpdi_day>minimum_mpdi)
 
-        _mpdi_night = mpdi(TB_NIGHT, band, sensor=sensor)
-        MPDI_NIGHT_dict[band] = _mpdi_night.where(_mpdi_night>minimum_mpdi)
-
+            _mpdi_night = mpdi(TB_NIGHT, band, sensor=sensor)
+            MPDI_NIGHT_dict[band] = _mpdi_night.where(_mpdi_night>minimum_mpdi)
+        except KeyError:
+            print(f"{band} omitted")
     return MPDI_DAY_dict, MPDI_NIGHT_dict
 
 
-def calc_MPDI_difference(MPDI_day, MPDI_night, list_of_bands=["c2", "x", "ku"]):
+def calc_MPDI_difference(MPDI_day, MPDI_night, list_of_bands=["l","c1","c2", "x", "ku"],):
     """
     We calculate the difference in MPDI. Night-Day!!!
     :param MPDI_day: MPDI calculated for daytime obs
@@ -86,7 +94,10 @@ def calc_MPDI_difference(MPDI_day, MPDI_night, list_of_bands=["c2", "x", "ku"]):
     MPDI_difference_dict = {}
 
     for band in list_of_bands:
-        MPDI_difference_dict[band] = MPDI_night[band] - MPDI_day[band]
+        try:
+            MPDI_difference_dict[band] = MPDI_night[band] - MPDI_day[band]
+        except KeyError:
+            print(f"{band} omitted")
     return MPDI_difference_dict
 
 
@@ -327,16 +338,25 @@ if __name__=="__main__":
     time_start = f"{year_start}-01-01"
     time_stop = "2025-01-01"
     bandlist = ["c1", "x", "ku"]
-    sensor = "AMSR2"
+    sensor = "SMAP"
+
 
 
     TB_DAY, TB_NIGHT = load_TB_daily(bbox=bbox, time_start=time_start, time_stop=time_stop,
-                                     sensor=sensor,
+                                     sensor=sensor,file_pattern="smap_spl3smp_v009_l3bt_*.nc"
                                      )
-    HOLMES_T_NIGHT, HOLMES_T_DAY = calc_Holmes_temp(TB_NIGHT, sensor=sensor), calc_Holmes_temp(TB_DAY, sensor=sensor)
+    if sensor.upper() != "SMAP":
+        HOLMES_T_NIGHT, HOLMES_T_DAY = calc_Holmes_temp(TB_NIGHT, sensor=sensor), calc_Holmes_temp(TB_DAY, sensor=sensor)
+    elif sensor.upper() == "SMAP":
+        L_KA_DAY, L_KA_NIGHT = load_TB_daily(bbox=bbox, time_start=time_start, time_stop=time_stop,
+                                         sensor=sensor, file_pattern="smap_combined_*.nc",
+                                             path = "/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/03_lband_temperatures",
+                                             date_pattern = r"(\d{8})"
+                                         )
+        HOLMES_T_NIGHT, HOLMES_T_DAY = calc_Holmes_temp(L_KA_DAY, sensor="AMSR2"), calc_Holmes_temp(L_KA_NIGHT, sensor="AMSR2")
 
 ##
-    band_current = "x"
+    band_current = "l"
     SM_NIGHT, VOD_NIGHT,_ = retrieve_LPRM(TB_DATASET=TB_NIGHT, SURFACE_T=HOLMES_T_NIGHT, band=band_current, sensor=sensor)
     # Highly experimental! TSIM is obtained byrunning LPRM in reverse.
     # TB has to be corresponding, for T_SIM to work!!!! DAY-DAY NIGHT-NIGHT
@@ -365,21 +385,13 @@ if __name__=="__main__":
     TSIM_low_mpdi = xr.where((low_mpdi_mask==1),TSIM_DAY,np.nan)
 
     T_KA = get_sensor_band(TB_DAY_low_mpdi,sensor,"KA","V")
-    T_KH = get_sensor_band(TB_DAY_low_mpdi,sensor,"K","V")
-    T_KuH = get_sensor_band(TB_DAY_low_mpdi,sensor,"KU","H")
-    T_XH = get_sensor_band(TB_DAY_low_mpdi,sensor,"X","H")
-    T_C1H = get_sensor_band(TB_DAY_low_mpdi,sensor,"C1","H")
-    F = T_KH / T_KA
 ##
     res = 1
-    # stat_da = regression_wrapper(T_KA,TSIM_low_mpdi,resolution=res)
-    stat_da = regression_wrapper(F,MPDI_NIGHT[band_current],resolution=res)
+    stat_da = regression_wrapper(T_KA,TSIM_low_mpdi,resolution=res)
 
 ##
-    # world_map(stat_da, "intercept", cbar_min=0,cbar_max=100, cmap="viridis", title_extra = f"{sensor} {band_current}")
-    world_map(stat_da, "intercept", cbar_min=0,cbar_max=0.8, cmap="viridis", title_extra = f" F (KH/KaV) vs. MPDI{band_current}")
-    # world_map(stat_da, "slope", cbar_min=0.8,cbar_max=1.1, cmap="RdYlGn",title_extra = f"{time_stop} {} {band_current}")
-    world_map(stat_da, "slope", cbar_min=-0.8,cbar_max=0.5, cmap="RdYlGn",title_extra = f" F (KH/KaV) vs. MPDI{band_current}")
+    world_map(stat_da, "intercept", cbar_min=0,cbar_max=100, cmap="viridis", title_extra = f"{sensor} {band_current}")
+    world_map(stat_da, "slope", cbar_min=0.8,cbar_max=1.1, cmap="RdYlGn",title_extra = f"{time_stop} {sensor} {band_current}")
     # world_map(stat_da, "r", cbar_min=0.5,cbar_max=1, cmap="coolwarm",title_extra = f"{time_stop} {sensor} {band_current}")
     # world_map(stat_da, "rmse", cbar_min=0,cbar_max=25, cmap="YlGn",title_extra = f"{year_start} {sensor} {band_current}")
     # world_map(stat_da, "bias", cbar_min=0,cbar_max=25, cmap="Purples",title_extra = f"{year_start} {sensor} {band_current}")
@@ -477,7 +489,6 @@ if __name__=="__main__":
     time_selector = (DELTA_T.time.dt.year == int(year_start))
     df = pd.DataFrame({
         "DELTA_T": ravel_roi_time(DELTA_T, roi, time_selector, method="nearest"),
-        "F": ravel_roi_time(F, roi, time_selector, method="nearest"),
         _t_ka: ravel_roi_time(T_KA, roi, time_selector, method="nearest"),
         _t_sim: ravel_roi_time(TSIM_low_mpdi, roi, time_selector, method="nearest"),
         "VOD_low_mpdi": ravel_roi_time(VOD_low_mpdi, roi, time_selector, method="nearest"),
@@ -487,8 +498,8 @@ if __name__=="__main__":
     })
 
     plot_hexbin(df,
-                "F",
-                "MPDI_NIGHT",
+                _t_sim,
+                _t_ka,
                 color_of_points=None,
                 # xlim=[0.95,1.05], ylim=[265,320],
                 # xlim=[255,340], ylim=[255,340],

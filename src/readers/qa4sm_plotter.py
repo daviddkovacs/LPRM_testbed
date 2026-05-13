@@ -20,7 +20,7 @@ output_path = ("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_
 plot_val_lut = {
     "BIAS": (-0.25, 0.25),
     "R" : (-1,1),
-    "urmsd": (0,0.35),
+    "urmsd": (0,0.20),
     "status":(None,None),
     "slope": (0.7,1.1),
     "intercept": (0,100),
@@ -29,10 +29,20 @@ plot_val_lut = {
 color_lut = {
     "BIAS": "PiYG",
     "R" : "RdBu_r",
-    "urmsd": "PuOr",
+    "urmsd": "YlGnBu",
     "status":(None,None),
     "slope":"RdYlGn",
     "intercept":"viridis",
+}
+
+unit_lut = {
+    "BIAS": "[$m^3/m^3$]",
+    "R" : "",
+    "urmsd": "[$m^3/m^3$]",
+}
+
+map_title_lut = {
+    ""
 }
 
 ##
@@ -71,7 +81,7 @@ def obj_masker(obj_ref, obj_mask, var):
 
 
 
-def manual_plotter(dataset, metric, fname_ref=None, fname_test=None, variable = None, title=""):
+def manual_plotter(dataset, metric, fname_ref=None, fname_test=None, variable = None, title="", freq = None):
 
     values = plot_val_lut[metric]
     fig = plt.figure(figsize=(12, 6))
@@ -106,12 +116,15 @@ def manual_plotter(dataset, metric, fname_ref=None, fname_test=None, variable = 
     )
 
     cbar = plt.colorbar(mesh, ax=ax, orientation='horizontal', shrink=0.5, pad=0.05)
-    cbar.set_label(f"{metric}", fontsize=12)
-    cbar.ax.tick_params(labelsize=10)
+    cbar.set_label(f"{metric} {unit_lut[metric]}", fontsize=20)
+    cbar.ax.tick_params(labelsize=16)
 
-    plt.title(title, fontsize=15, pad=15)
+    plt.title(title, fontsize=20, pad=15)
+
     plt.tight_layout(pad=0.5)
-    plt.savefig("/home/ddkovacs/Desktop/x_intercept.png", dpi=300, bbox_inches='tight')
+    plt.savefig(f"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/"
+                f"07_data/LPRM/07_debug/daytime_retrieval/MPDI_trick/evaluation/figs/paper/maps/statistics_maps/{freq}/"
+                f"{freq}_{metric}_{fname_ref}_{fname_test}", dpi=300, bbox_inches='tight')
 
     plt.show()
 
@@ -122,7 +135,8 @@ def histogram_plot(obj,
                    metric,
                    xlim= [None,None],
                    maxval=None,
-                   title = ""
+                   title = "",
+                   freq = None
                    ):
 
     statistics = f"{metric}_between_0-{ref_name}_and_1-{test_name}"
@@ -146,7 +160,7 @@ def histogram_plot(obj,
     )
     print(title)
     print(stats_text)
-    print("------------------------------")
+    print("")
     ax.text(0.05, 0.95, stats_text, transform=ax.transAxes, fontsize=11,
             verticalalignment='top',
             bbox=dict(boxstyle='round,pad=0.5', facecolor='white', edgecolor='gray', alpha=0.8))
@@ -160,83 +174,84 @@ def histogram_plot(obj,
     ax.legend()
     ax.set_xlim(xlim)
     ax.set_ylim([0,maxval])
+    plt.savefig(f"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/"
+                f"LPRM/07_debug/daytime_retrieval/MPDI_trick/evaluation/figs/paper/histograms/{freq}/"
+                f"{freq}_{metric}_{ref_name}_{test_name}", dpi=300, bbox_inches='tight')
 
     plt.show()
 
 
 if __name__=="__main__":
+    for _band in ["c1","x","ku"]:
+        for _metric in ["R","BIAS","urmsd"]:
 
-    band_current = "c1"
-    ref_type = "LPRM"
-    metric=  "BIAS"
+            # band_current = "x"
+            band_current = _band
+            ref_type = "LPRM"
+            # metric=  "R"
+            metric=  _metric
 
-    sm_var_name = {"LPRM" : "sm",
-                   "ERA5" : "swvl1"}
+            sm_var_name = {"LPRM" : "sm",
+                           "ERA5" : "swvl1"}
 
-    ref_fname_dict = {"LPRM": f"SM{band_current}_NIGHT_ref",
-                      "ERA5": f"ERA5_LAND"}
+            ref_fname_dict = {"LPRM": f"SM{band_current}_NIGHT_ref",
+                              "ERA5": f"ERA5_LAND"}
 
-    reference_filename = ref_fname_dict[ref_type]
-    day_ref_filename = f"SM{band_current}_DAY_ref"
-    day_regression_filename = f"SM{band_current}_DAY_regression"
+            reference_filename = ref_fname_dict[ref_type]
+            day_ref_filename = f"SM{band_current}_DAY_ref"
+            day_regression_filename = f"SM{band_current}_DAY_regression"
 
-    plot_obj_ref = import_single_obj(reference_filename,
-                                     day_ref_filename,
-                                     ref_type)
+            plot_obj_ref = import_single_obj(reference_filename,
+                                             day_ref_filename,
+                                             ref_type)
 
-    plot_obj_regression = import_single_obj(reference_filename,
-                                            day_regression_filename,
-                                            ref_type)
-
-
-    plot_obj_ref_masked, xr_ref, xr_test  = obj_masker(obj_ref=plot_obj_ref,
-                                    obj_mask=plot_obj_regression,
-                                     var=metric)
-
-
-    manual_plotter(xr_ref,
-                   metric,
-                   fname_ref = reference_filename,
-                   fname_test= day_ref_filename,
-                   title=f"{metric}: {reference_filename} - {day_ref_filename}"
-                   )
-
-    manual_plotter(xr_test,
-                   metric,
-                   fname_ref=reference_filename,
-                   fname_test=day_regression_filename,
-                   title=f"{metric}: {reference_filename} - {day_regression_filename}"
-                   )
-
-    histogram_plot(plot_obj_ref_masked,
-                   reference_filename,
-                   day_ref_filename,
-                   metric= metric,
-                   xlim = [plot_val_lut[metric][0], plot_val_lut[metric][1]],
-                   maxval=8000,
-                   title= f"{metric}: {reference_filename} v. {day_ref_filename}",
-                   # title= f"{metric}: LPRM Night v. {day_ref_filename}",
-                   )
-
-    histogram_plot(plot_obj_regression,
-                   reference_filename,
-                   day_regression_filename,
-                   metric= metric,
-                   xlim = [plot_val_lut[metric][0], plot_val_lut[metric][1]],
-                   maxval=8000,
-                   title= f"{metric}: {reference_filename} v. {day_regression_filename}"
-                   )
-
-##  Global maps of T Aux
-
-    T_aux_path = ("/home/ddkovacs/shares/climers/Projects/"
-                  "CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/MPDI_trick/lprm_testing/T_aux")
+            plot_obj_regression = import_single_obj(reference_filename,
+                                                    day_regression_filename,
+                                                    ref_type)
 
 
-    xr_taux = xr.open_dataset(os.path.join(T_aux_path,f"{band_current.upper()}_daytime_LST_regression.nc"))
-    regression_var = "intercept"
-    manual_plotter(xr_taux,metric = regression_var,variable=regression_var,
-                   title=f"{band_current.upper()}-band MPDI trick \n  {regression_var} T$_{{simulated}}$-T$_{{KaV}}$")
+            plot_obj_ref_masked, xr_ref, xr_test  = obj_masker(obj_ref=plot_obj_ref,
+                                            obj_mask=plot_obj_regression,
+                                             var=metric)
+
+
+            manual_plotter(xr_ref,
+                           metric,
+                           fname_ref = reference_filename,
+                           fname_test= day_ref_filename,
+                           title=f"{metric}: {reference_filename} - {day_ref_filename}",
+                           freq=band_current
+                           )
+
+            manual_plotter(xr_test,
+                           metric,
+                           fname_ref=reference_filename,
+                           fname_test=day_regression_filename,
+                           title=f"{metric}: {reference_filename} - {day_regression_filename}",
+                           freq=band_current
+                           )
+
+            histogram_plot(plot_obj_ref_masked,
+                           reference_filename,
+                           day_ref_filename,
+                           metric= metric,
+                           xlim = [plot_val_lut[metric][0], plot_val_lut[metric][1]],
+                           maxval=9000,
+                           title= f"{metric}: {reference_filename} v. {day_ref_filename}",
+                           freq = band_current
+
+                           )
+
+            histogram_plot(plot_obj_regression,
+                           reference_filename,
+                           day_regression_filename,
+                           metric= metric,
+                           xlim = [plot_val_lut[metric][0], plot_val_lut[metric][1]],
+                           maxval=9000,
+                           title= f"{metric}: {reference_filename} v. {day_regression_filename}",
+                           freq = band_current
+                           )
+
 
 
 ## Maps of MPDI and their difference

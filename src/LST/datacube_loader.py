@@ -48,13 +48,14 @@ def OPTICAL_datacube(region: Literal["sahel", "siberia", "midwest", "ceu"],
 
 def MICROWAVE_datacube(
         bbox: List[float],
-        path=path_bt_climers01_local,
         sensor="AMSR2",
         overpass:Literal["day","night","daynight"] = "daynight",
         time_start="2024-01-01",
         time_stop="2025-01-01",
         file_pattern="amsr2_l1bt_*.nc",
         nested_group_name = None,
+        path_user=None,
+        date_pattern=None,
 
 ):
     """
@@ -68,21 +69,29 @@ def MICROWAVE_datacube(
     :param time_stop: end of time
     :return: Brightness temperatures loaded as an Xarray Datacube.
     """
+    path = path_bt_climers01_local if path_user is None else path_user
+
     if overpass == "day" or overpass == "night":
-        TB_stack = open_mw_sensor(path=path, sensor=sensor, overpass=overpass, date_pattern=r"_(\d{8})_",
+        TB_stack = open_mw_sensor(path=path, sensor=sensor, overpass=overpass,
                                      subdir_pattern=f"20*", file_pattern=file_pattern,
                                      resolution="coarse_resolution", time_start=time_start, time_stop=time_stop,
-                                     bbox=bbox, nested_group_name=nested_group_name)
+                                     bbox=bbox, nested_group_name=nested_group_name,
+                                  date_pattern=date_pattern
+                                  )
     elif overpass == "daynight":
-        day_tb = open_mw_sensor(path=path, sensor=sensor, overpass="day", date_pattern=r"_(\d{8})_",
+        day_tb = open_mw_sensor(path=path, sensor=sensor, overpass="day",
                                 subdir_pattern=f"20*", file_pattern=file_pattern,
                                 resolution="coarse_resolution", time_start=time_start, time_stop=time_stop,
-                                bbox=bbox, nested_group_name=nested_group_name)
+                                bbox=bbox, nested_group_name=nested_group_name,
+                                date_pattern = date_pattern
+                                )
 
-        night_tb = open_mw_sensor(path=path, sensor=sensor, overpass="night", date_pattern=r"_(\d{8})_",
+        night_tb = open_mw_sensor(path=path, sensor=sensor, overpass="night",
                                   subdir_pattern=f"20*", file_pattern=file_pattern,
                                   resolution="coarse_resolution", time_start=time_start, time_stop=time_stop,
-                                  bbox=bbox, nested_group_name=nested_group_name)
+                                  bbox=bbox, nested_group_name=nested_group_name,
+                                  date_pattern=date_pattern
+                                  )
 
         TB_stack = xr.concat([day_tb, night_tb], dim='time').sortby('time')
 

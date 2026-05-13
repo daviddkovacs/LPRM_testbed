@@ -15,6 +15,13 @@ def calc_Holmes_temp(TB, sensor ="AMSR2"):
     TSURF.attrs = TB.attrs
     return TSURF
 
+def load_L_surface_temp(path):
+    """
+    Loads the necessary Ka-band BTs from other sensors (need to be precalculated)
+    :param path:
+    :return:
+    """
+
 
 def MW_fraction(TB, num = "ku", denom = "ka"):
     """
