@@ -187,7 +187,7 @@ if __name__=="__main__":
 
             # band_current = "x"
             band_current = _band
-            ref_type = "LPRM"
+            ref_type = "ERA5"
             # metric=  "R"
             metric=  _metric
 
@@ -236,7 +236,7 @@ if __name__=="__main__":
                            day_ref_filename,
                            metric= metric,
                            xlim = [plot_val_lut[metric][0], plot_val_lut[metric][1]],
-                           maxval=9000,
+                           maxval=12000,
                            title= f"{metric}: {reference_filename} v. {day_ref_filename}",
                            freq = band_current
 
@@ -247,7 +247,7 @@ if __name__=="__main__":
                            day_regression_filename,
                            metric= metric,
                            xlim = [plot_val_lut[metric][0], plot_val_lut[metric][1]],
-                           maxval=9000,
+                           maxval=12000,
                            title= f"{metric}: {reference_filename} v. {day_regression_filename}",
                            freq = band_current
                            )
