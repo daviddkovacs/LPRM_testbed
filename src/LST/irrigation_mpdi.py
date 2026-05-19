@@ -1,3 +1,5 @@
+import datetime
+
 from datacube_loader import MICROWAVE_datacube
 from datacube_utilities import (mpdi, calc_Holmes_temp, frequencies, ravel_roi_time)
 import pandas as pd
@@ -36,7 +38,8 @@ def load_TB_daily(bbox,time_start,time_stop,sensor ="AMSR2", file_pattern= None,
                                 file_pattern=file_pattern,
                                 nested_group_name=nested_group_name,
                                 path_user = path,
-                                date_pattern=date_pattern
+                                date_pattern=date_pattern,
+                                resolution="coarse_resolution"
                                 )
 
     TB_NIGHT = MICROWAVE_datacube(bbox=bbox,
@@ -47,7 +50,9 @@ def load_TB_daily(bbox,time_start,time_stop,sensor ="AMSR2", file_pattern= None,
                                   file_pattern=file_pattern,
                                   nested_group_name = nested_group_name,
                                   path_user=path,
-                                  date_pattern=date_pattern
+                                  date_pattern=date_pattern,
+                                  resolution="coarse_resolution"
+
                                   )
 
 
@@ -330,193 +335,67 @@ def get_sensor_band(TB,sensor, band, pol):
     return _TB
 
 
+def absolute_mpdi_delta(MPDI_day,
+                        MPDI_night,
+                        list_of_bands = ["l","c1","c2","x","ku"],
+                        ):
+
+    MPDI_ABS_DIF_dict = {}
+
+    for band in list_of_bands:
+        try:
+            MPDI_ABS_DIF_dict[band] = MPDI_night[band] - MPDI_day[band]
+            # MPDI_ABS_DIF_dict[band] = MPDI_day[band] - MPDI_night[band]
+
+        except KeyError:
+            print(f"{band} omitted")
+
+    return MPDI_ABS_DIF_dict
+
+
+
 file_pattern_lut  = {"AMSR2": "amsr2_l1bt_*.nc",
                      "SMAP": "smap_spl3smp_v009_l3bt_*.nc",
                      }
 date_pattern_lut = {"AMSR2": "_(\\d{8})_",
                     "SMAP" : r"(\d{8})"}
 ##
+
 if __name__=="__main__":
 
-    bbox = [-180, -90, 180, 90]
-    year_start = "2024"
+    bbox = [
+    -124.46765153923654,
+    38.280592852377055,
+    -120.85139147901907,
+    40.159779582899006
+  ]
+    year_start = "2019"
     time_start = f"{year_start}-01-01"
-    time_stop = "2025-01-01"
-    bandlist = ["l","c1", "x", "ku"]
-    sensor = "SMAP"
+    time_stop = "2020-01-01"
+    bandlist = ["l","c1", "c2","x", "ku"]
+    sensor = "AMSR2"
 
 
     TB_DAY, TB_NIGHT = load_TB_daily(bbox=bbox, time_start=time_start, time_stop=time_stop,
                                      sensor=sensor,file_pattern=file_pattern_lut[sensor],
                                      date_pattern=date_pattern_lut[sensor]
                                      )
-    if sensor.upper() != "SMAP":
-        HOLMES_T_NIGHT, HOLMES_T_DAY = calc_Holmes_temp(TB_NIGHT, sensor=sensor), calc_Holmes_temp(TB_DAY, sensor=sensor)
-    elif sensor.upper() == "SMAP":
-        L_KA_DAY, L_KA_NIGHT = load_TB_daily(bbox=bbox, time_start=time_start, time_stop=time_stop,
-                                         sensor=sensor, file_pattern="smap_combined_*.nc",
-                                             path = "/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/03_lband_temperatures",
-                                             date_pattern = date_pattern_lut[sensor]
-                                         )
-        HOLMES_T_NIGHT, HOLMES_T_DAY = calc_Holmes_temp(L_KA_DAY, sensor="AMSR2"), calc_Holmes_temp(L_KA_NIGHT, sensor="AMSR2")
-
-##
-    band_current = "l"
-    SM_NIGHT, VOD_NIGHT,_ = retrieve_LPRM(TB_DATASET=TB_NIGHT, SURFACE_T=HOLMES_T_NIGHT, band=band_current, sensor=sensor)
-    # Highly experimental! TSIM is obtained byrunning LPRM in reverse.
-    # TB has to be corresponding, for T_SIM to work!!!! DAY-DAY NIGHT-NIGHT
-    # SURFACE_T doesnt matter if SM_input is True.
-    _, _, TSIM_DAY = retrieve_LPRM(TB_DATASET=TB_DAY, SURFACE_T=HOLMES_T_DAY, band=band_current,
-                                   SM_input=SM_NIGHT, VOD_input=VOD_NIGHT, sensor=sensor)
-
-##
-    dif_threshold = 0.0005
-    minimum_mpdi = 0.01
 
     MPDI_DAY , MPDI_NIGHT = calc_MPDI_bands(TB_DAY=TB_DAY,TB_NIGHT=TB_NIGHT,
-                                            list_of_bands=bandlist, minimum_mpdi=minimum_mpdi, sensor=sensor)
-    MPDI_deltas = calc_MPDI_difference(MPDI_day=MPDI_DAY,
-                                       MPDI_night=MPDI_NIGHT,
-                                       list_of_bands=bandlist)
+                                            list_of_bands=bandlist,
+                                            minimum_mpdi=0,
+                                            sensor=sensor)
 
-    MPDI_DELTA_band = MPDI_deltas[band_current]
-
-    MPDI_DELTA_band, SM_NIGHT, VOD_NIGHT, TB_DAY, TSIM_DAY = xr.align(
-        MPDI_DELTA_band, SM_NIGHT, VOD_NIGHT, TB_DAY, TSIM_DAY, join='inner'
-    )
-
-    low_mpdi_mask = (MPDI_DELTA_band >= -dif_threshold) & (MPDI_DELTA_band <= dif_threshold)
-    low_mpdi_mask = low_mpdi_mask.compute()
-
-    SM_low_mpdi = SM_NIGHT.where(low_mpdi_mask)
-    VOD_low_mpdi = VOD_NIGHT.where(low_mpdi_mask)
-    TB_DAY_low_mpdi = TB_DAY.where(low_mpdi_mask)
-    TSIM_low_mpdi = TSIM_DAY.where(low_mpdi_mask)
-    if sensor.upper() == "SMAP":
-
-        L_KA_DAY_low_mpdi = L_KA_DAY.where(low_mpdi_mask)
-
-        T_KA = get_sensor_band(L_KA_DAY_low_mpdi, "AMSR2", "KA", "V")
-    else:
-        T_KA = get_sensor_band(TB_DAY_low_mpdi, "AMSR2", "KA", "V")
+    MPDI_delta_abs = absolute_mpdi_delta(MPDI_day=MPDI_DAY,
+                                         MPDI_night=MPDI_NIGHT,
+                                         )
 ##
-    res = 1
-    stat_da = regression_wrapper(T_KA,TSIM_low_mpdi,resolution=res)
+    for ms in range(1,13):
+        plot_t_start = datetime.date(2019, ms, 1)
+        plot_t_end = datetime.date(2019, ms, 25)
+        current_band = "x"
 
-##
-    world_map(stat_da, "intercept", cbar_min=-50,cbar_max=50, cmap="viridis", title_extra = f"{sensor} {band_current.upper()}")
-    world_map(stat_da, "slope", cbar_min=0.8,cbar_max=1.2, cmap="RdYlGn",title_extra = f" {sensor} {band_current.upper()}")
-    # world_map(stat_da, "r", cbar_min=0.5,cbar_max=1, cmap="coolwarm",title_extra = f"{time_stop} {sensor} {band_current}")
-    # world_map(stat_da, "rmse", cbar_min=0,cbar_max=25, cmap="YlGn",title_extra = f"{year_start} {sensor} {band_current}")
-    # world_map(stat_da, "bias", cbar_min=0,cbar_max=25, cmap="Purples",title_extra = f"{year_start} {sensor} {band_current}")
-    # world_map(stat_da, "ubrmse", cbar_min=0,cbar_max=5, cmap="Purples",title_extra = f"{year_start} {sensor} {band_current}")
-
-##
-    highres_coords = HOLMES_T_DAY.isel(time =0)
-    _stat_da = stat_da.reindex_like(highres_coords, method="nearest" )
-    compression_settings = {"zlib": True, "complevel": 5}
-
-    _stat_da = _stat_da.where(_stat_da["slope"]>0)
-    _stat_da = _stat_da.where((_stat_da["intercept"]<110)&((_stat_da["intercept"]>0)))
-
-    encoding_dict = {"sm": compression_settings}
-
-    # _stat_da.to_netcdf("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/"
-    #                    "07_data/LPRM/07_debug/daytime_retrieval/MPDI_trick/lprm_testing/T_aux/"
-    #                  f"Daytime_T_aux_{band_current}_MPDI{minimum_mpdi}.nc", encoding={key : compression_settings for key in stat_da.var()})
-
-##
-    _density_plot_rois = {
-        "sahel":
-            [
-                -14.164029114749468,
-                7.731771192012118,
-                9.907581803277111,
-                13.006449666672083
-            ],
-        "global":
-            [
-                2.558241571844661,
-                -27.901585373645382,
-                122.26017044881735,
-                66.05759899228326
-            ]
-        ,
-        "sahara":
-            [
-                -2.8691486378134528,
-                29.78528974820715,
-                10.186270014453982,
-                33.702449989438534
-            ]
-        ,
-        "amazon":
-            [
-                -71.7768365566669,
-                -8.491843421295215,
-                -67.95189966183453,
-                -5.472202615630479
-            ]
-        ,
-        "mississippi":
-            [
-                -94.9768726933208,
-                30.214798554771548,
-                -91.7883126223943,
-                34.546414390488565
-            ]
-        ,
-        "ukraine":
-            [
-                32.21686925646503,
-                47.26698343764045,
-                43.1603819502771,
-                50.05585495002529
-            ]
-        ,
-        "australia":
-            [
-                144.04056490447869,
-                -35.50692205951431,
-                147.3312456957429,
-                -33.30894507250183
-            ],
-        "siberia":
-            [
-                98.48825732649834,
-                59.92631436042677,
-                115.826271303397,
-                64.04586721869993
-            ]
-
-    }
-
-    region = "ukraine"
-    roi = _density_plot_rois[region]
-
-    DELTA_T = TSIM_low_mpdi - T_KA
-
-    _t_ka = f"$TB_{{Ka (V-pol)}}$"
-    _t_sim = f"$T_{{sim}}$"
-
-    time_selector = (DELTA_T.time.dt.year == int(year_start))
-    df = pd.DataFrame({
-        _t_ka: ravel_roi_time(T_KA, roi, time_selector, method="nearest"),
-        _t_sim: ravel_roi_time(TSIM_low_mpdi, roi, time_selector, method="nearest"),
-        # "VOD_low_mpdi": ravel_roi_time(VOD_low_mpdi, roi, time_selector, method="nearest"),
-        # "SM_low_mpdi": ravel_roi_time(SM_low_mpdi, roi, time_selector, method="nearest"),
-        # "T_HOLMES": ravel_roi_time(T_HOLMES, roi, time_selector, method="nearest"),
-        # "MPDI_NIGHT": ravel_roi_time(MPDI_NIGHT[band_current], roi, time_selector, method="nearest"),
-    })
-
-    plot_hexbin(df,
-                _t_ka,
-                _t_sim,
-                color_of_points=None,
-                # xlim=[0.95,1.05], ylim=[265,320],
-                # xlim=[255,340], ylim=[255,340],
-                xlim=[None,None], ylim=[None,None],
-                # cbar_min= 0, cbar_max= 30,
-                title_string=f"band: {band_current.upper()}",
-                )
-
+        MPDI_avg = MPDI_delta_abs[current_band].sel(time=slice(plot_t_start,plot_t_end)).mean(dim="time").compute()
+        MPDI_avg.plot(vmin=-0.02,vmax = 0.02,cmap="RdBu" )
+        plt.title(f"{current_band.upper()}-band MPDI_night - MPDI_day ({plot_t_start.year} {plot_t_start.month})")
+        plt.show()

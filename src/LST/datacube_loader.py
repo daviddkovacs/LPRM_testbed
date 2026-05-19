@@ -56,6 +56,7 @@ def MICROWAVE_datacube(
         nested_group_name = None,
         path_user=None,
         date_pattern=None,
+        resolution:Literal["coarse_resolution","medium_resolution"] = "coarse_resolution",
 
 ):
     """
@@ -74,21 +75,21 @@ def MICROWAVE_datacube(
     if overpass == "day" or overpass == "night":
         TB_stack = open_mw_sensor(path=path, sensor=sensor, overpass=overpass,
                                      subdir_pattern=f"20*", file_pattern=file_pattern,
-                                     resolution="coarse_resolution", time_start=time_start, time_stop=time_stop,
+                                     resolution=resolution, time_start=time_start, time_stop=time_stop,
                                      bbox=bbox, nested_group_name=nested_group_name,
                                   date_pattern=date_pattern
                                   )
     elif overpass == "daynight":
         day_tb = open_mw_sensor(path=path, sensor=sensor, overpass="day",
                                 subdir_pattern=f"20*", file_pattern=file_pattern,
-                                resolution="coarse_resolution", time_start=time_start, time_stop=time_stop,
+                                resolution=resolution, time_start=time_start, time_stop=time_stop,
                                 bbox=bbox, nested_group_name=nested_group_name,
                                 date_pattern = date_pattern
                                 )
 
         night_tb = open_mw_sensor(path=path, sensor=sensor, overpass="night",
                                   subdir_pattern=f"20*", file_pattern=file_pattern,
-                                  resolution="coarse_resolution", time_start=time_start, time_stop=time_stop,
+                                  resolution=resolution, time_start=time_start, time_stop=time_stop,
                                   bbox=bbox, nested_group_name=nested_group_name,
                                   date_pattern=date_pattern
                                   )
