@@ -17,6 +17,10 @@ path_datasets = ("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/0
 output_path = ("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/"
                "LPRM/07_debug/daytime_retrieval/MPDI_trick/evaluation/figs")
 
+hist_val_lut = {
+    "BIAS": (-0.45, 0.45),
+}
+
 plot_val_lut = {
     "BIAS": (-0.25, 0.25),
     "BIAS_difference": (0, 0.1),
@@ -167,6 +171,7 @@ def histogram_plot(obj,
     fig, ax = plt.subplots(figsize=(7, 5))
 
     # Plot both histograms (alpha reduced to 0.6 so overlaps are visible)
+    xlim = xlim if ref_type == "ERA5" else [-0.2,0.2]
     ax.hist(data_clean1, bins=250, range=(xlim[0], xlim[1]),
             color='#2c7bb6', edgecolor='white', alpha=0.6, label=label1)
 
@@ -190,9 +195,9 @@ def histogram_plot(obj,
     print(stats_text)
     print("")
 
-    ax.text(0.05, 0.95, stats_text, transform=ax.transAxes, fontsize=10,
-            verticalalignment='top',
-            bbox=dict(boxstyle='round,pad=0.5', facecolor='white', edgecolor='gray', alpha=0.8))
+    # ax.text(0.05, 0.95, stats_text, transform=ax.transAxes, fontsize=10,
+    #         verticalalignment='top',
+    #         bbox=dict(boxstyle='round,pad=0.5', facecolor='white', edgecolor='gray', alpha=0.8))
 
     ax.set_xlabel(title, fontsize=12)
     ax.set_ylabel('Frequency', fontsize=12)
@@ -205,9 +210,9 @@ def histogram_plot(obj,
     ax.set_xlim(xlim)
     ax.set_ylim([0, maxval])
 
-    # plt.savefig(f"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/"
-    #             f"LPRM/07_debug/daytime_retrieval/MPDI_trick/evaluation/figs/paper/histograms/{freq}/"
-    #             f"{freq}_{metric}_{ref_name}_{test_name}", dpi=300, bbox_inches='tight')
+    plt.savefig(f"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/"
+                f"LPRM/07_debug/daytime_retrieval/MPDI_trick/evaluation/figs/paper/histograms/{freq}/"
+                f"{freq}_{metric}_{ref_name}_combined", dpi=300, bbox_inches='tight')
 
     plt.show()
 
@@ -271,7 +276,7 @@ if __name__=="__main__":
 
     bands_to_plot = ["c1"]
     stats_to_plot = ["BIAS"]
-    ref_type = "ERA5"
+    ref_type = "LPRM"
 
     for _band in bands_to_plot:
         for _metric in stats_to_plot:
@@ -338,10 +343,12 @@ if __name__=="__main__":
                            reference_filename,
                            [day_ref_filename,day_regression_filename],
                            metric= _metric,
-                           xlim = [plot_val_lut[_metric][0], plot_val_lut[_metric][1]],
-                           maxval=12000,
-                           title= f"{_metric}: {reference_filename} v. {day_regression_filename}",
-                           freq = _band
+                           xlim = [hist_val_lut[_metric][0], hist_val_lut[_metric][1]],
+                           maxval=11000,
+                           title= f"{_metric} ({ref_type} reference)",
+                           freq = _band,
+                           label1= f"{_band} ref",
+                           label2= f"{_band} regression"
                            )
 
 
