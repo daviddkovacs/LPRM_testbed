@@ -19,6 +19,7 @@ output_path = ("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_
 
 plot_val_lut = {
     "BIAS": (-0.25, 0.25),
+    "BIAS_difference": (0, 0.1),
     "R" : (-1,1),
     "urmsd": (0,0.20),
     "status":(None,None),
@@ -28,6 +29,7 @@ plot_val_lut = {
 
 color_lut = {
     "BIAS": "PiYG",
+    "BIAS_difference": "Purples",
     "R" : "RdBu_r",
     "urmsd": "YlGnBu",
     "status":(None,None),
@@ -37,6 +39,7 @@ color_lut = {
 
 unit_lut = {
     "BIAS": "[$m^3/m^3$]",
+    "BIAS_difference": "[$m^3/m^3$]",
     "R" : "",
     "urmsd": "[$m^3/m^3$]",
 }
@@ -45,7 +48,7 @@ map_title_lut = {
     ""
 }
 
-##
+
 
 def import_single_obj(filename_ref,
                       filename_test,
@@ -81,7 +84,14 @@ def obj_masker(obj_ref, obj_mask, var):
 
 
 
-def manual_plotter(dataset, metric, fname_ref=None, fname_test=None, variable = None, title="", freq = None):
+def manual_plotter(dataset,
+                   metric,
+                   fname_ref=None,
+                   fname_test=None,
+                   variable = None,
+                   title="",
+                   freq = None
+                   ):
 
     values = plot_val_lut[metric]
     fig = plt.figure(figsize=(12, 6))
@@ -128,42 +138,62 @@ def manual_plotter(dataset, metric, fname_ref=None, fname_test=None, variable = 
 
     plt.show()
 
+    return plot_da
+
 
 def histogram_plot(obj,
+                   obj2,
                    ref_name,
                    test_name,
                    metric,
+                   label1="Data 1",
+                   label2="Data 2",
                    xlim= [None,None],
                    maxval=None,
                    title = "",
                    freq = None
                    ):
 
-    statistics = f"{metric}_between_0-{ref_name}_and_1-{test_name}"
-    stat_data = obj.df[statistics].values.ravel()
 
-    data_clean = stat_data[~np.isnan(stat_data)]
+    statistics1 = f"{metric}_between_0-{ref_name}_and_1-{test_name[0]}"
+
+    stat_data1 = obj.df[statistics1].values.ravel()
+    data_clean1 = stat_data1[~np.isnan(stat_data1)]
+
+    statistics2 = f"{metric}_between_0-{ref_name}_and_1-{test_name[1]}"
+    stat_data2 = obj2.df[statistics2].values.ravel()
+    data_clean2 = stat_data2[~np.isnan(stat_data2)]
 
     fig, ax = plt.subplots(figsize=(7, 5))
 
-    n, bins, patches = ax.hist(data_clean, bins=250, range=(xlim[0], xlim[1]),color='#2c7bb6', edgecolor='white', alpha=0.9)
+    # Plot both histograms (alpha reduced to 0.6 so overlaps are visible)
+    ax.hist(data_clean1, bins=250, range=(xlim[0], xlim[1]),
+            color='#2c7bb6', edgecolor='white', alpha=0.6, label=label1)
 
-    mean_val = np.nanmean(data_clean)
-    variance_val = np.nanvar(data_clean)
-    std_val = np.sqrt(np.nanvar(data_clean))
-    len_val = len(data_clean)
+    ax.hist(data_clean2, bins=250, range=(xlim[0], xlim[1]),
+            color='#d7191c', edgecolor='white', alpha=0.6, label=label2)
+
+    # Helper function to calculate stats
+    def get_stats(data):
+        return np.nanmean(data), np.nanvar(data), np.sqrt(np.nanvar(data)), len(data)
+
+    m1, v1, s1, len1 = get_stats(data_clean1)
+    m2, v2, s2, len2 = get_stats(data_clean2)
+
+    # Format stats text for both datasets
     stats_text = (
-        f'Mean: {mean_val:.3}\n'
-        f'Variance: {variance_val:.3}\n'
-        f'Std: {std_val:.3}\n'
-        f'#: {len_val}'
+        f'{label1} | Mean: {m1:.3g} | Std: {s1:.3g} | #: {len1}\n'
+        f'{label2} | Mean: {m2:.3g} | Std: {s2:.3g} | #: {len2}'
     )
+
     print(title)
     print(stats_text)
     print("")
-    ax.text(0.05, 0.95, stats_text, transform=ax.transAxes, fontsize=11,
+
+    ax.text(0.05, 0.95, stats_text, transform=ax.transAxes, fontsize=10,
             verticalalignment='top',
             bbox=dict(boxstyle='round,pad=0.5', facecolor='white', edgecolor='gray', alpha=0.8))
+
     ax.set_xlabel(title, fontsize=12)
     ax.set_ylabel('Frequency', fontsize=12)
 
@@ -171,35 +201,89 @@ def histogram_plot(obj,
     ax.spines['right'].set_visible(False)
 
     ax.set_axisbelow(True)
-    ax.legend()
+    ax.legend(loc='upper right')  # explicitly added legend location so it doesn't overlap top-left text
     ax.set_xlim(xlim)
-    ax.set_ylim([0,maxval])
-    plt.savefig(f"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/"
-                f"LPRM/07_debug/daytime_retrieval/MPDI_trick/evaluation/figs/paper/histograms/{freq}/"
-                f"{freq}_{metric}_{ref_name}_{test_name}", dpi=300, bbox_inches='tight')
+    ax.set_ylim([0, maxval])
+
+    # plt.savefig(f"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/"
+    #             f"LPRM/07_debug/daytime_retrieval/MPDI_trick/evaluation/figs/paper/histograms/{freq}/"
+    #             f"{freq}_{metric}_{ref_name}_{test_name}", dpi=300, bbox_inches='tight')
 
     plt.show()
 
 
+def difference_maps(reference_xr,
+               subtracted_xr,
+               metric,
+               fname_ref=None,
+               fname_test=None,
+               variable=None,
+               title="",
+               freq=None
+               ):
+
+    _difference_xr = subtracted_xr - reference_xr
+    difference_xr = abs(_difference_xr)
+
+    values = plot_val_lut[metric]
+    fig = plt.figure(figsize=(12, 6))
+    ax = plt.axes(projection=ccrs.PlateCarree())
+    ax.set_extent([-170, 180, -60, 90], crs=ccrs.PlateCarree())
+    ax.add_feature(cfeature.LAND, facecolor='lightgray', zorder=0)
+    ax.add_feature(cfeature.OCEAN, facecolor='white', zorder=0)
+    ax.coastlines(linewidth=0.5, zorder=2)
+    ax.add_feature(cfeature.BORDERS, linestyle=':', linewidth=0.5, zorder=2)
+
+    if variable not in ["slope", "intercept"]:
+        _variable = f'{metric}_between_0-{fname_ref}_and_1-{fname_test}'
+    else:
+        _variable = variable
+
+    mesh = difference_xr.plot.pcolormesh(
+        ax=ax,
+        transform=ccrs.PlateCarree(),
+        x='lon',
+        y='lat',
+        cmap=color_lut[metric],
+        vmin=values[0],
+        vmax=values[1],
+        add_colorbar=False,
+        zorder=1
+    )
+
+    cbar = plt.colorbar(mesh, ax=ax, orientation='horizontal', shrink=0.5, pad=0.05)
+    cbar.set_label(f"{metric} {unit_lut[metric]}", fontsize=20)
+    cbar.ax.tick_params(labelsize=16)
+
+    plt.title(title, fontsize=20, pad=15)
+
+    plt.tight_layout(pad=0.5)
+    plt.savefig(f"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/"
+                f"07_data/LPRM/07_debug/daytime_retrieval/MPDI_trick/evaluation/figs/paper/maps/statistics_maps/{freq}/"
+                f"{freq}_{metric}_{fname_ref}_{fname_test}_difference", dpi=300, bbox_inches='tight')
+
+    plt.show()
+
+
+##
+
 if __name__=="__main__":
-    for _band in ["c1","x","ku"]:
-        for _metric in ["R","BIAS","urmsd"]:
 
-            # band_current = "x"
-            band_current = _band
-            ref_type = "ERA5"
-            # metric=  "R"
-            metric=  _metric
+    bands_to_plot = ["c1"]
+    stats_to_plot = ["BIAS"]
+    ref_type = "ERA5"
 
-            sm_var_name = {"LPRM" : "sm",
-                           "ERA5" : "swvl1"}
+    for _band in bands_to_plot:
+        for _metric in stats_to_plot:
+            sm_var_name = {"LPRM": "sm",
+                           "ERA5": "swvl1"}
 
-            ref_fname_dict = {"LPRM": f"SM{band_current}_NIGHT_ref",
+            ref_fname_dict = {"LPRM": f"SM{_band}_NIGHT_ref",
                               "ERA5": f"ERA5_LAND"}
 
             reference_filename = ref_fname_dict[ref_type]
-            day_ref_filename = f"SM{band_current}_DAY_ref"
-            day_regression_filename = f"SM{band_current}_DAY_regression"
+            day_ref_filename = f"SM{_band}_DAY_ref"
+            day_regression_filename = f"SM{_band}_DAY_regression"
 
             plot_obj_ref = import_single_obj(reference_filename,
                                              day_ref_filename,
@@ -212,44 +296,52 @@ if __name__=="__main__":
 
             plot_obj_ref_masked, xr_ref, xr_test  = obj_masker(obj_ref=plot_obj_ref,
                                             obj_mask=plot_obj_regression,
-                                             var=metric)
+                                             var=_metric)
 
 
-            manual_plotter(xr_ref,
-                           metric,
+            plot_xr_ref = manual_plotter(xr_ref,
+                           _metric,
                            fname_ref = reference_filename,
                            fname_test= day_ref_filename,
-                           title=f"{metric}: {reference_filename} - {day_ref_filename}",
-                           freq=band_current
+                           title=f"{_metric}: {reference_filename} - {day_ref_filename}",
+                           freq=_band
                            )
 
-            manual_plotter(xr_test,
-                           metric,
+            plot_xr_test = manual_plotter(xr_test,
+                           _metric,
                            fname_ref=reference_filename,
                            fname_test=day_regression_filename,
-                           title=f"{metric}: {reference_filename} - {day_regression_filename}",
-                           freq=band_current
+                           title=f"{_metric}: {reference_filename} - {day_regression_filename}",
+                           freq=_band
                            )
+
+            difference_maps(reference_xr=plot_xr_ref,
+                            subtracted_xr=plot_xr_test,
+                            metric="BIAS_difference",
+                            title=rf"$|\Delta$Biases| ({ref_type} reference)",
+                            freq=_band
+                            )
+
+            # histogram_plot(plot_obj_ref_masked,
+            #                reference_filename,
+            #                day_ref_filename,
+            #                metric= _metric,
+            #                xlim = [plot_val_lut[_metric][0], plot_val_lut[_metric][1]],
+            #                maxval=12000,
+            #                title= f"{_metric}: {reference_filename} v. {day_ref_filename}",
+            #                freq = _band
+            #
+            #                )
 
             histogram_plot(plot_obj_ref_masked,
+                           plot_obj_regression,
                            reference_filename,
-                           day_ref_filename,
-                           metric= metric,
-                           xlim = [plot_val_lut[metric][0], plot_val_lut[metric][1]],
+                           [day_ref_filename,day_regression_filename],
+                           metric= _metric,
+                           xlim = [plot_val_lut[_metric][0], plot_val_lut[_metric][1]],
                            maxval=12000,
-                           title= f"{metric}: {reference_filename} v. {day_ref_filename}",
-                           freq = band_current
-
-                           )
-
-            histogram_plot(plot_obj_regression,
-                           reference_filename,
-                           day_regression_filename,
-                           metric= metric,
-                           xlim = [plot_val_lut[metric][0], plot_val_lut[metric][1]],
-                           maxval=12000,
-                           title= f"{metric}: {reference_filename} v. {day_regression_filename}",
-                           freq = band_current
+                           title= f"{_metric}: {reference_filename} v. {day_regression_filename}",
+                           freq = _band
                            )
 
 
