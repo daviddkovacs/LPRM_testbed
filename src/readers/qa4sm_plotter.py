@@ -8,7 +8,10 @@ import xarray as xr
 import numpy as np
 import matplotlib.patches as mpatches
 from matplotlib.colors import ListedColormap
-from LST.datacube_utilities import crop2roi
+from LST.test_lprm_day import load_TB_daily, date_pattern_lut,file_pattern_lut
+from LST.datacube_utilities import calc_Holmes_temp
+
+
 
 path_datasets = ("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/"
                  "LPRM/07_debug/daytime_retrieval/MPDI_trick/evaluation/qa4sm_netcdfs")
@@ -23,7 +26,7 @@ hist_val_lut = {
 
 plot_val_lut = {
     "BIAS": (-0.25, 0.25),
-    "BIAS_difference": (0, 0.1),
+    "BIAS_difference": (-0.1, 0.1),
     "R" : (-1,1),
     "urmsd": (0,0.20),
     "status":(None,None),
@@ -33,7 +36,7 @@ plot_val_lut = {
 
 color_lut = {
     "BIAS": "PiYG",
-    "BIAS_difference": "Purples",
+    "BIAS_difference": "coolwarm",
     "R" : "RdBu_r",
     "urmsd": "YlGnBu",
     "status":(None,None),
@@ -172,12 +175,12 @@ def histogram_plot(obj,
 
     # Plot both histograms (alpha reduced to 0.6 so overlaps are visible)
     xlim = xlim if ref_type == "ERA5" else [-0.2,0.2]
-    ax.hist(data_clean1, bins=250, range=(xlim[0], xlim[1]),
+
+    ax.hist(data_clean2, bins=150, range=(xlim[0], xlim[1]),
+            color='#d7191c', edgecolor='white', alpha=0.99, label=label2)
+
+    ax.hist(data_clean1, bins=150, range=(xlim[0], xlim[1]),
             color='#2c7bb6', edgecolor='white', alpha=0.6, label=label1)
-
-    ax.hist(data_clean2, bins=250, range=(xlim[0], xlim[1]),
-            color='#d7191c', edgecolor='white', alpha=0.6, label=label2)
-
     # Helper function to calculate stats
     def get_stats(data):
         return np.nanmean(data), np.nanvar(data), np.sqrt(np.nanvar(data)), len(data)
@@ -227,9 +230,7 @@ def difference_maps(reference_xr,
                freq=None
                ):
 
-    _difference_xr = subtracted_xr - reference_xr
-    difference_xr = abs(_difference_xr)
-
+    difference_xr = abs(reference_xr) - abs(subtracted_xr)
     values = plot_val_lut[metric]
     fig = plt.figure(figsize=(12, 6))
     ax = plt.axes(projection=ccrs.PlateCarree())
@@ -263,9 +264,9 @@ def difference_maps(reference_xr,
     plt.title(title, fontsize=20, pad=15)
 
     plt.tight_layout(pad=0.5)
-    plt.savefig(f"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/"
-                f"07_data/LPRM/07_debug/daytime_retrieval/MPDI_trick/evaluation/figs/paper/maps/statistics_maps/{freq}/"
-                f"{freq}_{metric}_{fname_ref}_{fname_test}_difference", dpi=300, bbox_inches='tight')
+    # plt.savefig(f"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/"
+    #             f"07_data/LPRM/07_debug/daytime_retrieval/MPDI_trick/evaluation/figs/paper/maps/statistics_maps/{freq}/"
+    #             f"{freq}_{metric}_{ref_type}_difference", dpi=300, bbox_inches='tight')
 
     plt.show()
 
@@ -276,7 +277,7 @@ if __name__=="__main__":
 
     bands_to_plot = ["c1"]
     stats_to_plot = ["BIAS"]
-    ref_type = "LPRM"
+    ref_type = "ERA5"
 
     for _band in bands_to_plot:
         for _metric in stats_to_plot:
@@ -344,7 +345,7 @@ if __name__=="__main__":
                            [day_ref_filename,day_regression_filename],
                            metric= _metric,
                            xlim = [hist_val_lut[_metric][0], hist_val_lut[_metric][1]],
-                           maxval=11000,
+                           maxval=20000,
                            title= f"{_metric} ({ref_type} reference)",
                            freq = _band,
                            label1= f"{_band} ref",
@@ -466,3 +467,33 @@ if __name__=="__main__":
   #   # plt.savefig("/home/ddkovacs/Desktop/mpdi_comparison.png", dpi=300, bbox_inches='tight')
   #
   #   plt.show()
+
+
+## Maps of Regression and Holmes T difference
+
+    bbox = [-180, -90, 180, 90]
+    time_start = "2024-01-01"
+    time_stop = "2024-12-01"
+    bandlist = ["c1","c2", "x", "ku"]
+    sensor = "AMSR2"
+
+    AMSR2_DAY, AMSR2_NIGHT = load_TB_daily(bbox=bbox, time_start=time_start, time_stop=time_stop,
+                                           date_pattern = date_pattern_lut[sensor],
+                                           file_pattern=file_pattern_lut[sensor])
+
+    HOLMES_T_NIGHT, HOLMES_T_DAY = calc_Holmes_temp(AMSR2_NIGHT), calc_Holmes_temp(AMSR2_DAY)
+
+
+    band_current = "c1"
+    minimum_mpdi = 0.010
+
+    path_aux_t = (f"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/MPDI_trick/lprm_testing"
+                  f"/T_aux/{band_current}_daytime_LST_regression.nc")
+    daytime_stats = xr.open_dataset(path_aux_t)
+
+    T_KA = AMSR2_DAY["bt_36.5V"]
+
+    slope = daytime_stats["slope"]
+    intercept = daytime_stats["intercept"]
+
+    T_DAYTIME = (T_KA * slope + intercept).compute()

@@ -5,7 +5,7 @@ import os
 import re
 import glob
 import pandas as pd
-from datacube_utilities import clean_pad_data
+from LST.datacube_utilities import clean_pad_data
 import numpy as np
 from config.paths import MODIS_geo_path, MODIS_geo_path_local
 

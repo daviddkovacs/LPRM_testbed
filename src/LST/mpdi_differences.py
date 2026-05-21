@@ -1,5 +1,5 @@
-from datacube_loader import MICROWAVE_datacube
-from datacube_utilities import (mpdi, calc_Holmes_temp, frequencies, ravel_roi_time)
+from LST.datacube_loader import MICROWAVE_datacube
+from LST.datacube_utilities import (mpdi, calc_Holmes_temp, frequencies, ravel_roi_time)
 import pandas as pd
 import matplotlib.pyplot as plt
 import lprm.retrieval.lprm_v6_1.par100m_v6_1 as par100
@@ -9,7 +9,7 @@ from lprm.retrieval.lprm_v6_1.parameters import (
 )
 import xarray as xr
 import numpy as np
-from plot_functions import plot_hexbin, usual_stats, regressor_calc, world_map
+from LST.plot_functions import plot_hexbin, usual_stats, regressor_calc, world_map
 from joblib import Parallel, delayed
 import itertools
 from lprm.satellite_specs import SensorSpecifics, get_specs
