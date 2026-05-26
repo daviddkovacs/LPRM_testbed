@@ -3,8 +3,8 @@ import matplotlib.pyplot as plt
 from LST.mpdi_differences import load_TB_daily, retrieve_LPRM, calc_Holmes_temp, date_pattern_lut, file_pattern_lut
 import xarray as xr
 import numpy as np
-
-
+import pandas as pd
+from LST.datacube_utilities import crop2roi
 ##
 if __name__=="__main__":
 
@@ -29,7 +29,7 @@ if __name__=="__main__":
     daytime_stats = xr.open_dataset(path_aux_t)
 
     T_KA = AMSR2_DAY["bt_36.5V"]
-
+##
     slope = daytime_stats["slope"]
     intercept = daytime_stats["intercept"]
 
@@ -48,7 +48,6 @@ if __name__=="__main__":
     SM_DAY_regression, VOD_DAY_regression, _ = retrieve_LPRM(TB_DATASET=AMSR2_DAY,
                                                              SURFACE_T=T_DAYTIME,
                                                              band=band_current)
-
 
     ##
     path_shares = (f"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/MPDI_trick/"
@@ -69,60 +68,104 @@ if __name__=="__main__":
 
 
 ##
-    t = 15
-    sm_ref_1 = SM_DAY_ref.isel(time = t)
-    sm_regression_1 = SM_DAY_regression.isel(time = t)
-    temp = T_DAYTIME.isel(time = t)
-    holmes = HOLMES_T_DAY.isel(time = t)
 
-    bias_map = SM_DAY_ref.mean(dim= "time") - SM_DAY_regression.mean(dim= "time")
-    _bias = bias_map.where((bias_map>0.1))
+  #   bbox_siberia = [
+  #   96.88615696455196,
+  #   54.25554741270571,
+  #   114.06797376493057,
+  #   62.907052962598044
+  # ]
 
-    bias = _bias.where(_bias>0)
-    temp = temp.where(_bias>0)
-    holmes = holmes.where(_bias>0)
-    _slope = slope.where(_bias>0)
-    _intercept = intercept.where(_bias>0)
+    bbox_siberia = [-180,-90,180,90]
 
-    bias_values = bias.values.ravel()
-    temp_values = temp.values.ravel()
-    holmes_values = holmes.values.ravel()
-    _slope_values = _slope.values.ravel()
-    _intercept_values = _intercept.values.ravel()
+    SM_DAY_ref_sib = crop2roi(SM_DAY_ref,bbox_siberia)
+    SM_DAY_regression_sib = crop2roi(SM_DAY_regression,bbox_siberia)
+    AMSR2_DAY_sib = crop2roi(AMSR2_DAY,bbox_siberia)
+    slope_sib = crop2roi(slope,bbox_siberia)
+    intercept_sib = crop2roi(intercept,bbox_siberia)
+    T_DAYTIME_sib = crop2roi(T_DAYTIME,bbox_siberia)
+    HOLMES_T_DAY_sib = crop2roi(HOLMES_T_DAY,bbox_siberia)
 
-    # 2. Create a single boolean mask where NO array has a NaN
+    MPDI_stack = ((AMSR2_DAY_sib["bt_6.9V"] - AMSR2_DAY_sib["bt_6.9H"])
+                  / (AMSR2_DAY_sib["bt_6.9V"] + AMSR2_DAY_sib["bt_6.9H"]))
+
+    bias_map = SM_DAY_ref_sib.mean(dim= "time") - SM_DAY_regression_sib.mean(dim= "time")
+    abs_bias_stack = bias_map.broadcast_like(T_DAYTIME_sib)
+    slope_stack = slope_sib.broadcast_like(T_DAYTIME_sib)
+    intercept_stack = intercept_sib.broadcast_like(T_DAYTIME_sib)
+
+    bias_values = abs_bias_stack.values.ravel()
+    temp_values = T_DAYTIME_sib.values.ravel()
+    holmes_values = HOLMES_T_DAY_sib.values.ravel()
+    _slope_values = slope_stack.values.ravel()
+    _intercept_values = intercept_stack.values.ravel()
+    _MPDI_values = MPDI_stack.values.ravel()
+
     valid_mask = (
             ~np.isnan(bias_values) &
             ~np.isnan(temp_values) &
             ~np.isnan(holmes_values) &
+            ~np.isnan(_MPDI_values)&
             ~np.isnan(_slope_values) &
             ~np.isnan(_intercept_values)
     )
 
-    # 3. Apply the exact same mask to every array
     bias_filter = bias_values[valid_mask]
     temp_filter = temp_values[valid_mask]
     holmes_filter = holmes_values[valid_mask]
+    _MPDI_filter = _MPDI_values[valid_mask]
     _slope_filter = _slope_values[valid_mask]
     _intercept_filter = _intercept_values[valid_mask]
-##
-    import pandas as pd
 
-    df = pd.DataFrame({
+    _df = pd.DataFrame({
         "bias":bias_filter,
-        "t":temp_filter,
-        "holmes":holmes_filter,
-        "t-holmes":temp_filter-holmes_filter,
+        # "t":temp_filter,
+        # "holmes":holmes_filter,
+        "t-holmes":(temp_filter-holmes_filter),
         "slope":_slope_filter,
         "intercept":_intercept_filter,
+        "MPDI":_MPDI_filter,
                        })
 
+    # df = _df.where((_df["slope"]>1.00) & (
+    # _df["intercept"]<0.001)).dropna()
+
 ##
-    plt.figure()
-    # plt.plot(_intercept_filter)
-    # plt.plot(temp_filter)
-    bias_map.plot()
+
+    bias_filter = bias_map.where(
+        (abs(te-holmes)<5) &
+        (MPDI > 0.01)
+    )
+    plt.figure(figsize=(15,10))
+    bias_filter.plot()
+    plt.title("Bias filtered")
     plt.show()
 
+    plt.figure(figsize=(15,10))
+    abs_bias.plot(vmin=-0.25, vmax = 0.25,cmap = "coolwarm")
+    plt.title("Bias ")
+    plt.show()
+##
 
+    fig = plt.figure(figsize=(16, 6))
+
+    df = _df.where((_df["slope"]>1.00) & (_df["intercept"]<0.001)).dropna()
+
+    plt.scatter(
+        df['slope'],
+        df['bias'],
+        c=df['intercept'],
+        cmap='coolwarm',
+        alpha=0.7,
+        # vmin=-0.5,
+        # vmax=0.3,
+        s=15
+    )
+    plt.xlabel('slope')
+    plt.ylabel('bias')
+    plt.title('2D Heatmap View: Bias across Slope and Intercept')
+    plt.colorbar(label='intercept')
+
+    plt.tight_layout()
+    plt.show()
 

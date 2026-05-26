@@ -372,7 +372,7 @@ if __name__=="__main__":
     time_start = f"{year_start}-01-01"
     time_stop = "2020-01-01"
     bandlist = ["l","c1", "c2","x", "ku"]
-    sensor = "SMAP"
+    sensor = "AMSR2"
     resolution = "medium_resolution"
 
     TB_DAY, TB_NIGHT = load_TB_daily(bbox=bbox, time_start=time_start, time_stop=time_stop,
@@ -393,7 +393,7 @@ if __name__=="__main__":
     for ms in range(1,13):
         plot_t_start = datetime.date(2019, ms, 1)
         plot_t_end = datetime.date(2019, ms, 10)
-        current_band = "l"
+        current_band = "x"
 
         MPDI_avg = MPDI_delta[current_band].sel(time=slice(plot_t_start,plot_t_end)).sum(dim="time").compute()
         MPDI_abs = abs(MPDI_avg)
