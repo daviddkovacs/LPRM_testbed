@@ -55,13 +55,22 @@ def open_mw_sensor(path,
     date_mask  = (pd.to_datetime(time_start) < _dates) & (_dates < pd.to_datetime(time_stop))
     files_valid = np.array(files)[date_mask]
 
-    dataset = xr.open_mfdataset(files_valid,
-                                combine ="nested",
-                                join = "outer",
-                                concat_dim = "time",
-                                chunks = "auto",
-                                group = nested_group_name,
-                                decode_timedelta = False)
+    def add_root_time(ds):
+        file_path = ds.encoding['source']
+        with xr.open_dataset(file_path, decode_timedelta=False) as root_ds:
+            ds = ds.assign_coords(time=root_ds['time'])
+        return ds
+
+    dataset = xr.open_mfdataset(
+        files_valid,
+        combine="nested",
+        join="outer",
+        concat_dim="time",
+        chunks="auto",
+        group=nested_group_name,
+        decode_timedelta=False,
+        preprocess=add_root_time
+    )
 
     dataset_cropped = crop2roi(dataset, bbox)
     # dataset_time_of_day  = assign_time_of_day(dataset = dataset_cropped,

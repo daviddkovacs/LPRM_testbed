@@ -153,8 +153,8 @@ def retrieve_LPRM(TB_DATASET, SURFACE_T, band, SM_input = None, VOD_input = None
                 inc_angle,
                 params.h1,
                 params.h2,
-                params.vod_Av,
-                params.vod_Bv,
+               0,
+                0,
                 float(freq),
                 params.temp_freeze,
                 False,
@@ -336,8 +336,9 @@ def get_sensor_band(TB,sensor, band, pol):
 
 file_pattern_lut  = {"AMSR2": "amsr2_l1bt_*.nc",
                      "SMAP": "smap_spl3smp_v009_l3bt_*.nc",
+                     "SMOS": "smos_l3bt_*.nc",
                      }
-date_pattern_lut = {"AMSR2": "_(\\d{8})_",
+date_pattern_lut = {"AMSR2": "_(\\d{8})_",  "SMOS": "_(\\d{8})_",
                     "SMAP" : r"(\d{8})"}
 ##
 if __name__=="__main__":
@@ -347,7 +348,7 @@ if __name__=="__main__":
     time_start = f"{year_start}-01-01"
     time_stop = "2025-01-01"
     bandlist = ["l","c1", "x", "ku"]
-    sensor = "SMAP"
+    sensor = "SMOS"
 
 
     TB_DAY, TB_NIGHT = load_TB_daily(bbox=bbox, time_start=time_start, time_stop=time_stop,
@@ -362,6 +363,8 @@ if __name__=="__main__":
                                              path = "/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/L_Band_Temps/temps",
                                              date_pattern = date_pattern_lut[sensor], nested_group_name="Ka"
                                          )
+        pd.date_range(time_start,time_stop)
+
         HOLMES_T_NIGHT, HOLMES_T_DAY = (calc_Holmes_temp(L_KA_DAY, sensor="AMSR2", kaband_name="bt_vertical")
                                             , calc_Holmes_temp(L_KA_NIGHT, sensor="AMSR2", kaband_name="bt_vertical"))
 
@@ -401,11 +404,12 @@ if __name__=="__main__":
 
         L_KA_DAY_low_mpdi = L_KA_DAY.where(low_mpdi_mask)
 
-        T_KA = get_sensor_band(L_KA_DAY_low_mpdi, "AMSR2", "KA", "V")
+        T_KA = L_KA_DAY_low_mpdi["bt_vertical"]
     else:
         T_KA = get_sensor_band(TB_DAY_low_mpdi, "AMSR2", "KA", "V")
 ##
     res = 1
+    T_KA = T_KA.sel(time=TSIM_low_mpdi.time, method="nearest")
     stat_da = regression_wrapper(T_KA,TSIM_low_mpdi,resolution=res)
 
 ##
