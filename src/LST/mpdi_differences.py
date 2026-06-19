@@ -353,17 +353,16 @@ if __name__=="__main__":
 
     TB_DAY, TB_NIGHT = load_TB_daily(bbox=bbox, time_start=time_start, time_stop=time_stop,
                                      sensor=sensor,file_pattern=file_pattern_lut[sensor],
-                                     date_pattern=date_pattern_lut[sensor],nested_group_name=None
+                                     date_pattern=date_pattern_lut[sensor],nested_group_name="47.5"
                                      )
-    if sensor.upper() != "SMAP":
+    if sensor.upper() not in ["SMOS", "SMAP"]:
         HOLMES_T_NIGHT, HOLMES_T_DAY = calc_Holmes_temp(TB_NIGHT, sensor=sensor), calc_Holmes_temp(TB_DAY, sensor=sensor)
-    elif sensor.upper() == "SMAP":
+    elif sensor.upper() in ["SMAP","SMOS"]:
         L_KA_DAY, L_KA_NIGHT = load_TB_daily(bbox=bbox, time_start=time_start, time_stop=time_stop,
-                                         sensor=sensor, file_pattern="smap_combined_*.nc",
+                                         sensor=sensor, file_pattern=f"{sensor.lower()}_combined_*.nc",
                                              path = "/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/L_Band_Temps/temps",
                                              date_pattern = date_pattern_lut[sensor], nested_group_name="Ka"
                                          )
-        pd.date_range(time_start,time_stop)
 
         HOLMES_T_NIGHT, HOLMES_T_DAY = (calc_Holmes_temp(L_KA_DAY, sensor="AMSR2", kaband_name="bt_vertical")
                                             , calc_Holmes_temp(L_KA_NIGHT, sensor="AMSR2", kaband_name="bt_vertical"))

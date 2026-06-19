@@ -56,9 +56,12 @@ def open_mw_sensor(path,
     files_valid = np.array(files)[date_mask]
 
     def add_root_time(ds):
-        file_path = ds.encoding['source']
-        with xr.open_dataset(file_path, decode_timedelta=False) as root_ds:
-            ds = ds.assign_coords(time=root_ds['time'])
+        try:
+            file_path = ds.encoding['source']
+            with xr.open_dataset(file_path, decode_timedelta=False) as root_ds:
+                ds = ds.assign_coords(time=root_ds['time'])
+        except KeyError:
+            pass
         return ds
 
     dataset = xr.open_mfdataset(
