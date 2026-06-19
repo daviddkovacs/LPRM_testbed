@@ -18,7 +18,7 @@ from lprm.satellite_specs import SensorSpecifics, get_specs
 
 
 def load_TB_daily(bbox,time_start,time_stop,sensor ="AMSR2", file_pattern= None,
-                  path = None, date_pattern= None, resolution=None):
+                  path = None, date_pattern= None):
     """
     Load day/night TBs. we need to re-assign the time dimension, as MICROWAVE_datacube assigned the average scantime
     values within bbox (skews observation times when bbox is global)
@@ -39,7 +39,7 @@ def load_TB_daily(bbox,time_start,time_stop,sensor ="AMSR2", file_pattern= None,
                                 nested_group_name=nested_group_name,
                                 path_user = path,
                                 date_pattern=date_pattern,
-                                resolution=resolution
+                                resolution="medium_resolution"
                                 )
 
     TB_NIGHT = MICROWAVE_datacube(bbox=bbox,
@@ -51,7 +51,8 @@ def load_TB_daily(bbox,time_start,time_stop,sensor ="AMSR2", file_pattern= None,
                                   nested_group_name = nested_group_name,
                                   path_user=path,
                                   date_pattern=date_pattern,
-                                  resolution=resolution
+                                  resolution="medium_resolution"
+
                                   )
 
 
@@ -334,7 +335,7 @@ def get_sensor_band(TB,sensor, band, pol):
     return _TB
 
 
-def calc_mpdi_delta(MPDI_day,
+def absolute_mpdi_delta(MPDI_day,
                         MPDI_night,
                         list_of_bands = ["l","c1","c2","x","ku"],
                         ):
@@ -363,43 +364,38 @@ date_pattern_lut = {"AMSR2": "_(\\d{8})_",
 if __name__=="__main__":
 
     bbox = [
-    -124.46765153923654,
-    38.280592852377055,
-    -120.85139147901907,
-    40.159779582899006
+    -98.21376220574025,
+    29.082474922493233,
+    -83.77988857841041,
+    37.96165684736067
   ]
     year_start = "2019"
     time_start = f"{year_start}-01-01"
     time_stop = "2020-01-01"
     bandlist = ["l","c1", "c2","x", "ku"]
     sensor = "AMSR2"
-    resolution = "medium_resolution"
+
 
     TB_DAY, TB_NIGHT = load_TB_daily(bbox=bbox, time_start=time_start, time_stop=time_stop,
                                      sensor=sensor,file_pattern=file_pattern_lut[sensor],
-                                     date_pattern=date_pattern_lut[sensor],
-                                     resolution=resolution
+                                     date_pattern=date_pattern_lut[sensor]
                                      )
 
     MPDI_DAY , MPDI_NIGHT = calc_MPDI_bands(TB_DAY=TB_DAY,TB_NIGHT=TB_NIGHT,
                                             list_of_bands=bandlist,
-                                            minimum_mpdi=0.01,
+                                            minimum_mpdi=0,
                                             sensor=sensor)
 
-    MPDI_delta = calc_mpdi_delta(MPDI_day=MPDI_DAY,
+    MPDI_delta_abs = absolute_mpdi_delta(MPDI_day=MPDI_DAY,
                                          MPDI_night=MPDI_NIGHT,
                                          )
 ##
     for ms in range(1,13):
         plot_t_start = datetime.date(2019, ms, 1)
-        plot_t_end = datetime.date(2019, ms, 10)
+        plot_t_end = datetime.date(2019, ms, 25)
         current_band = "x"
 
-        MPDI_avg = MPDI_delta[current_band].sel(time=slice(plot_t_start,plot_t_end)).sum(dim="time").compute()
-        MPDI_abs = abs(MPDI_avg)
-        MPDI_abs.plot(
-            # vmin=0,
-            # vmax = 0.2,
-            cmap="viridis")
+        MPDI_avg = MPDI_delta_abs[current_band].sel(time=slice(plot_t_start,plot_t_end)).mean(dim="time").compute()
+        MPDI_avg.plot(vmin=-0.02,vmax = 0.02,cmap="RdBu" ,figsize = (20,10))
         plt.title(f"{current_band.upper()}-band MPDI_night - MPDI_day ({plot_t_start.year} {plot_t_start.month})")
         plt.show()
