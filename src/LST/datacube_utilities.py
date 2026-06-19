@@ -5,13 +5,17 @@ from lprm.satellite_specs import SensorSpecifics, get_specs
 
 frequencies = {'C1': 6.9, 'C2': 7.3, 'X': 10.7, 'KU': 18.7, 'K': 23.8, 'KA': 36.5}
 
-def calc_Holmes_temp(TB, sensor ="AMSR2"):
+def calc_Holmes_temp(TB, sensor ="AMSR2", kaband_name = None):
     """
     Surface temperature from Ka-band observations according to Holmes et al. 2008
     """
     sensor_spec = get_specs(sensor=sensor)
-    ka_band_sensor = sensor_spec.frequencies["Ka"]
-    TSURF = TB[f"bt_{ka_band_sensor}V"] * 0.893 + 44.8
+    if not kaband_name:
+        ka_band_sensor = sensor_spec.frequencies["Ka"]
+        TSURF = TB[f"bt_{ka_band_sensor}V"] * 0.893 + 44.8
+    else:
+        TSURF = TB[f"{kaband_name}"] * 0.893 + 44.8
+
     TSURF.attrs = TB.attrs
     return TSURF
 

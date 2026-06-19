@@ -39,7 +39,7 @@ def load_TB_daily(bbox,time_start,time_stop,sensor ="AMSR2", file_pattern= None,
                                 nested_group_name=nested_group_name,
                                 path_user = path,
                                 date_pattern=date_pattern,
-                                resolution="coarse_resolution"
+                                resolution="medium_resolution"
                                 )
 
     TB_NIGHT = MICROWAVE_datacube(bbox=bbox,
@@ -51,7 +51,7 @@ def load_TB_daily(bbox,time_start,time_stop,sensor ="AMSR2", file_pattern= None,
                                   nested_group_name = nested_group_name,
                                   path_user=path,
                                   date_pattern=date_pattern,
-                                  resolution="coarse_resolution"
+                                  resolution="medium_resolution"
 
                                   )
 
@@ -364,10 +364,10 @@ date_pattern_lut = {"AMSR2": "_(\\d{8})_",
 if __name__=="__main__":
 
     bbox = [
-    -124.46765153923654,
-    38.280592852377055,
-    -120.85139147901907,
-    40.159779582899006
+    -98.21376220574025,
+    29.082474922493233,
+    -83.77988857841041,
+    37.96165684736067
   ]
     year_start = "2019"
     time_start = f"{year_start}-01-01"
@@ -396,6 +396,6 @@ if __name__=="__main__":
         current_band = "x"
 
         MPDI_avg = MPDI_delta_abs[current_band].sel(time=slice(plot_t_start,plot_t_end)).mean(dim="time").compute()
-        MPDI_avg.plot(vmin=-0.02,vmax = 0.02,cmap="RdBu" )
+        MPDI_avg.plot(vmin=-0.02,vmax = 0.02,cmap="RdBu" ,figsize = (20,10))
         plt.title(f"{current_band.upper()}-band MPDI_night - MPDI_day ({plot_t_start.year} {plot_t_start.month})")
         plt.show()

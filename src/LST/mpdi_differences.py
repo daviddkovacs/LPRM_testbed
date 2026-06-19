@@ -16,7 +16,7 @@ from lprm.satellite_specs import SensorSpecifics, get_specs
 
 
 def load_TB_daily(bbox,time_start,time_stop,sensor ="AMSR2", file_pattern= None,
-                  path = None, date_pattern= None):
+                  path = None, date_pattern= None,nested_group_name = None):
     """
     Load day/night TBs. we need to re-assign the time dimension, as MICROWAVE_datacube assigned the average scantime
     values within bbox (skews observation times when bbox is global)
@@ -26,7 +26,7 @@ def load_TB_daily(bbox,time_start,time_stop,sensor ="AMSR2", file_pattern= None,
     :param file_pattern: str AMSR2: "amsr2_l1bt_*.nc"
     :return: xr Dataset of day and night TBs with daily timestamps
     """
-    nested_group_name = "S1" if sensor == "GMI" else None
+    nested_group_name = "S1" if sensor == "GMI" else nested_group_name
 
     TB_DAY = MICROWAVE_datacube(bbox=bbox,
                                 overpass="day",
@@ -36,7 +36,7 @@ def load_TB_daily(bbox,time_start,time_stop,sensor ="AMSR2", file_pattern= None,
                                 file_pattern=file_pattern,
                                 nested_group_name=nested_group_name,
                                 path_user = path,
-                                date_pattern=date_pattern
+                                date_pattern=date_pattern,
                                 )
 
     TB_NIGHT = MICROWAVE_datacube(bbox=bbox,
@@ -50,9 +50,12 @@ def load_TB_daily(bbox,time_start,time_stop,sensor ="AMSR2", file_pattern= None,
                                   date_pattern=date_pattern
                                   )
 
-
-    TB_DAY['time'] = pd.to_datetime(TB_DAY.time.dt.date.values)
-    TB_NIGHT['time'] = pd.to_datetime(TB_NIGHT.time.dt.date.values)
+    try:
+        TB_DAY['time'] = pd.to_datetime(TB_DAY.time.dt.date.values)
+        TB_NIGHT['time'] = pd.to_datetime(TB_NIGHT.time.dt.date.values)
+    except:
+        TB_DAY['time'] = pd.to_datetime(TB_DAY.time.values)
+        TB_NIGHT['time'] = pd.to_datetime(TB_NIGHT.time.values)
 
     return TB_DAY, TB_NIGHT
 
@@ -106,9 +109,10 @@ def retrieve_LPRM(TB_DATASET, SURFACE_T, band, SM_input = None, VOD_input = None
     Retrieve LPRM, traditional method. Input is Brightness temps, Holmes "KA" temp and band
     :return: SM and VOD datasets
     """
-    times = TB_DATASET.time
+    times_tb = TB_DATASET.time
+    times_surface_t = SURFACE_T.time
     sensor_specs = get_specs(sensor)
-    inc_angle = sensor_specs.incidence_angle[0]
+    inc_angle = sensor_specs.incidence_angle[band.upper()][0]
 
     band = band.upper()
     freq = sensor_specs.frequencies[band.upper()]
@@ -117,11 +121,11 @@ def retrieve_LPRM(TB_DATASET, SURFACE_T, band, SM_input = None, VOD_input = None
     lprm_list_vod = []
     lprm_list_tsim = []
 
-    for t in times:
+    for t,_t in zip(times_tb,times_surface_t):
         try:
             print(t.dt.date.item())
             tb_map = TB_DATASET.sel(time = t).compute()
-            holmes_t = SURFACE_T.sel(time = t).compute()
+            holmes_t = SURFACE_T.sel(time = _t).compute()
 
             if SM_input is not None:
                 sm_input = SM_input.sel(time = t).compute().values
@@ -348,17 +352,18 @@ if __name__=="__main__":
 
     TB_DAY, TB_NIGHT = load_TB_daily(bbox=bbox, time_start=time_start, time_stop=time_stop,
                                      sensor=sensor,file_pattern=file_pattern_lut[sensor],
-                                     date_pattern=date_pattern_lut[sensor]
+                                     date_pattern=date_pattern_lut[sensor],nested_group_name=None
                                      )
     if sensor.upper() != "SMAP":
         HOLMES_T_NIGHT, HOLMES_T_DAY = calc_Holmes_temp(TB_NIGHT, sensor=sensor), calc_Holmes_temp(TB_DAY, sensor=sensor)
     elif sensor.upper() == "SMAP":
         L_KA_DAY, L_KA_NIGHT = load_TB_daily(bbox=bbox, time_start=time_start, time_stop=time_stop,
                                          sensor=sensor, file_pattern="smap_combined_*.nc",
-                                             path = "/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/03_lband_temperatures",
-                                             date_pattern = date_pattern_lut[sensor]
+                                             path = "/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/L_Band_Temps/temps",
+                                             date_pattern = date_pattern_lut[sensor], nested_group_name="Ka"
                                          )
-        HOLMES_T_NIGHT, HOLMES_T_DAY = calc_Holmes_temp(L_KA_DAY, sensor="AMSR2"), calc_Holmes_temp(L_KA_NIGHT, sensor="AMSR2")
+        HOLMES_T_NIGHT, HOLMES_T_DAY = (calc_Holmes_temp(L_KA_DAY, sensor="AMSR2", kaband_name="bt_vertical")
+                                            , calc_Holmes_temp(L_KA_NIGHT, sensor="AMSR2", kaband_name="bt_vertical"))
 
 ##
     band_current = "l"
