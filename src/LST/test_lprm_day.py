@@ -5,30 +5,45 @@ import xarray as xr
 import numpy as np
 import pandas as pd
 from LST.datacube_utilities import crop2roi
-##
+
+nested_group = {"SMOS" : "42.5",
+                "SMAP" :None,
+                "AMSR2": None}
+
 if __name__=="__main__":
 
     bbox = [-180, -90, 180, 90]
     time_start = "2024-01-01"
     time_stop = "2024-12-01"
-    bandlist = ["c1","c2", "x", "ku"]
-    sensor = "AMSR2"
+    bandlist = ["l","c1","c2", "x", "ku"]
+    sensor = "SMOS"
 
-    AMSR2_DAY, AMSR2_NIGHT = load_TB_daily(bbox=bbox, time_start=time_start, time_stop=time_stop,
-                                           date_pattern = date_pattern_lut[sensor],
-                                           file_pattern=file_pattern_lut[sensor])
+    TB_DAY, TB_NIGHT = load_TB_daily(bbox=bbox, time_start=time_start, time_stop=time_stop,
+                                     sensor=sensor,file_pattern=file_pattern_lut[sensor],
+                                     date_pattern=date_pattern_lut[sensor],nested_group_name=nested_group[sensor]
+                                     )
 
-    HOLMES_T_NIGHT, HOLMES_T_DAY = calc_Holmes_temp(AMSR2_NIGHT), calc_Holmes_temp(AMSR2_DAY)
 
+    if sensor.upper() not in ["SMOS", "SMAP"]:
+        HOLMES_T_NIGHT, HOLMES_T_DAY = calc_Holmes_temp(TB_NIGHT, sensor=sensor), calc_Holmes_temp(TB_DAY, sensor=sensor)
+    elif sensor.upper() in ["SMAP","SMOS"]:
+        HOLMES_T_DAY, HOLMES_T_NIGHT = load_TB_daily(bbox=bbox, time_start=time_start, time_stop=time_stop,
+                                         sensor=sensor, file_pattern=f"{sensor.lower()}_combined_*.nc",
+                                             path = "/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/L_Band_Temps/temps/10k",
+                                             date_pattern = date_pattern_lut[sensor], nested_group_name="Ka"
+                                         )
     ##
-    band_current = "c1"
+    band_current = "l"
     minimum_mpdi = 0.010
 
     path_aux_t = (f"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/MPDI_trick/lprm_testing"
-                  f"/T_aux/{band_current}_daytime_LST_regression.nc")
+                  f"/T_aux/{band_current.upper()}_daytime_LST_regression.nc")
     daytime_stats = xr.open_dataset(path_aux_t)
 
-    T_KA = AMSR2_DAY["bt_36.5V"]
+    if sensor.upper() not in ["SMAP","SMOS"]:
+        T_KA = TB_DAY["bt_36.5V"]
+    elif sensor.upper() in ["SMAP","SMOS"]:
+        T_KA = HOLMES_T_DAY["bt_vertical"]
 ##
     slope = daytime_stats["slope"]
     intercept = daytime_stats["intercept"]
@@ -36,34 +51,39 @@ if __name__=="__main__":
     T_DAYTIME = (T_KA * slope + intercept).compute()
 
 ##
-    SM_NIGHT_ref, VOD_NIGHT_ref ,_ = retrieve_LPRM(TB_DATASET=AMSR2_NIGHT,
-                                                   SURFACE_T=HOLMES_T_NIGHT,
+    SM_NIGHT_ref, VOD_NIGHT_ref ,_ = retrieve_LPRM(TB_DATASET=TB_NIGHT,
+                                                   SURFACE_T=T_KA,
+                                                   sensor=sensor,
                                                    band=band_current)
 
 
-    SM_DAY_ref, VOD_DAY_ref, _ = retrieve_LPRM(TB_DATASET=AMSR2_DAY,
-                                       SURFACE_T=HOLMES_T_DAY,
-                                       band=band_current)
+    SM_DAY_ref, VOD_DAY_ref, _ = retrieve_LPRM(TB_DATASET=TB_DAY,
+                                       SURFACE_T=T_KA,
+                                               sensor=sensor,
+                                               band=band_current)
 
-    SM_DAY_regression, VOD_DAY_regression, _ = retrieve_LPRM(TB_DATASET=AMSR2_DAY,
+    SM_DAY_regression, VOD_DAY_regression, _ = retrieve_LPRM(TB_DATASET=TB_DAY,
                                                              SURFACE_T=T_DAYTIME,
-                                                             band=band_current)
+                                                             band=band_current,
+                                                             sensor=sensor,
+                                                             )
 
     ##
     path_shares = (f"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/MPDI_trick/"
                    f"lprm_testing/SM/MPDI_{minimum_mpdi}")
 
-    path_out = path_shares
+    # path_out = path_shares
+    path_out = "/home/ddkovacs/Desktop"
     compression_settings = {"zlib": True, "complevel": 5}
 
-    # SM_NIGHT_ref.to_netcdf(os.path.join(path_out, f"SM{band_current}_NIGHT_ref.nc"), encoding={"sm": compression_settings})
-    # VOD_NIGHT_ref.to_netcdf(os.path.join(path_out, f"VOD{band_current}_NIGHT_ref.nc"), encoding={"vod": compression_settings})
-    #
-    # SM_DAY_ref.to_netcdf(os.path.join(path_out, f"SM{band_current}_DAY_ref.nc"),encoding={"sm": compression_settings})
-    # VOD_DAY_ref.to_netcdf(os.path.join(path_out, f"VOD{band_current}_DAY_ref.nc"), encoding={"vod": compression_settings})
-    #
-    # SM_DAY_regression.to_netcdf(os.path.join(path_out, f"SM{band_current}_DAY_regression.nc"), encoding={"sm": compression_settings})
-    # VOD_DAY_regression.to_netcdf(os.path.join(path_out, f"VOD{band_current}_DAY_regression.nc"), encoding={"vod": compression_settings})
+    SM_NIGHT_ref.to_netcdf(os.path.join(path_out, f"SM{band_current.upper()}_NIGHT_ref.nc"), encoding={"sm": compression_settings})
+    VOD_NIGHT_ref.to_netcdf(os.path.join(path_out, f"VOD{band_current.upper()}_NIGHT_ref.nc"), encoding={"vod": compression_settings})
+
+    SM_DAY_ref.to_netcdf(os.path.join(path_out, f"SM{band_current.upper()}_DAY_ref.nc"),encoding={"sm": compression_settings})
+    VOD_DAY_ref.to_netcdf(os.path.join(path_out, f"VOD{band_current.upper()}_DAY_ref.nc"), encoding={"vod": compression_settings})
+
+    SM_DAY_regression.to_netcdf(os.path.join(path_out, f"SM{band_current.upper()}_DAY_regression.nc"), encoding={"sm": compression_settings})
+    VOD_DAY_regression.to_netcdf(os.path.join(path_out, f"VOD{band_current.upper()}_DAY_regression.nc"), encoding={"vod": compression_settings})
 
 
 

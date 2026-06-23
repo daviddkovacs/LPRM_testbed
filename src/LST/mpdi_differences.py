@@ -1,3 +1,9 @@
+import glob
+import os.path
+import re
+
+
+
 from LST.datacube_loader import MICROWAVE_datacube
 from LST.datacube_utilities import (mpdi, calc_Holmes_temp, frequencies, ravel_roi_time)
 import pandas as pd
@@ -74,10 +80,12 @@ def calc_MPDI_bands(TB_DAY,TB_NIGHT, list_of_bands=["l","c1","c2", "x", "ku"], m
     for band in list_of_bands:
         try:
             _mpdi_day = mpdi(TB_DAY, band, sensor=sensor)
-            MPDI_DAY_dict[band] = _mpdi_day.where(_mpdi_day>minimum_mpdi)
+            # MPDI_DAY_dict[band] = _mpdi_day.where(_mpdi_day>minimum_mpdi)
+            MPDI_DAY_dict[band] = _mpdi_day
 
             _mpdi_night = mpdi(TB_NIGHT, band, sensor=sensor)
-            MPDI_NIGHT_dict[band] = _mpdi_night.where(_mpdi_night>minimum_mpdi)
+            # MPDI_NIGHT_dict[band] = _mpdi_night.where(_mpdi_night>minimum_mpdi)
+            MPDI_NIGHT_dict[band] = _mpdi_night
 
         except KeyError:
             print(f"{band} omitted")
@@ -121,78 +129,80 @@ def retrieve_LPRM(TB_DATASET, SURFACE_T, band, SM_input = None, VOD_input = None
     lprm_list_vod = []
     lprm_list_tsim = []
 
+    aux_data_dict = {
+        "sand": load_aux_file(0.25, "SND"),
+        "clay": load_aux_file(0.25, "CLY"),
+        "bld": load_aux_file(0.25, "BLD"),
+    }
+
     for t,_t in zip(times_tb,times_surface_t):
-        try:
-            print(t.dt.date.item())
-            tb_map = TB_DATASET.sel(time = t).compute()
-            holmes_t = SURFACE_T.sel(time = _t).compute()
+        # try:
+        print(t.dt.date.item())
+        tb_map = TB_DATASET.sel(time = t).compute()
+        holmes_t = SURFACE_T.sel(time = _t).compute()
 
-            if SM_input is not None:
-                sm_input = SM_input.sel(time = t).compute().values
-                vod_input = VOD_input.sel(time = t).compute().values
-            else:
-                sm_input = None
-                vod_input = None
-            aux_data_dict = {
-                "sand": load_aux_file(0.25, "SND"),
-                "clay": load_aux_file(0.25, "CLY"),
-                "bld": load_aux_file(0.25, "BLD"),
-            }
-            params = get_lprm_parameters_for_frequency(band, inc_angle)
+        if SM_input is not None:
+            sm_input = SM_input.sel(time = t).compute().values
+            vod_input = VOD_input.sel(time = t).compute().values
+        else:
+            sm_input = None
+            vod_input = None
 
-            sm, vod,tsim = par100.run_band(
-                tb_map[f"bt_{freq}V"].values,
-                tb_map[f"bt_{freq}H"].values,
-                holmes_t.values,
-                aux_data_dict["sand"],
-                aux_data_dict["clay"],
-                aux_data_dict["bld"],
-                params.Q,
-                params.w,
-                params.opt_atm,
-                inc_angle,
-                params.h1,
-                params.h2,
-               0,
-                0,
-                float(freq),
-                params.temp_freeze,
-                False,
-                None,
-                SM_map_night = sm_input,
-                VOD_map_night = vod_input,
-            )
+        params = get_lprm_parameters_for_frequency(band, inc_angle)
 
-            sm_da = xr.DataArray(
-                data=sm,
+        sm, vod,tsim = par100.run_band(
+            tb_map[f"bt_{freq}V"].values,
+            tb_map[f"bt_{freq}H"].values,
+            holmes_t.values,
+            aux_data_dict["sand"],
+            aux_data_dict["clay"],
+            aux_data_dict["bld"],
+            params.Q,
+            params.w,
+            params.opt_atm,
+            inc_angle,
+            params.h1,
+            params.h2,
+           0,
+            0,
+            float(freq),
+            params.temp_freeze,
+            False,
+            None,
+            SM_map_night = sm_input,
+            VOD_map_night = vod_input,
+        )
+
+        sm_da = xr.DataArray(
+            data=sm,
+            coords=tb_map.coords,
+            dims=tb_map.dims,
+            name="sm"
+        )
+
+        vod_da = xr.DataArray(
+            data=vod,
+            coords=tb_map.coords,
+            dims=tb_map.dims,
+            name="vod"
+        )
+        sm_da = sm_da.where(sm_da>=0)
+        vod_da = vod_da.where(vod_da>=0)
+
+        if SM_input is not None:
+            tsim_da = xr.DataArray(
+                data=tsim,
                 coords=tb_map.coords,
                 dims=tb_map.dims,
-                name="sm"
+                name="tsim"
             )
+            tsim_da = tsim_da.where(tsim_da>=0)
+            lprm_list_tsim.append(tsim_da)
 
-            vod_da = xr.DataArray(
-                data=vod,
-                coords=tb_map.coords,
-                dims=tb_map.dims,
-                name="vod"
-            )
-            sm_da = sm_da.where(sm_da>=0)
-            vod_da = vod_da.where(vod_da>=0)
-
-            if SM_input is not None:
-                tsim_da = xr.DataArray(
-                    data=tsim,
-                    coords=tb_map.coords,
-                    dims=tb_map.dims,
-                    name="tsim"
-                )
-                tsim_da = tsim_da.where(tsim_da>=0)
-                lprm_list_tsim.append(tsim_da)
-
-            lprm_list_sm.append(sm_da)
-            lprm_list_vod.append(vod_da)
-        except Exception as e:
-            print(f"{e} {t.dt.date.item()}")
+        lprm_list_sm.append(sm_da)
+        lprm_list_vod.append(vod_da)
+        # except Exception as e:
+        #     print(f"{e} {t.dt.date.item()}")
 
     SM_dataset = xr.concat(lprm_list_sm, dim = "time")
     VOD_dataset = xr.concat(lprm_list_vod, dim = "time")
@@ -338,29 +348,33 @@ file_pattern_lut  = {"AMSR2": "amsr2_l1bt_*.nc",
                      "SMAP": "smap_spl3smp_v009_l3bt_*.nc",
                      "SMOS": "smos_l3bt_*.nc",
                      }
-date_pattern_lut = {"AMSR2": "_(\\d{8})_",  "SMOS": "_(\\d{8})_",
+date_pattern_lut = {"AMSR2": "_(\\d{8})_",  "SMOS": r"(\d{8})",
                     "SMAP" : r"(\d{8})"}
+
+nested_group = {"SMOS" : "42.5",
+                "SMAP" :None,
+                "AMSR2": None}
 ##
 if __name__=="__main__":
 
     bbox = [-180, -90, 180, 90]
-    year_start = "2024"
+    year_start = "2020"
     time_start = f"{year_start}-01-01"
-    time_stop = "2025-01-01"
+    time_stop = "2021-01-01"
     bandlist = ["l","c1", "x", "ku"]
-    sensor = "SMOS"
+    sensor = "SMAP"
 
-
+    # if sensor != "SMOS":
     TB_DAY, TB_NIGHT = load_TB_daily(bbox=bbox, time_start=time_start, time_stop=time_stop,
                                      sensor=sensor,file_pattern=file_pattern_lut[sensor],
-                                     date_pattern=date_pattern_lut[sensor],nested_group_name="47.5"
+                                     date_pattern=date_pattern_lut[sensor],nested_group_name=nested_group[sensor]
                                      )
     if sensor.upper() not in ["SMOS", "SMAP"]:
         HOLMES_T_NIGHT, HOLMES_T_DAY = calc_Holmes_temp(TB_NIGHT, sensor=sensor), calc_Holmes_temp(TB_DAY, sensor=sensor)
     elif sensor.upper() in ["SMAP","SMOS"]:
         L_KA_DAY, L_KA_NIGHT = load_TB_daily(bbox=bbox, time_start=time_start, time_stop=time_stop,
                                          sensor=sensor, file_pattern=f"{sensor.lower()}_combined_*.nc",
-                                             path = "/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/L_Band_Temps/temps",
+                                             path = "/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/L_Band_Temps/temps/10k",
                                              date_pattern = date_pattern_lut[sensor], nested_group_name="Ka"
                                          )
 
@@ -399,14 +413,25 @@ if __name__=="__main__":
     VOD_low_mpdi = VOD_NIGHT.where(low_mpdi_mask)
     TB_DAY_low_mpdi = TB_DAY.where(low_mpdi_mask)
     TSIM_low_mpdi = TSIM_DAY.where(low_mpdi_mask)
-    if sensor.upper() == "SMAP":
+    if sensor.upper() in ["SMAP","SMOS"]:
 
         L_KA_DAY_low_mpdi = L_KA_DAY.where(low_mpdi_mask)
-
         T_KA = L_KA_DAY_low_mpdi["bt_vertical"]
     else:
         T_KA = get_sensor_band(TB_DAY_low_mpdi, "AMSR2", "KA", "V")
 ##
+
+
+    MPDI_DELTA_band.count(dim= "time").plot(figsize=(20,10))
+    plt.show()
+    MPDI_DAY["l"].count(dim= "time").plot(figsize=(20,10))
+    plt.show()
+    MPDI_NIGHT["l"].count(dim= "time").plot(figsize=(20,10))
+    plt.show()
+
+
+    ## DEBUG
+
     res = 1
     T_KA = T_KA.sel(time=TSIM_low_mpdi.time, method="nearest")
     stat_da = regression_wrapper(T_KA,TSIM_low_mpdi,resolution=res)
