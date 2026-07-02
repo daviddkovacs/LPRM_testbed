@@ -362,7 +362,7 @@ if __name__=="__main__":
     time_start = f"{year_start}-01-01"
     time_stop = "2021-01-01"
     bandlist = ["l","c1", "x", "ku"]
-    sensor = "SMAP"
+    sensor = "AMSR2"
 
     # if sensor != "SMOS":
     TB_DAY, TB_NIGHT = load_TB_daily(bbox=bbox, time_start=time_start, time_stop=time_stop,

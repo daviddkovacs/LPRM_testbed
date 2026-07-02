@@ -16,7 +16,7 @@ if __name__=="__main__":
     time_start = "2024-01-01"
     time_stop = "2024-12-01"
     bandlist = ["l","c1","c2", "x", "ku"]
-    sensor = "SMOS"
+    sensor = "AMSR2"
 
     TB_DAY, TB_NIGHT = load_TB_daily(bbox=bbox, time_start=time_start, time_stop=time_stop,
                                      sensor=sensor,file_pattern=file_pattern_lut[sensor],

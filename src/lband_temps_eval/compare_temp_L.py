@@ -125,10 +125,12 @@ lc_lut = {
 "cornbelt_agri" : (45.98, -93.33),
 "midwest_arid" : (32.264, -108.0),
 "siberia_decid_broadleaf" : (65, 91),
-"w_australia_mixed" : (-30.86, 151.0),
+"yakutsk_broadleaf" : (62,133),
+"w_greenland" : (67., -51.14),
 "e_australia_desert" : (-19.74, 124.11),
 "n_alaska_tundra" : (68.91, -156.60),
-"eswatini_savanna" :( -24.990,30.93)
+"eswatini_savanna" :( -24.990,30.93),
+"s_patagonia" : ( -52.051187, -73.276493),
 }
 
 def bias(x,y):
@@ -226,7 +228,7 @@ for _region,latlon_tuple in lc_lut.items():
     ax2.set_title("")
     ax1.legend(lines_1 + lines_2, labels_1 + labels_2, loc="lower right")
 
-    fig.suptitle(f"{region} lat: {lat}, lon: {lon}", fontsize=14)
+    fig.suptitle(f"New-old(planet) Temps \n{region} lat: {lat}, lon: {lon}", fontsize=14)
     plt.tight_layout()
     plt.show()
 
@@ -273,7 +275,7 @@ for _region,latlon_tuple in lc_lut.items():
         ax1.legend(lines_1 + lines_2, labels_1 + labels_2, loc="best")
         ax1.set_title("")
         ax2.set_title("")
-        fig.suptitle(f"{region} lat: {lat}, lon: {lon}", fontsize=14)
+        fig.suptitle(f"afternoon-nextday dif.\n{region} lat: {lat}, lon: {lon}", fontsize=14)
         plt.tight_layout()
         plt.show()
     except Exception as e:
