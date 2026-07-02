@@ -2,8 +2,6 @@ import glob
 import os.path
 import re
 
-
-
 from LST.datacube_loader import MICROWAVE_datacube
 from LST.datacube_utilities import (mpdi, calc_Holmes_temp, frequencies, ravel_roi_time)
 import pandas as pd
@@ -361,7 +359,7 @@ if __name__=="__main__":
     year_start = "2020"
     time_start = f"{year_start}-01-01"
     time_stop = "2021-01-01"
-    bandlist = ["l","c1", "x", "ku"]
+    bandlist = ["l","c1","c2", "x", "ku"]
     sensor = "AMSR2"
 
     # if sensor != "SMOS":
@@ -382,7 +380,7 @@ if __name__=="__main__":
                                             , calc_Holmes_temp(L_KA_NIGHT, sensor="AMSR2", kaband_name="bt_vertical"))
 
 ##
-    band_current = "l"
+    band_current = "C2"
     SM_NIGHT, VOD_NIGHT,_ = retrieve_LPRM(TB_DATASET=TB_NIGHT, SURFACE_T=HOLMES_T_NIGHT, band=band_current, sensor=sensor)
     # Highly experimental! TSIM is obtained byrunning LPRM in reverse.
     # TB has to be corresponding, for T_SIM to work!!!! DAY-DAY NIGHT-NIGHT
