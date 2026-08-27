@@ -222,7 +222,7 @@ def histogram_plot(obj,
     #         verticalalignment='top',
     #         bbox=dict(boxstyle='round,pad=0.5', facecolor='white', edgecolor='gray', alpha=0.8))
 
-    ax.set_label(f"{metric} {unit_lut[metric]}", fontsize=20)
+    ax.set_xlabel(f"{metric} {unit_lut[metric]}", fontsize=20)
 
     ax.set_ylabel('Frequency', fontsize=12)
     ax.set_title(title, fontsize=12)
