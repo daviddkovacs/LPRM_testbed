@@ -124,7 +124,8 @@ def manual_plotter(dataset,
         _variable = variable
 
     plot_da = dataset[_variable]
-
+    if "BIAS" in _variable:
+        plot_da = plot_da * (-1)
     if fname_test is not None:
         if "regression" in fname_test:
             plot_da = plot_da.where(values[0]+0.002 < plot_da)
@@ -167,6 +168,7 @@ def histogram_plot(obj,
                    xlim= [None,None],
                    maxval=None,
                    title = "",
+                   xlabel = "",
                    freq = None
                    ):
     plt.rcParams.update({
@@ -220,9 +222,10 @@ def histogram_plot(obj,
     #         verticalalignment='top',
     #         bbox=dict(boxstyle='round,pad=0.5', facecolor='white', edgecolor='gray', alpha=0.8))
 
-    ax.set_xlabel(title, fontsize=12)
-    ax.set_ylabel('Frequency', fontsize=12)
+    ax.set_label(f"{metric} {unit_lut[metric]}", fontsize=20)
 
+    ax.set_ylabel('Frequency', fontsize=12)
+    ax.set_title(title, fontsize=12)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
 
@@ -295,7 +298,7 @@ if __name__=="__main__":
 
     bands_to_plot = ["c1"]
     stats_to_plot = ["BIAS"]
-    ref_type = "LPRM"
+    ref_type = "ERA5"
 
     for _band in bands_to_plot:
         for _metric in stats_to_plot:
@@ -336,7 +339,7 @@ if __name__=="__main__":
                            _metric,
                            fname_ref = reference_filename,
                            fname_test= day_ref_filename,
-                           title=f"{title_name_dict[ref_type]} - {nice_day_ref_filename}",
+                           title=f"{nice_day_ref_filename} - {title_name_dict[ref_type]}",
                            freq=_band
                            )
 
@@ -344,7 +347,7 @@ if __name__=="__main__":
                            _metric,
                            fname_ref=reference_filename,
                            fname_test=day_regression_filename,
-                           title=f"{title_name_dict[ref_type]} - {nice_day_regression_filename}",
+                           title=f"{nice_day_regression_filename} - {title_name_dict[ref_type]}",
                            freq=_band
                            )
 
@@ -373,7 +376,8 @@ if __name__=="__main__":
                            metric= _metric,
                            xlim = [hist_val_lut[_metric][0], hist_val_lut[_metric][1]],
                            maxval=20000,
-                           title= f"{_metric} ({ref_type} reference)",
+                           title= f"{ref_type} reference",
+                           xlabel=f"{_metric}",
                            freq = _band,
                            label1= f"{_band} ref",
                            label2= f"{_band} regression"
