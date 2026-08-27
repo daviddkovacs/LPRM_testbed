@@ -64,7 +64,7 @@ def double_world_plot(data1, data2, title1, title2, suptitle, cmap, cbar_range,
         orientation="horizontal",
         extend="both",
     )
-    cbar.set_label(cbar_label, fontsize=11)
+    cbar.set_label(cbar_label, fontsize=14, fontweight="bold")
     cbar.ax.tick_params(labelsize=9)
 
     fig.suptitle(suptitle, fontweight="bold", y=0.98)

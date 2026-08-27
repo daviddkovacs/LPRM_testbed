@@ -356,15 +356,16 @@ nested_group = {"SMOS" : "42.5",
 if __name__=="__main__":
 
     bbox = [-180, -90, 180, 90]
-    year_start = "2020"
+    year_start = "2024"
     time_start = f"{year_start}-01-01"
-    time_stop = "2021-01-01"
-    bandlist = ["l","c1","c2", "x", "ku"]
+    time_stop = "2025-01-01"
+    bandlist = ["c1", "x",]
     sensor = "AMSR2"
 
     # if sensor != "SMOS":
     TB_DAY, TB_NIGHT = load_TB_daily(bbox=bbox, time_start=time_start, time_stop=time_stop,
                                      sensor=sensor,file_pattern=file_pattern_lut[sensor],
+                                     path= "/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/01_resampled_bt/",
                                      date_pattern=date_pattern_lut[sensor],nested_group_name=nested_group[sensor]
                                      )
     if sensor.upper() not in ["SMOS", "SMAP"]:
@@ -380,7 +381,7 @@ if __name__=="__main__":
                                             , calc_Holmes_temp(L_KA_NIGHT, sensor="AMSR2", kaband_name="bt_vertical"))
 
 ##
-    band_current = "C2"
+    band_current = "C1"
     SM_NIGHT, VOD_NIGHT,_ = retrieve_LPRM(TB_DATASET=TB_NIGHT, SURFACE_T=HOLMES_T_NIGHT, band=band_current, sensor=sensor)
     # Highly experimental! TSIM is obtained byrunning LPRM in reverse.
     # TB has to be corresponding, for T_SIM to work!!!! DAY-DAY NIGHT-NIGHT
