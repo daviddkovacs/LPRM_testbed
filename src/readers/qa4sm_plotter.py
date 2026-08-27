@@ -26,7 +26,7 @@ hist_val_lut = {
 
 plot_val_lut = {
     "BIAS": (-0.25, 0.25),
-    "BIAS_difference": (-0.1, 0.1),
+    rf"$|\Delta$Biases|": (-0.1, 0.1),
     "R" : (-1,1),
     "urmsd": (0,0.20),
     "status":(None,None),
@@ -36,7 +36,7 @@ plot_val_lut = {
 
 color_lut = {
     "BIAS": "PiYG",
-    "BIAS_difference": "coolwarm",
+    rf"$|\Delta$Biases|": "coolwarm",
     "R" : "RdBu_r",
     "urmsd": "YlGnBu",
     "status":(None,None),
@@ -46,7 +46,7 @@ color_lut = {
 
 unit_lut = {
     "BIAS": "[$m^3/m^3$]",
-    "BIAS_difference": "[$m^3/m^3$]",
+    rf"$|\Delta$Biases|": "[$m^3/m^3$]",
     "R" : "",
     "urmsd": "[$m^3/m^3$]",
 }
@@ -99,7 +99,16 @@ def manual_plotter(dataset,
                    title="",
                    freq = None
                    ):
-
+    plt.rcParams.update({
+        "font.family": "serif",
+        "font.size": 11,
+        "axes.labelsize": 11,
+        "axes.titlesize": 12,
+        "xtick.labelsize": 9,
+        "ytick.labelsize": 9,
+        "figure.titlesize": 14,
+        "figure.dpi": 200,
+    })
     values = plot_val_lut[metric]
     fig = plt.figure(figsize=(12, 6))
     ax = plt.axes(projection=ccrs.PlateCarree())
@@ -160,7 +169,16 @@ def histogram_plot(obj,
                    title = "",
                    freq = None
                    ):
-
+    plt.rcParams.update({
+        "font.family": "serif",
+        "font.size": 11,
+        "axes.labelsize": 11,
+        "axes.titlesize": 12,
+        "xtick.labelsize": 9,
+        "ytick.labelsize": 9,
+        "figure.titlesize": 14,
+        "figure.dpi": 200,
+    })
 
     statistics1 = f"{metric}_between_0-{ref_name}_and_1-{test_name[0]}"
 
@@ -277,20 +295,29 @@ if __name__=="__main__":
 
     bands_to_plot = ["c1"]
     stats_to_plot = ["BIAS"]
-    ref_type = "ERA5"
+    ref_type = "LPRM"
 
     for _band in bands_to_plot:
         for _metric in stats_to_plot:
             sm_var_name = {"LPRM": "sm",
                            "ERA5": "swvl1"}
 
+            niceband_dict = {"x": "X",
+                             "c1": "C"}
+
             ref_fname_dict = {"LPRM": f"SM{_band}_NIGHT_ref",
                               "ERA5": f"ERA5_LAND"}
+
+
+            title_name_dict = {"LPRM": f"SM-{niceband_dict[_band]} Night Holmes",
+                              "ERA5": f"ERA5 Land"}
 
             reference_filename = ref_fname_dict[ref_type]
             day_ref_filename = f"SM{_band}_DAY_ref"
             day_regression_filename = f"SM{_band}_DAY_regression"
 
+            nice_day_ref_filename = f"SM Night Holmes ({niceband_dict[_band]}-band)"
+            nice_day_regression_filename = f"SM Night Regression ({niceband_dict[_band]}-band)"
             plot_obj_ref = import_single_obj(reference_filename,
                                              day_ref_filename,
                                              ref_type)
@@ -309,7 +336,7 @@ if __name__=="__main__":
                            _metric,
                            fname_ref = reference_filename,
                            fname_test= day_ref_filename,
-                           title=f"{_metric}: {reference_filename} - {day_ref_filename}",
+                           title=f"{title_name_dict[ref_type]} - {nice_day_ref_filename}",
                            freq=_band
                            )
 
@@ -317,14 +344,14 @@ if __name__=="__main__":
                            _metric,
                            fname_ref=reference_filename,
                            fname_test=day_regression_filename,
-                           title=f"{_metric}: {reference_filename} - {day_regression_filename}",
+                           title=f"{title_name_dict[ref_type]} - {nice_day_regression_filename}",
                            freq=_band
                            )
 
             difference_maps(reference_xr=plot_xr_ref,
                             subtracted_xr=plot_xr_test,
-                            metric="BIAS_difference",
-                            title=rf"$|\Delta$Biases| ({ref_type} reference)",
+                            metric=rf"$|\Delta$Biases|",
+                            title=rf"{ref_type} reference",
                             freq=_band
                             )
 
@@ -468,32 +495,3 @@ if __name__=="__main__":
   #
   #   plt.show()
 
-
-## Maps of Regression and Holmes T difference
-
-    bbox = [-180, -90, 180, 90]
-    time_start = "2024-01-01"
-    time_stop = "2024-12-01"
-    bandlist = ["c1","c2", "x", "ku"]
-    sensor = "AMSR2"
-
-    AMSR2_DAY, AMSR2_NIGHT = load_TB_daily(bbox=bbox, time_start=time_start, time_stop=time_stop,
-                                           date_pattern = date_pattern_lut[sensor],
-                                           file_pattern=file_pattern_lut[sensor])
-
-    HOLMES_T_NIGHT, HOLMES_T_DAY = calc_Holmes_temp(AMSR2_NIGHT), calc_Holmes_temp(AMSR2_DAY)
-
-
-    band_current = "c1"
-    minimum_mpdi = 0.010
-
-    path_aux_t = (f"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/MPDI_trick/lprm_testing"
-                  f"/T_aux/{band_current}_daytime_LST_regression.nc")
-    daytime_stats = xr.open_dataset(path_aux_t)
-
-    T_KA = AMSR2_DAY["bt_36.5V"]
-
-    slope = daytime_stats["slope"]
-    intercept = daytime_stats["intercept"]
-
-    T_DAYTIME = (T_KA * slope + intercept).compute()
