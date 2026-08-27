@@ -1,7 +1,27 @@
 import os
 import matplotlib.pyplot as plt
 import xarray as xr
-from glob import glob
+import numpy as np
+from smecv_grid import SMECV_Grid_v052
+
+
+def mask_rainforest(array):
+    """
+    Filters Rainforests of 0.25 grid
+    :param array:
+    :return:
+    """
+    global_grid = SMECV_Grid_v052(subset_flag=None)
+    rainforest_grid = SMECV_Grid_v052(subset_flag="rainforest", subset_value=1.0)
+    rainforest_gpis = set(rainforest_grid.activegpis)
+
+    rainforest_mask_2d = np.isin(global_grid.gpis, list(rainforest_gpis)).reshape(
+        global_grid.shape
+    )
+
+    filtered_array = array.where(rainforest_mask_2d==0)
+
+    return filtered_array
 
 def double_world_plot(data1, data2, title1, title2, suptitle, cmap, cbar_range,
                       cbar_label,):

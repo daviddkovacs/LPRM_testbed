@@ -1,6 +1,8 @@
 import os
 import matplotlib.pyplot as plt
 import xarray as xr
+
+from paper.plotter_utils import mask_rainforest
 from plotter_utils import double_world_plot
 from glob import glob
 
@@ -27,9 +29,13 @@ diff_x = daytime_x - holmes_mean
 
 
 ##
+filtered_diff_c1 = mask_rainforest(diff_c1)
+filtered_diff_x = mask_rainforest(diff_x)
 
-
-double_world_plot(diff_c1,diff_x, r"C1-band", r"X-band",
+double_world_plot(filtered_diff_c1,
+                  filtered_diff_x,
+                  r"C-band",
+                  r"X-band",
                   r"2024 Mean T$_{\mathrm{eff}}$ Difference (Regression − Holmes)",
                   "coolwarm",
                   [-10,10],
