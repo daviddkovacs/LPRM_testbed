@@ -11,8 +11,6 @@ from matplotlib.colors import ListedColormap
 from LST.test_lprm_day import load_TB_daily, date_pattern_lut,file_pattern_lut
 from LST.datacube_utilities import calc_Holmes_temp
 
-
-
 path_datasets = ("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/"
                  "LPRM/07_debug/daytime_retrieval/MPDI_trick/evaluation/qa4sm_netcdfs")
 
@@ -21,12 +19,13 @@ output_path = ("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_
                "LPRM/07_debug/daytime_retrieval/MPDI_trick/evaluation/figs")
 
 hist_val_lut = {
-    "BIAS": (-0.45, 0.45),
+    "LPRM": (-0.25, 0.25),
+    "ERA5": (-0.45, 0.45),
 }
 
 plot_val_lut = {
     "BIAS": (-0.25, 0.25),
-    rf"$|\Delta$Biases|": (-0.1, 0.1),
+    rf"$|\Delta$Biases|": (0, 0.1),
     "R" : (-1,1),
     "urmsd": (0,0.20),
     "status":(None,None),
@@ -36,7 +35,7 @@ plot_val_lut = {
 
 color_lut = {
     "BIAS": "PiYG",
-    rf"$|\Delta$Biases|": "coolwarm",
+    rf"$|\Delta$Biases|": "BuGn",
     "R" : "RdBu_r",
     "urmsd": "YlGnBu",
     "status":(None,None),
@@ -51,8 +50,9 @@ unit_lut = {
     "urmsd": "[$m^3/m^3$]",
 }
 
-map_title_lut = {
-    ""
+maxval_lut = {
+    "LPRM" : 15000,
+    "ERA5": 20000
 }
 
 
@@ -96,10 +96,12 @@ def manual_plotter(dataset,
                    fname_test=None,
                    variable=None,
                    title="",
-                   freq=None):
-    # 1. Data extraction and manipulation
-    values = plot_val_lut[metric]
+                   ):
 
+
+    values = plot_val_lut[metric]
+    if ref_type == "LPRM":
+        values = (-0.1,0.1)
     if variable not in ["slope", "intercept"]:
         _variable = f'{metric}_between_0-{fname_ref}_and_1-{fname_test}'
     else:
@@ -110,7 +112,8 @@ def manual_plotter(dataset,
         plot_da = plot_da * (-1)
     if fname_test is not None:
         if "regression" in fname_test:
-            plot_da = plot_da.where(values[0] + 0.002 < plot_da)
+            # plot_da = plot_da.where(plot_da < 0.1)
+            plot_da = plot_da
 
     # 2. Plotting Style
     plt.rcParams.update({
@@ -168,8 +171,8 @@ def manual_plotter(dataset,
     ax.set_title(title, fontweight="bold", pad=8)
 
     # Force standard ticks so the axes aren't blank
-    ax.set_xticks([-150, -100, -50, 0, 50, 100, 150], crs=ccrs.PlateCarree())
-    ax.set_yticks([-50, 0, 50], crs=ccrs.PlateCarree())
+    ax.set_xticks(np.arange(-180,180,30), crs=ccrs.PlateCarree())
+    ax.set_yticks(np.arange(-50,85,20), crs=ccrs.PlateCarree())
 
     # Labels and limits matching double_world_plot
     ax.set_xlabel("Longitude (°)")
@@ -279,15 +282,15 @@ def histogram_plot(obj,
 
 
 def difference_maps(reference_xr,
-                    subtracted_xr,
+                    test_xr,
                     metric,
                     fname_ref=None,
                     fname_test=None,
                     variable=None,
                     title="",
                     freq=None):
-    # 1. Data calculation
-    difference_xr = abs(reference_xr) - abs(subtracted_xr)
+
+    difference_xr = abs(abs(test_xr)- abs(reference_xr))
     values = plot_val_lut[metric]
 
     if variable not in ["slope", "intercept"]:
@@ -351,8 +354,8 @@ def difference_maps(reference_xr,
     ax.set_title(title, fontweight="bold", pad=8)
 
     # Force standard ticks so the axes aren't blank
-    ax.set_xticks([-150, -100, -50, 0, 50, 100, 150], crs=ccrs.PlateCarree())
-    ax.set_yticks([-50, 0, 50], crs=ccrs.PlateCarree())
+    ax.set_xticks(np.arange(-180,180,30), crs=ccrs.PlateCarree())
+    ax.set_yticks(np.arange(-50,85,20), crs=ccrs.PlateCarree())
 
     # Labels and limits
     ax.set_xlabel("Longitude (°)")
@@ -397,15 +400,15 @@ if __name__=="__main__":
                               "ERA5": f"ERA5_LAND"}
 
 
-            title_name_dict = {"LPRM": f"SM-{niceband_dict[_band]} Night Holmes",
-                              "ERA5": f"ERA5 Land"}
+            title_name_dict = {"LPRM": f"SM Night Holmes ({niceband_dict[_band]}-band)",
+                              "ERA5": f"ERA5 Land ({niceband_dict[_band]}-band)"}
 
             reference_filename = ref_fname_dict[ref_type]
             day_ref_filename = f"SM{_band}_DAY_ref"
             day_regression_filename = f"SM{_band}_DAY_regression"
 
-            nice_day_ref_filename = f"SM Night Holmes ({niceband_dict[_band]}-band)"
-            nice_day_regression_filename = f"SM Night Regression ({niceband_dict[_band]}-band)"
+            nice_day_ref_filename = f"SM Day Holmes"
+            nice_day_regression_filename = f"SM Day Regression"
             plot_obj_ref = import_single_obj(reference_filename,
                                              day_ref_filename,
                                              ref_type)
@@ -425,7 +428,6 @@ if __name__=="__main__":
                            fname_ref = reference_filename,
                            fname_test= day_ref_filename,
                            title=f"{nice_day_ref_filename} - {title_name_dict[ref_type]}",
-                           freq=_band
                            )
 
             plot_xr_test = manual_plotter(xr_test,
@@ -433,38 +435,27 @@ if __name__=="__main__":
                            fname_ref=reference_filename,
                            fname_test=day_regression_filename,
                            title=f"{nice_day_regression_filename} - {title_name_dict[ref_type]}",
-                           freq=_band
                            )
 
             difference_maps(reference_xr=plot_xr_test,
-                            subtracted_xr=plot_xr_ref,
+                            test_xr=plot_xr_ref,
                             metric=rf"$|\Delta$Biases|",
                             title=rf"{ref_type} reference",
                             freq=_band
                             )
 
-            # histogram_plot(plot_obj_ref_masked,
-            #                reference_filename,
-            #                day_ref_filename,
-            #                metric= _metric,
-            #                xlim = [plot_val_lut[_metric][0], plot_val_lut[_metric][1]],
-            #                maxval=12000,
-            #                title= f"{_metric}: {reference_filename} v. {day_ref_filename}",
-            #                freq = _band
-            #
-            #                )
 
             histogram_plot(plot_obj_ref_masked,
                            plot_obj_regression,
                            reference_filename,
                            [day_ref_filename,day_regression_filename],
                            metric= _metric,
-                           xlim = [hist_val_lut[_metric][0], hist_val_lut[_metric][1]],
-                           maxval=20000,
+                           xlim = [hist_val_lut[ref_type][0], hist_val_lut[ref_type][1]],
+                           maxval=maxval_lut[ref_type],
                            title= f"{ref_type} reference",
                            xlabel=f"{_metric}",
                            freq = _band,
-                           label1= f"{_band} ref",
-                           label2= f"{_band} regression"
+                           label1= f"Holmes",
+                           label2= f"Regression"
                            )
 
