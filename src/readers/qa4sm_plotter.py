@@ -279,52 +279,100 @@ def histogram_plot(obj,
 
 
 def difference_maps(reference_xr,
-               subtracted_xr,
-               metric,
-               fname_ref=None,
-               fname_test=None,
-               variable=None,
-               title="",
-               freq=None
-               ):
-
+                    subtracted_xr,
+                    metric,
+                    fname_ref=None,
+                    fname_test=None,
+                    variable=None,
+                    title="",
+                    freq=None):
+    # 1. Data calculation
     difference_xr = abs(reference_xr) - abs(subtracted_xr)
     values = plot_val_lut[metric]
-    fig = plt.figure(figsize=(12, 6))
-    ax = plt.axes(projection=ccrs.PlateCarree())
-    ax.set_extent([-170, 180, -60, 90], crs=ccrs.PlateCarree())
-    ax.add_feature(cfeature.LAND, facecolor='lightgray', zorder=0)
-    ax.add_feature(cfeature.OCEAN, facecolor='white', zorder=0)
-    ax.coastlines(linewidth=0.5, zorder=2)
-    ax.add_feature(cfeature.BORDERS, linestyle=':', linewidth=0.5, zorder=2)
 
     if variable not in ["slope", "intercept"]:
         _variable = f'{metric}_between_0-{fname_ref}_and_1-{fname_test}'
     else:
         _variable = variable
 
-    mesh = difference_xr.plot.pcolormesh(
-        ax=ax,
-        transform=ccrs.PlateCarree(),
-        x='lon',
-        y='lat',
-        cmap=color_lut[metric],
-        vmin=values[0],
-        vmax=values[1],
-        add_colorbar=False,
-        zorder=1
+    # 2. Plotting Style
+    plt.rcParams.update({
+        "font.family": "serif",
+        "font.size": 11,
+        "axes.labelsize": 11,
+        "axes.titlesize": 12,
+        "xtick.labelsize": 9,
+        "ytick.labelsize": 9,
+        "figure.titlesize": 14,
+        "figure.dpi": 200,
+    })
+
+    fig = plt.figure(figsize=(12, 6.5))
+
+    # 3. GridSpec Layout
+    gs = fig.add_gridspec(
+        nrows=2,
+        ncols=1,
+        height_ratios=[1, 0.05],
+        hspace=0.20,
+        top=0.90,
+        bottom=0.12,
+        left=0.06,
+        right=0.96
     )
 
-    cbar = plt.colorbar(mesh, ax=ax, orientation='horizontal', shrink=0.5, pad=0.05)
-    cbar.set_label(f"{metric} {unit_lut[metric]}", fontsize=20)
-    cbar.ax.tick_params(labelsize=16)
+    ax = fig.add_subplot(gs[0, 0], projection=ccrs.PlateCarree())
 
-    plt.title(title, fontsize=20, pad=15)
+    # Cartopy features
+    ax.add_feature(cfeature.LAND, facecolor='lightgray', zorder=0)
+    ax.add_feature(cfeature.OCEAN, facecolor='white', zorder=0)
+    ax.coastlines(linewidth=0.5, zorder=2)
+    ax.add_feature(cfeature.BORDERS, linestyle=':', linewidth=0.5, zorder=2)
 
-    plt.tight_layout(pad=0.5)
-    # plt.savefig(f"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/"
-    #             f"07_data/LPRM/07_debug/daytime_retrieval/MPDI_trick/evaluation/figs/paper/maps/statistics_maps/{freq}/"
-    #             f"{freq}_{metric}_{ref_type}_difference", dpi=300, bbox_inches='tight')
+    plot_kwargs = {
+        "cmap": color_lut[metric],
+        "vmin": values[0],
+        "vmax": values[1],
+        "add_colorbar": False,
+        "rasterized": True,
+        "transform": ccrs.PlateCarree(),
+        "zorder": 1
+    }
+
+    # 4. Draw the map
+    mesh = difference_xr.plot.pcolormesh(
+        ax=ax,
+        x='lon',
+        y='lat',
+        **plot_kwargs
+    )
+
+    # 5. Axes limits, ticks, and labels matching double_world_plot
+    ax.set_title(title, fontweight="bold", pad=8)
+
+    # Force standard ticks so the axes aren't blank
+    ax.set_xticks([-150, -100, -50, 0, 50, 100, 150], crs=ccrs.PlateCarree())
+    ax.set_yticks([-50, 0, 50], crs=ccrs.PlateCarree())
+
+    # Labels and limits
+    ax.set_xlabel("Longitude (°)")
+    ax.set_ylabel("Latitude (°)")
+    ax.set_ylim(-60, 85)
+    ax.set_xlim(-170, 180)
+
+    # 6. Centered colorbar using a nested GridSpec
+    cbar_gs = gs[1, 0].subgridspec(1, 3, width_ratios=[0.25, 0.5, 0.25])
+    cax = fig.add_subplot(cbar_gs[0, 1])
+
+    cbar = fig.colorbar(
+        mesh,
+        cax=cax,
+        orientation="horizontal",
+        extend="both",
+    )
+    cbar.set_label(f"{metric} {unit_lut[metric]}", fontsize=14, fontweight="bold")
+    cbar.ax.tick_params(labelsize=9)
+
 
     plt.show()
 
