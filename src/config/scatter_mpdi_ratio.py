@@ -19,7 +19,7 @@ from lprm.satellite_specs import get_specs
 import lprm.retrieval.lprm_v6_1.par100m_v6_1 as par100
 from shapely.geometry import LineString,  Point
 from lprm.retrieval.lprm_v6_1.run_lprmv6 import load_band_from_ds
-from lprm.retrieval.lprm_general import load_aux_file
+# from lprm.retrieval.lprm_general import load_aux_file
 from utilities.run_lprm import run_band as run_band_py
 
 from utilities.retrieval_helpers import (

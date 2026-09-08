@@ -6,10 +6,14 @@ import os
 import matplotlib.pyplot as plt
 import xarray as xr
 import numpy as np
+from scipy.stats import skew
 import matplotlib.patches as mpatches
 from matplotlib.colors import ListedColormap
 from LST.test_lprm_day import load_TB_daily, date_pattern_lut,file_pattern_lut
 from LST.datacube_utilities import calc_Holmes_temp
+from matplotlib.ticker import MaxNLocator
+from matplotlib.patches import Patch
+
 
 path_datasets = ("/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/"
                  "LPRM/07_debug/daytime_retrieval/MPDI_trick/evaluation/qa4sm_netcdfs")
@@ -118,16 +122,16 @@ def manual_plotter(dataset,
     # 2. Plotting Style
     plt.rcParams.update({
         "font.family": "serif",
-        "font.size": 11,
+        "font.size": 13,
         "axes.labelsize": 11,
         "axes.titlesize": 12,
         "xtick.labelsize": 9,
         "ytick.labelsize": 9,
         "figure.titlesize": 14,
-        "figure.dpi": 200,
+        "figure.dpi": 300,
     })
 
-    fig = plt.figure(figsize=(12, 6.5))
+    fig = plt.figure(figsize=(9, 5.5))
 
     # 3. GridSpec Layout
     gs = fig.add_gridspec(
@@ -135,10 +139,10 @@ def manual_plotter(dataset,
         ncols=1,
         height_ratios=[1, 0.05],
         hspace=0.20,
-        top=0.90,
+        top=0.95,
         bottom=0.12,
-        left=0.06,
-        right=0.96
+        left=0.08,
+        right=0.98
     )
 
     ax = fig.add_subplot(gs[0, 0], projection=ccrs.PlateCarree())
@@ -188,14 +192,19 @@ def manual_plotter(dataset,
         mesh,
         cax=cax,
         orientation="horizontal",
-        extend="both",
+        extend="both",ticks=np.linspace(values[0], values[1], 5)
     )
-    cbar.set_label(f"{metric} {unit_lut[metric]}", fontsize=14, fontweight="bold")
+    cbar.set_label(f"{metric} {unit_lut[metric]}", fontsize=12, fontweight="bold")
     cbar.ax.tick_params(labelsize=9)
 
+
+    # cbar.locator = MaxNLocator(nbins=5)  # Adjust nbins to show fewer ticks
+    # cbar.update_ticks()
     plt.show()
 
     return plot_da
+
+
 
 
 def histogram_plot(obj,
@@ -205,25 +214,24 @@ def histogram_plot(obj,
                    metric,
                    label1="Data 1",
                    label2="Data 2",
-                   xlim= [None,None],
+                   xlim=[None, None],
                    maxval=None,
-                   title = "",
-                   xlabel = "",
-                   freq = None
+                   title="",
+                   xlabel="",
+                   freq=None
                    ):
     plt.rcParams.update({
         "font.family": "serif",
-        "font.size": 11,
-        "axes.labelsize": 11,
-        "axes.titlesize": 12,
-        "xtick.labelsize": 9,
-        "ytick.labelsize": 9,
-        "figure.titlesize": 14,
-        "figure.dpi": 200,
+        "font.size": 12,
+        "axes.labelsize": 12,
+        "axes.titlesize": 13,
+        "xtick.labelsize": 10,
+        "ytick.labelsize": 10,
+        "figure.titlesize": 15,
+        "figure.dpi": 300,
     })
 
     statistics1 = f"{metric}_between_0-{ref_name}_and_1-{test_name[0]}"
-
     stat_data1 = obj.df[statistics1].values.ravel()
     data_clean1 = stat_data1[~np.isnan(stat_data1)]
 
@@ -233,50 +241,58 @@ def histogram_plot(obj,
 
     fig, ax = plt.subplots(figsize=(7, 5))
 
-    # Plot both histograms (alpha reduced to 0.6 so overlaps are visible)
-    xlim = xlim if ref_type == "ERA5" else [-0.2,0.2]
+    xlim_range = xlim if (xlim[0] is not None and xlim[1] is not None) else [-0.2, 0.2]
 
-    ax.hist(data_clean2, bins=150, range=(xlim[0], xlim[1]),
-            color='#d7191c', edgecolor='white', alpha=0.99, label=label2)
+    # Define consistent colors
+    color1 = '#2c7bb6'
+    color2 = '#d7191c'
 
-    ax.hist(data_clean1, bins=150, range=(xlim[0], xlim[1]),
-            color='#2c7bb6', edgecolor='white', alpha=0.6, label=label1)
-    # Helper function to calculate stats
+    ax.hist(data_clean2, bins=150, range=(xlim_range[0], xlim_range[1]),
+            color=color2, edgecolor='white', alpha=0.99)
+
+    ax.hist(data_clean1, bins=150, range=(xlim_range[0], xlim_range[1]),
+            color=color1, edgecolor='white', alpha=0.6)
+
     def get_stats(data):
-        return np.nanmean(data), np.nanvar(data), np.sqrt(np.nanvar(data)), len(data)
+        mean_val = np.nanmean(data)
+        std_val = np.nanstd(data)
+        median_val = np.nanmedian(data)
+        skew_val = skew(data, nan_policy='omit')
+        return mean_val, std_val, median_val, skew_val, len(data)
 
-    m1, v1, s1, len1 = get_stats(data_clean1)
-    m2, v2, s2, len2 = get_stats(data_clean2)
+    m1, s1, med1, skew1, len1 = get_stats(data_clean1)
+    m2, s2, med2, skew2, len2 = get_stats(data_clean2)
 
-    # Format stats text for both datasets
-    stats_text = (
-        f'{label1} | Mean: {m1:.3g} | Std: {s1:.3g} | #: {len1}\n'
-        f'{label2} | Mean: {m2:.3g} | Std: {s2:.3g} | #: {len2}'
-    )
+    if ref_type == "LPRM":
+        stats_text1 = f'Mean: {m1:.3g} | Std: {s1:.3g}\nMedian: {med1:.3g} | Skew: {skew1:.3g}'
+        stats_text2 = f'Mean: {m2:.3g} | Std: {s2:.3g}\nMedian: {med2:.3g} | Skew: {skew2:.3g}'
+    if ref_type == "ERA5":
+        stats_text1 = f'  Mean: {m1:.3g}\n  Std: {s1:.3g}\n  Median: {med1:.3g}\n  Skew: {skew1:.3g}'
+        stats_text2 = f'  Mean: {m2:.3g}\n  Std: {s2:.3g}\n  Median: {med2:.3g}\n  Skew: {skew2:.3g}'
 
     print(title)
-    print(stats_text)
+    print(f"{label1} | {stats_text1}")
+    print(f"{label2} | {stats_text2}")
     print("")
 
-    # ax.text(0.05, 0.95, stats_text, transform=ax.transAxes, fontsize=10,
-    #         verticalalignment='top',
-    #         bbox=dict(boxstyle='round,pad=0.5', facecolor='white', edgecolor='gray', alpha=0.8))
+    # Integrate statistics and color swatches directly into the legend
+    legend_elements = [
+        Patch(facecolor=color1, edgecolor='white', alpha=0.6, label=f"{label1}\n{stats_text1}"),
+        Patch(facecolor=color2, edgecolor='white', alpha=0.99, label=f"{label2}\n{stats_text2}")
+    ]
 
-    ax.set_xlabel(f"{metric} {unit_lut[metric]}", fontsize=12)
+    ax.legend(handles=legend_elements, loc='upper left', fontsize=9, handlelength=1.5, handleheight=1.5)
 
-    ax.set_ylabel('Frequency', fontsize=12)
-    ax.set_title(title, fontsize=12)
+    ax.set_xlabel(f"{metric}", fontsize=13)
+    ax.set_ylabel('Frequency', fontsize=13)
+    ax.set_title(title, fontsize=13)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
 
     ax.set_axisbelow(True)
-    ax.legend(loc='upper right')  # explicitly added legend location so it doesn't overlap top-left text
-    ax.set_xlim(xlim)
-    ax.set_ylim([0, maxval])
-
-    plt.savefig(f"/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/"
-                f"LPRM/07_debug/daytime_retrieval/MPDI_trick/evaluation/figs/paper/histograms/{freq}/"
-                f"{freq}_{metric}_{ref_name}_combined", dpi=300, bbox_inches='tight')
+    ax.set_xlim(xlim_range)
+    if maxval is not None:
+        ax.set_ylim([0, maxval])
 
     plt.show()
 
@@ -307,10 +323,10 @@ def difference_maps(reference_xr,
         "xtick.labelsize": 9,
         "ytick.labelsize": 9,
         "figure.titlesize": 14,
-        "figure.dpi": 200,
+        "figure.dpi": 300,
     })
 
-    fig = plt.figure(figsize=(12, 6.5))
+    fig = plt.figure(figsize=(9, 5.5))
 
     # 3. GridSpec Layout
     gs = fig.add_gridspec(
@@ -318,10 +334,10 @@ def difference_maps(reference_xr,
         ncols=1,
         height_ratios=[1, 0.05],
         hspace=0.20,
-        top=0.90,
+        top=0.95,
         bottom=0.12,
-        left=0.06,
-        right=0.96
+        left=0.08,
+        right=0.98
     )
 
     ax = fig.add_subplot(gs[0, 0], projection=ccrs.PlateCarree())
@@ -384,9 +400,9 @@ def difference_maps(reference_xr,
 
 if __name__=="__main__":
 
-    bands_to_plot = ["c1"]
+    bands_to_plot = ["x"]
     stats_to_plot = ["BIAS"]
-    ref_type = "ERA5"
+    ref_type = "LPRM"
 
     for _band in bands_to_plot:
         for _metric in stats_to_plot:
@@ -440,7 +456,7 @@ if __name__=="__main__":
             difference_maps(reference_xr=plot_xr_test,
                             test_xr=plot_xr_ref,
                             metric=rf"$|\Delta$Biases|",
-                            title=rf"{ref_type} reference",
+                            title=rf"{ref_type} reference ({niceband_dict[_band]}-band)",
                             freq=_band
                             )
 
@@ -452,7 +468,7 @@ if __name__=="__main__":
                            metric= _metric,
                            xlim = [hist_val_lut[ref_type][0], hist_val_lut[ref_type][1]],
                            maxval=maxval_lut[ref_type],
-                           title= f"{ref_type} reference",
+                           title= f"{ref_type} reference ({niceband_dict[_band]}-band)",
                            xlabel=f"{_metric}",
                            freq = _band,
                            label1= f"Holmes",
