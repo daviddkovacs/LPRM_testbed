@@ -41,8 +41,17 @@ def clean_data(obj):
 
 def rename_vars(da):
 
+    target_list = [
+        "R_between",
+        "BIAS_between",
+        "RMSD_between",
+        "urmsd_between",
+    ]
+    da_new = da.rename_vars(
+        {var : var.split("_")[0] for var in da.var() if any(target in var for target in target_list)}
+    )
 
-    da_new = da.rename_vars({var : f"{var.split("_")[0]} {var.split("_")[1]}" for var in da.var()})
+    return da_new
 
 
 
@@ -64,11 +73,15 @@ if __name__ == "__main__":
         root_path="/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/validation/qa4sm"
     )
 
-    day = clean_data(ob_day)
-    night = clean_data(ob_night)
+    _day = clean_data(ob_day)
+    _night = clean_data(ob_night)
 
-    _day = rename_vars(day)
+    day = rename_vars(_day)
+    night = rename_vars(_night)
 
-    night["BIAS_between_0-ISMN_and_1-AMSR2_day_2024_C1_float"].plot()
+##
+
+    night["R"].plot(vmin = -0.01,
+                     vmax = 0.01)
+
     plt.show()
-    x =21
