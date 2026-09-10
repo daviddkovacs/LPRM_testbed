@@ -1,26 +1,29 @@
-import xarray as xr
+import glob
 import os
 import numpy as np
-import glob
+import xarray as xr
+variable = "X"
 file = "AMSR2_day_2024"
-path = f"/home/david/mounted_climers01/home/ddkovacs/Desktop/daytime_validation/{file}.nc"
+path = f"/home/ddkovacs/Desktop/daytime_validation/{file}.nc"
 
-ds = xr.open_dataset(path,decode_timedelta=False)
+ds = xr.open_dataset(path, decode_timedelta=False)
 
-ds = ds.rename({'LAT': 'lat_matrix', 'LON': 'lon_matrix'})
+# Completely remove the old matrix variables/coordinates if they exist
+ds = ds.drop_vars(["LAT", "LON", "lat_matrix", "lon_matrix"], errors="ignore")
 
-# 2. Define proper 1D coordinate arrays for the grid dimensions (adjust ranges as needed for your data)
+# Define proper 1D coordinate arrays for the grid dimensions
 lat_1d = np.linspace(-90, 90, 720)
 lon_1d = np.linspace(-180, 180, 1440)
 
-# 3. Assign them as valid 1D coordinates to satisfy NetCDF validation
+# Assign 1D coordinates with long_name attributes included directly
 ds = ds.assign_coords(
-    lat=('lat', lat_1d),
-    lon=('lon', lon_1d)
+    lat=("lat", lat_1d, {"long_name": "latitude"}),
+    lon=("lon", lon_1d, {"long_name": "longitude"}),
 )
+ds = ds[f"SM_{variable}"]
 compression_settings = {"zlib": True, "complevel": 5}
 
 ds.to_netcdf(
-    f"/home/david/mounted_climers01/home/ddkovacs/Desktop/daytime_validation/{file}_comp.nc",
-    encoding={var : compression_settings for var in ds}
+    f"/home/ddkovacs/Desktop/daytime_validation/{file}_{variable}_comp_nano.nc",
+    encoding={f"SM_{variable}": compression_settings},
 )
