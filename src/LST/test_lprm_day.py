@@ -85,8 +85,6 @@ if __name__=="__main__":
     SM_DAY_regression.to_netcdf(os.path.join(path_out, f"SM{band_current.upper()}_DAY_regression.nc"), encoding={"sm": compression_settings})
     VOD_DAY_regression.to_netcdf(os.path.join(path_out, f"VOD{band_current.upper()}_DAY_regression.nc"), encoding={"vod": compression_settings})
 
-
-
 ##
 
   #   bbox_siberia = [
