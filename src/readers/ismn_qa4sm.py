@@ -16,12 +16,98 @@ from LST.test_lprm_day import load_TB_daily, date_pattern_lut,file_pattern_lut
 from LST.datacube_utilities import calc_Holmes_temp
 from matplotlib.ticker import MaxNLocator
 from matplotlib.patches import Patch
+import contextily as ctx
+
 
 plotlim_lut = {
     "R" : [-1,1],
-    "BIAS" : [-0.5,0.5],
-    "urmsd" : [0,0.2]
+    "BIAS" : [-0.35,0.35],
+    "urmsd" : [0,0.2],
 }
+
+diff_lut = {
+    "BIAS":[-0.15, 0.15]
+}
+
+metrics = ['BIAS', 'R', 'urmsd']
+
+
+def plot_map(day, night, overpass, freq, diff=False):
+  day_reset = day.reset_index()
+  night_reset = night.reset_index()
+
+  # Merge day and night dataframes on their shared location coordinates
+  merged_df = pd.merge(
+      day_reset, night_reset, on=['lat', 'lon'], suffixes=('_day', '_night')
+  )
+  metric = 'BIAS'
+
+  # Calculate Day minus Night difference
+  merged_df[f'{metric}_diff'] = (
+      merged_df[f'{metric}_day'] - merged_df[f'{metric}_night']
+  )
+
+  # Clip latitudes slightly to prevent mercantile projection out-of-bounds errors (e.g., 90.00000000001)
+  merged_df['lat'] = merged_df['lat'].clip(-85.0, 85.0)
+
+  bbox = [-129.889527, -63.556488, 22.453091, 50.67319]
+  fig = plt.figure(figsize=(14, 8))
+
+  # Use Web Mercator projection so high-res tiles align correctly
+  ax = fig.add_subplot(1, 1, 1, projection=ccrs.Mercator())
+  ax.set_extent(bbox, crs=ccrs.PlateCarree())
+
+  plot_data = (
+      merged_df[f'{metric}_{overpass}']
+      if not diff
+      else merged_df[f'{metric}_diff']
+  )
+  lut = plotlim_lut if not diff else diff_lut
+
+  # Scatter plot points mapped using EPSG:4326 geographic coordinates
+  sc = ax.scatter(
+      merged_df['lon'],
+      merged_df['lat'],
+      c=plot_data,
+      cmap='coolwarm',
+      s=45,
+      edgecolors='k',
+      vmin=lut[metric][0],
+      vmax=lut[metric][1],
+      linewidth=0.4,
+      transform=ccrs.PlateCarree(),
+  )
+
+  # Add high-res satellite tiles using the correct EPSG string for Web Mercator (EPSG:3857)
+  ctx.add_basemap(
+      ax,
+      crs='EPSG:3857',
+      source=ctx.providers.Esri.WorldImagery,
+      zoom=6,
+  )
+
+  ax.gridlines(
+      draw_labels=True,
+      dms=True,
+      x_inline=False,
+      y_inline=False,
+      linewidth=0.5,
+      color='white',
+      alpha=0.6,
+  )
+
+  cbar = plt.colorbar(sc, ax=ax, orientation='horizontal', pad=0.08, shrink=0.6)
+  cbar.set_label(f'{metric}', fontsize=11)
+
+  title_ = (
+      f'{metric} {overpass} {freq}'
+      if not diff
+      else f'Day-Night {metric} {freq}'
+  )
+  plt.title(title_, fontsize=14, fontweight='bold', pad=15)
+  plt.tight_layout()
+  plt.show()
+
 
 def plot_KG(day, night):
 
@@ -115,8 +201,6 @@ def plot_KG(day, night):
     ]
     climate_order.extend(extra_climates)
 
-    # Define metrics to plot individually
-    metrics = ['BIAS', 'R', 'urmsd']
 
     for metric in metrics:
         plt.figure(figsize=(20, 10))
@@ -218,8 +302,6 @@ def plot_LC(day,night,freq):
     extra_lc = [c for c in present_lc if c not in lc_2010_order]
     lc_order.extend(extra_lc)
 
-    # Define metrics to plot individually
-    metrics = ['BIAS', 'R', 'urmsd']
 
     for metric in metrics:
         plt.figure(figsize=(20, 12))
@@ -247,11 +329,13 @@ def plot_LC(day,night,freq):
 
 
 
-def get_dataframe(da):
+def get_dataframe(da, overpass):
 
     stacked_ds = da.stack(grid_point=("lat", "lon"))
     clean_stacked = stacked_ds.dropna(dim="grid_point", how="any")
     df = clean_stacked.to_dataframe()
+    df['Overpass'] = overpass
+
     return df
 
 
@@ -318,10 +402,12 @@ if __name__ == "__main__":
 
     day = rename_vars(_day)
     night = rename_vars(_night)
-    day_df = get_dataframe(day)
-    night_df = get_dataframe(night)
+    day_df = get_dataframe(day, "day")
+    night_df = get_dataframe(night, "night")
 
 ##
+    plot_map(day_df,night_df,overpass="day",freq=freq)
+    plot_map(day_df,night_df,overpass="night",freq=freq)
+    plot_map(day_df,night_df,overpass="night",freq=freq, diff=True)
 
     plot_LC(day_df,night_df,freq)
-
