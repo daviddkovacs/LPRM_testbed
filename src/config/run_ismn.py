@@ -1,8 +1,8 @@
 from tokenize import String
 
 import pandas as pd
-from ismn.interface import ISMN_Interface
-from ismn.meta import Depth
+from insitu.interface import ISMN_Interface
+from insitu.meta import Depth
 import xarray as xr
 import numpy as np
 from pandas import Timestamp,Timedelta

@@ -1,34 +1,20 @@
-import copy
-from qa4sm_reader.custom_user_plot_generator import CustomPlotObject
-import cartopy.crs as ccrs
-import cartopy.feature as cfeature
 import os
-import seaborn as sns
-import matplotlib.pyplot as plt
-import xarray as xr
-import pandas as pd
-import numpy as np
-from qa4sm_reader.globals import fontsize_label
-from scipy.stats import skew
-import matplotlib.patches as mpatches
-from matplotlib.colors import ListedColormap
-from LST.test_lprm_day import load_TB_daily, date_pattern_lut,file_pattern_lut
-from LST.datacube_utilities import calc_Holmes_temp
-from matplotlib.ticker import MaxNLocator
-from matplotlib.patches import Patch
-import contextily as ctx
 
+import contextily as ctx
+import pandas as pd
+import seaborn as sns
+from cartopy import crs as ccrs
+from matplotlib import pyplot as plt
+from qa4sm_reader.custom_user_plot_generator import CustomPlotObject
 
 plotlim_lut = {
     "R" : [-1,1],
     "BIAS" : [-0.35,0.35],
     "urmsd" : [0,0.2],
 }
-
 diff_lut = {
     "BIAS":[-0.15, 0.15]
 }
-
 metrics = ['BIAS', 'R', 'urmsd']
 
 
@@ -328,7 +314,6 @@ def plot_LC(day,night,freq):
         plt.show()
 
 
-
 def get_dataframe(da, overpass):
 
     stacked_ds = da.stack(grid_point=("lat", "lon"))
@@ -378,36 +363,3 @@ def rename_vars(da):
     return da_new
 
 
-##
-if __name__ == "__main__":
-
-    freq = "C1"
-    path = "/home/david/Desktop"
-    #DAY
-    ob_day = import_single_obj(
-        filename_test=f"AMSR2_day_2024_{freq}_float",
-        variable=f"SM_{freq}",
-        root_path=path
-    )
-
-    #DAY
-    ob_night = import_single_obj(
-        filename_test=f"AMSR2_night_2024_{freq}_float",
-        variable=f"SM_{freq}",
-        root_path=path
-    )
-
-    _day = clean_data(ob_day)
-    _night = clean_data(ob_night)
-
-    day = rename_vars(_day)
-    night = rename_vars(_night)
-    day_df = get_dataframe(day, "day")
-    night_df = get_dataframe(night, "night")
-
-##
-    plot_map(day_df,night_df,overpass="day",freq=freq)
-    plot_map(day_df,night_df,overpass="night",freq=freq)
-    plot_map(day_df,night_df,overpass="night",freq=freq, diff=True)
-
-    plot_LC(day_df,night_df,freq)
