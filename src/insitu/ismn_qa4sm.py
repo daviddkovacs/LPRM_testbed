@@ -5,7 +5,7 @@ if __name__ == "__main__":
 
     # path = "/home/david/Desktop" Thinkpad
     path = "/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/07_debug/daytime_retrieval/validation/qa4sm"
-    freq = "C1"
+    freq = "x"
 
     #DAY
     ob_day = import_single_obj(
@@ -29,9 +29,13 @@ if __name__ == "__main__":
     day_df = get_dataframe(day, "day")
     night_df = get_dataframe(night, "night")
 
-##
-    plot_map(day_df, night_df, overpass="day", freq=freq)
-    plot_map(day_df, night_df, overpass="night", freq=freq)
-    plot_map(day_df, night_df, overpass="night", freq=freq, diff=True)
+    # Adjusting for WRONG direction in QA4SM
+    day_bias = day_df.assign(BIAS=day_df["BIAS"] * -1)
+    night_bias = night_df.assign(BIAS=night_df["BIAS"] * -1)
 
-    plot_LC(day_df, night_df, freq)
+##
+    # plot_map(day_bias, night_bias, overpass="day", freq=freq)
+    # plot_map(day_bias, night_bias, overpass="night", freq=freq)
+    plot_map(day_bias, night_bias, overpass="night", freq=freq, diff=True)
+
+    plot_LC(day_bias, night_bias, freq)

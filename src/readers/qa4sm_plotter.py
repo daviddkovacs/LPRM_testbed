@@ -112,8 +112,8 @@ def manual_plotter(dataset,
         _variable = variable
 
     plot_da = dataset[_variable]
-    if "BIAS" in _variable:
-        plot_da = plot_da * (-1)
+    # if "BIAS" in _variable:
+    #     plot_da = plot_da * (-1)
     if fname_test is not None:
         if "regression" in fname_test:
             # plot_da = plot_da.where(plot_da < 0.1)

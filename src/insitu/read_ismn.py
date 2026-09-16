@@ -5,7 +5,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 
-from insitu.ismn_utils import plot_map
 
 
 class ISMNProcessor:
@@ -48,6 +47,15 @@ class ISMNProcessor:
         plt.title(f"Soil Temperature {station} lat:{lat} lon:{lon}")
         plt.show()
 
+
+    def plot_map_stations(self):
+
+        plt.plot(figsize=(30, 10), subplot_kw={'projection': ccrs.PlateCarree()})
+        self.ismn_data.plot_station_locations('soil_temperature', min_depth=0.5,
+                                              extent=[-125.463376,-71.801765,24.241511,49.139843],markersize=5, text_scalefactor=3)
+        plt.show()
+
+
     def main_runner(self, start_date, end_date, bbox, lc_class, network):
         station_ids = self.filter_stations(bbox, lc_class)
         station_list = self.get_station_names(station_ids)
@@ -56,12 +64,6 @@ class ISMNProcessor:
             dat = self.get_xr(station, network)
             self.plot_ts(dat, station, start_date, end_date)
 
-    def plot_map_stations(self):
-
-        plt.plot(figsize=(30, 10), subplot_kw={'projection': ccrs.PlateCarree()})
-        self.ismn_data.plot_station_locations('soil_temperature', min_depth=0.5,
-                                              extent=[-125.463376,-71.801765,24.241511,49.139843],markersize=5, text_scalefactor=3)
-        plt.show()
 
 if __name__ == "__main__":
 
