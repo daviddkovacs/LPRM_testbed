@@ -112,8 +112,8 @@ def manual_plotter(dataset,
         _variable = variable
 
     plot_da = dataset[_variable]
-    # if "BIAS" in _variable:
-    #     plot_da = plot_da * (-1)
+    if "BIAS" in _variable:
+        plot_da = plot_da * (-1)
     if fname_test is not None:
         if "regression" in fname_test:
             # plot_da = plot_da.where(plot_da < 0.1)
@@ -400,7 +400,7 @@ def difference_maps(reference_xr,
 
 if __name__=="__main__":
 
-    bands_to_plot = ["x"]
+    bands_to_plot = ["c1"]
     stats_to_plot = ["BIAS"]
     ref_type = "LPRM"
 
