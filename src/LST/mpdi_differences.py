@@ -381,7 +381,7 @@ if __name__=="__main__":
                                             , calc_Holmes_temp(L_KA_NIGHT, sensor="AMSR2", kaband_name="bt_vertical"))
 
 ##
-    band_current = "C1"
+    band_current = "c1"
     SM_NIGHT, VOD_NIGHT,_ = retrieve_LPRM(TB_DATASET=TB_NIGHT, SURFACE_T=HOLMES_T_NIGHT, band=band_current, sensor=sensor)
     # Highly experimental! TSIM is obtained byrunning LPRM in reverse.
     # TB has to be corresponding, for T_SIM to work!!!! DAY-DAY NIGHT-NIGHT
@@ -391,7 +391,7 @@ if __name__=="__main__":
 
 ##
     dif_threshold = 0.0005
-    minimum_mpdi = 0.01
+    minimum_mpdi = 0.1
 
     MPDI_DAY , MPDI_NIGHT = calc_MPDI_bands(TB_DAY=TB_DAY,TB_NIGHT=TB_NIGHT,
                                             list_of_bands=bandlist, minimum_mpdi=minimum_mpdi, sensor=sensor)
@@ -418,16 +418,6 @@ if __name__=="__main__":
         T_KA = L_KA_DAY_low_mpdi["bt_vertical"]
     else:
         T_KA = get_sensor_band(TB_DAY_low_mpdi, "AMSR2", "KA", "V")
-##
-
-
-    MPDI_DELTA_band.count(dim= "time").plot(figsize=(20,10))
-    plt.show()
-    MPDI_DAY["l"].count(dim= "time").plot(figsize=(20,10))
-    plt.show()
-    MPDI_NIGHT["l"].count(dim= "time").plot(figsize=(20,10))
-    plt.show()
-
 
     ## DEBUG
 

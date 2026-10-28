@@ -1,4 +1,4 @@
-from insitu.ismn_utils import plot_map, plot_LC, get_dataframe, import_single_obj, clean_data, rename_vars
+from insitu.ismn_utils import plot_map, plot_LC, get_dataframe, import_single_obj, clean_data, rename_vars, plot_map_with_lc
 
 
 if __name__ == "__main__":
@@ -36,6 +36,25 @@ if __name__ == "__main__":
 ##
     # plot_map(day_bias, night_bias, overpass="day", freq=freq)
     # plot_map(day_bias, night_bias, overpass="night", freq=freq)
-    plot_map(day_bias, night_bias, overpass="night", freq=freq, diff=True)
+    # plot_map(day_bias, night_bias, overpass="night", freq=freq, diff=True)
 
-    plot_LC(day_bias, night_bias, freq)
+    # plot_LC(day_bias, night_bias, freq)
+
+    cci_path = "/data/USERS/ddkovacs/LPRM/cci_lc/C3S-LC-L4-LCCS-Map-300m-P1Y-2022-v2.1.1.nc"
+    import xarray as xr
+    xr.open_dataset(cci_path)
+    # Plot for Daytime
+    plot_map_with_lc(
+        df=day_bias,
+        lc_file_path=cci_path,
+        metric="BIAS",
+        title="Daytime BIAS over CCI Land Cover"
+    )
+
+    # Plot for Nighttime
+    plot_map_with_lc(
+        df=night_bias,
+        lc_file_path=cci_path,
+        metric="BIAS",
+        title="Nighttime BIAS over CCI Land Cover"
+    )

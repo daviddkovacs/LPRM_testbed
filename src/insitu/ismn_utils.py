@@ -3,9 +3,12 @@ import os
 import contextily as ctx
 import pandas as pd
 import seaborn as sns
-from cartopy import crs as ccrs
-from matplotlib import pyplot as plt
 from qa4sm_reader.custom_user_plot_generator import CustomPlotObject
+import xarray as xr
+import matplotlib.pyplot as plt
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
+
 
 plotlim_lut = {
     "R" : [-1,1],
@@ -16,6 +19,72 @@ diff_lut = {
     "BIAS":[-0.1, 0.1]
 }
 metrics = ['BIAS', 'R', 'urmsd']
+
+
+def plot_map_with_lc(df, lc_file_path, metric="BIAS", title="Bias over CCI Land Cover"):
+    """
+    Plots spatial point data over a cropped CCI Land Cover NetCDF map.
+    """
+    # 1. Auto-detect lon/lat column names in the dataframe
+    lon_col = 'longitude' if 'longitude' in df.columns else 'lon'
+    lat_col = 'latitude' if 'latitude' in df.columns else 'lat'
+
+    # 2. Get the bounding box of your dataframe points + a buffer
+    buffer = 2.0
+    lon_min, lon_max = df[lon_col].min() - buffer, df[lon_col].max() + buffer
+    lat_min, lat_max = df[lat_col].min() - buffer, df[lat_col].max() + buffer
+
+    # 3. Load the Land Cover data lazily
+    ds_lc = xr.open_dataset(lc_file_path)
+
+    # 4. Drop the 'time' dimension (since it's size 1) to make it 2D (lat, lon)
+    da_lc = ds_lc['lccs_class'].isel(time=0)
+
+    # 5. Crop the massive 300m data to just your area of interest
+    # CCI LC latitudes are descending (90 to -90), so we slice lat_max to lat_min
+    if da_lc.lat[0] > da_lc.lat[-1]:
+        lc_subset = da_lc.sel(lat=slice(lat_max, lat_min), lon=slice(lon_min, lon_max))
+    else:
+        lc_subset = da_lc.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
+
+    # 6. Set up the Cartopy map
+    fig, ax = plt.subplots(figsize=(10, 8), subplot_kw={'projection': ccrs.PlateCarree()})
+
+    # 7. Plot the Land Cover map as background
+    lc_subset.plot.imshow(
+        ax=ax,
+        transform=ccrs.PlateCarree(),
+        cmap='tab20',
+        add_colorbar=False,
+        alpha=0.5
+    )
+
+    # 8. Overlay your QA4SM data points
+    scatter = ax.scatter(
+        df[lon_col], df[lat_col],
+        c=df[metric],
+        cmap='RdYlBu',
+        s=60,
+        edgecolor='black',
+        linewidth=0.8,
+        transform=ccrs.PlateCarree(),
+        zorder=5
+    )
+
+    # 9. Add map styling
+    ax.add_feature(cfeature.COASTLINE, linewidth=1)
+    ax.add_feature(cfeature.BORDERS, linestyle=':', linewidth=0.8)
+    gl = ax.gridlines(draw_labels=True, linestyle='--', color='gray', alpha=0.5)
+    gl.top_labels = False
+    gl.right_labels = False
+
+    # 10. Add a colorbar
+    cbar = plt.colorbar(scatter, ax=ax, shrink=0.7, pad=0.05)
+    cbar.set_label(f'{metric}')
+
+    plt.title(title)
+    plt.tight_layout()
+    plt.show()
 
 
 def plot_map(day, night, overpass, freq, diff=False):

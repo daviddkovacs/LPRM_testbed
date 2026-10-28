@@ -13,7 +13,7 @@ from LST.datacube_utilities import calc_Holmes_temp
 from LST.datacube_utilities import crop2roi
 import matplotlib.ticker as mticker
 
-amsr2_path = "/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/01_resampled_bt/coarse_resolution/AMSR2/"
+amsr2_path = "/home/ddkovacs/shares/climers/Projects/CCIplus_Soil_Moisture/07_data/LPRM/CCI_v10/01_resampled_bt/coarse_resolution/AMSR2/"
 zoomin_bbox =[
 -11.177304921271343,
 35.4538346353382,
